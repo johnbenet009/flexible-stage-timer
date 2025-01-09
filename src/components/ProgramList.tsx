@@ -1,16 +1,15 @@
 import React from 'react';
 import { Program } from '../types';
-import { Edit2, Trash2, Play, Bell } from 'lucide-react';
+import { Trash2, Play, Bell } from 'lucide-react';
 
 interface ProgramListProps {
   programs: Program[];
   onDelete: (id: string) => void;
-  onEdit: (program: Program) => void;
   onStart: (program: Program) => void;
   onNotify: (program: Program) => void;
 }
 
-export function ProgramList({ programs, onDelete, onEdit, onStart, onNotify }: ProgramListProps) {
+export function ProgramList({ programs, onDelete, onStart, onNotify }: ProgramListProps) {
   return (
     <div className="max-h-[400px] overflow-y-auto space-y-2">
       {programs.map((program) => (
@@ -31,12 +30,6 @@ export function ProgramList({ programs, onDelete, onEdit, onStart, onNotify }: P
               className="p-1 text-blue-500 hover:text-blue-400"
             >
               <Bell size={18} />
-            </button>
-            <button
-              onClick={() => onEdit(program)}
-              className="p-1 text-blue-500 hover:text-blue-400"
-            >
-              <Edit2 size={18} />
             </button>
             <button
               onClick={() => onDelete(program.id)}

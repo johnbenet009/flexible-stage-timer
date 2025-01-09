@@ -5,12 +5,13 @@ import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Image, Settings, Bell, Plus, Minus } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { NextProgramNotification } from './components/NextProgramNotification';
 import { DeleteConfirmation } from './components/DeleteConfirmation';
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [setupTimer, setSetupTimer] = useState<TimerState>({
     minutes: 0,
     seconds: 0,
@@ -34,7 +35,11 @@ function App() {
     isPaused: false,
   });
 
-  const [programs, setPrograms] = useState<Program[]>([]);
+  const [programs, setPrograms] = useState<Program[]>(() => {
+    const savedPrograms = localStorage.getItem('programs');
+    return savedPrograms ? JSON.parse(savedPrograms) : [];
+  });
+  
   const [alertMessage, setAlertMessage] = useState('');
   const [isAlertFlashing, setIsAlertFlashing] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
@@ -45,9 +50,9 @@ function App() {
   const [isTimerComplete, setIsTimerComplete] = useState(false);
   const [programName, setProgramName] = useState('');
   const [programDuration, setProgramDuration] = useState(0);
-  const [background, setBackground] = useState<{ type: string; source: string | null }>({
-    type: 'default',
-    source: null
+  const [background, setBackground] = useState<{ type: string; source: string | null }>(() => {
+    const savedBackground = localStorage.getItem('background');
+    return savedBackground ? JSON.parse(savedBackground) : { type: 'default', source: null };
   });
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -62,18 +67,141 @@ function App() {
 
   const clockTimeoutRef = useRef<NodeJS.Timeout>();
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('programs', JSON.stringify(programs));
+  }, [programs]);
+
+  useEffect(() => {
+    localStorage.setItem('background', JSON.stringify(background));
+  }, [background]);
+
+  // Sync timer state with localStorage
+  useEffect(() => {
+    localStorage.setItem('timerState', JSON.stringify({
+      minutes: liveTimer.minutes,
+      seconds: liveTimer.seconds,
+      isRunning: liveTimer.isRunning,
+      isPaused: liveTimer.isPaused,
+      isAttention: liveTimer.isAttention,
+      isComplete: isTimerComplete,
+    }));
+  }, [liveTimer, isTimerComplete]);
+
+  // Sync extra time state
+  useEffect(() => {
+    localStorage.setItem('extraTime', JSON.stringify(extraTime));
+  }, [extraTime]);
+
+  // Sync alert state
+  useEffect(() => {
+    localStorage.setItem('alertState', JSON.stringify({
+      message: alertMessage,
+      isFlashing: isAlertFlashing,
+      show: showAlert,
+    }));
+  }, [alertMessage, isAlertFlashing, showAlert]);
+
+  // Sync next program notification
+  useEffect(() => {
+    localStorage.setItem('nextProgram', JSON.stringify(showNextProgram));
+  }, [showNextProgram]);
+
+  useEffect(() => {
+    if (showClock) {
+      const updateTime = () => {
+        const now = new Date();
+        setCurrentTime(now.toLocaleTimeString());
+      };
+      updateTime();
+      clockTimeoutRef.current = setTimeout(() => {
+        setShowClock(false);
+        setCurrentTime('');
+      }, 3000);
+    }
+    return () => {
+      if (clockTimeoutRef.current) {
+        clearTimeout(clockTimeoutRef.current);
+      }
+    };
+  }, [showClock]);
+
+  useEffect(() => {
+    if (liveTimer.isRunning && liveTimer.minutes === 0 && liveTimer.seconds === 0) {
+      setIsTimerComplete(true);
+      setTimeout(() => setIsTimerComplete(false), 2500);
+    }
+  }, [liveTimer]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (liveTimer.isRunning && !liveTimer.isPaused) {
+      interval = setInterval(() => {
+        setLiveTimer(prev => {
+          if (prev.seconds === 0 && prev.minutes === 0) {
+            return { ...prev, isRunning: false };
+          }
+
+          let newSeconds = prev.seconds - 1;
+          let newMinutes = prev.minutes;
+
+          if (newSeconds < 0) {
+            newSeconds = 59;
+            newMinutes--;
+          }
+
+          return {
+            ...prev,
+            minutes: newMinutes,
+            seconds: newSeconds,
+          };
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [liveTimer.isRunning, liveTimer.isPaused]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (extraTime.isRunning && !extraTime.isPaused) {
+      interval = setInterval(() => {
+        setExtraTime(prev => {
+          if (prev.seconds === 0 && prev.minutes === 0) {
+            return { ...prev, isRunning: false };
+          }
+
+          let newSeconds = prev.seconds - 1;
+          let newMinutes = prev.minutes;
+
+          if (newSeconds < 0) {
+            newSeconds = 59;
+            newMinutes--;
+          }
+
+          return {
+            ...prev,
+            minutes: newMinutes,
+            seconds: newSeconds,
+          };
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [extraTime.isRunning, extraTime.isPaused]);
+
   const handleBackgroundChange = (type: string, source: string | null) => {
     setBackground({ type, source });
-    if (type === 'webcam' && !source) {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          const video = document.getElementById('webcam-video') as HTMLVideoElement;
-          if (video) {
-            video.srcObject = stream;
-          }
-        })
-        .catch(err => console.error('Error:', err));
-    }
   };
 
   const handleProgramDelete = (id: string) => {
@@ -183,91 +311,21 @@ function App() {
     setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
-  useEffect(() => {
-    if (showClock) {
-      const updateTime = () => {
-        const now = new Date();
-        setCurrentTime(now.toLocaleTimeString());
-      };
-      updateTime();
-      clockTimeoutRef.current = setTimeout(() => {
-        setShowClock(false);
-        setCurrentTime('');
-      }, 3000);
-    }
-    return () => {
-      if (clockTimeoutRef.current) {
-        clearTimeout(clockTimeoutRef.current);
-      }
-    };
-  }, [showClock]);
-
-  useEffect(() => {
-    if (liveTimer.isRunning && liveTimer.minutes === 0 && liveTimer.seconds === 0) {
-      setIsTimerComplete(true);
-      setTimeout(() => setIsTimerComplete(false), 2500);
-    }
-  }, [liveTimer]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (liveTimer.isRunning && !liveTimer.isPaused) {
-      interval = setInterval(() => {
-        setLiveTimer(prev => {
-          if (prev.seconds === 0 && prev.minutes === 0) {
-            return { ...prev, isRunning: false };
-          }
-
-          let newSeconds = prev.seconds - 1;
-          let newMinutes = prev.minutes;
-
-          if (newSeconds < 0) {
-            newSeconds = 59;
-            newMinutes--;
-          }
-
-          return {
-            ...prev,
-            minutes: newMinutes,
-            seconds: newSeconds,
-          };
-        });
-      }, 1000);
-    }
-
-    return () => clearInterval(interval);
-  }, [liveTimer.isRunning, liveTimer.isPaused]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (extraTime.isRunning && !extraTime.isPaused) {
-      interval = setInterval(() => {
-        setExtraTime(prev => {
-          if (prev.seconds === 0 && prev.minutes === 0) {
-            return { ...prev, isRunning: false };
-          }
-
-          let newSeconds = prev.seconds - 1;
-          let newMinutes = prev.minutes;
-
-          if (newSeconds < 0) {
-            newSeconds = 59;
-            newMinutes--;
-          }
-
-          return {
-            ...prev,
-            minutes: newMinutes,
-            seconds: newSeconds,
-          };
-        });
-      }, 1000);
-    }
-
-    return () => clearInterval(interval);
-  }, [extraTime.isRunning, extraTime.isPaused]);
+  if (showSplash) {
+    return (
+      <div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center"
+        style={{ 
+          backgroundImage: 'url(https://images.unsplash.com/photo-1614850523459-c2f4c699c52e)',
+          backgroundSize: 'cover'
+        }}
+      >
+        <div className="bg-black bg-opacity-50 p-8 rounded-lg">
+          <h1 className="text-6xl font-bold text-white text-center">Timer App</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -444,6 +502,12 @@ function App() {
               />
               <div className="flex items-center space-x-2">
                 <button
+                  onClick={() => adjustProgramDuration(-5)}
+                  className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                >
+                  -5m
+                </button>
+                <button
                   onClick={() => adjustProgramDuration(-1)}
                   className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600"
                 >
@@ -475,7 +539,6 @@ function App() {
             <ProgramList
               programs={programs}
               onDelete={handleProgramDelete}
-              onEdit={() => {}}
               onStart={startProgram}
               onNotify={(program) => {
                 setShowNextProgram(program.name);

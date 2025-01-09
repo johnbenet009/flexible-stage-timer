@@ -9,9 +9,10 @@ interface TimerProps {
     type: string;
     source: string | null;
   };
+  fullscreen?: boolean;
 }
 
-export function Timer({ minutes, seconds, isAttention, isComplete, background }: TimerProps) {
+export function Timer({ minutes, seconds, isAttention, isComplete, background, fullscreen = false }: TimerProps) {
   const getBackgroundStyle = () => {
     if (!background) return {};
     
@@ -32,8 +33,16 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background }:
     }
   };
 
+  const timerClasses = fullscreen
+    ? 'fixed inset-0 flex items-center justify-center'
+    : 'relative w-full h-48';
+
+  const timeClasses = fullscreen
+    ? 'text-[20vw]'  // Responsive font size based on viewport width
+    : 'text-6xl';
+
   return (
-    <div className="relative w-full h-48">
+    <div className={timerClasses}>
       {background?.type === 'video' && background.source && (
         <video
           className="absolute inset-0 w-full h-full object-cover"
@@ -54,14 +63,16 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background }:
       )}
       <div
         className={`
-          absolute inset-0 flex items-center justify-center text-6xl font-bold transition-colors duration-300
+          absolute inset-0 flex items-center justify-center font-bold transition-colors duration-300
           ${isAttention ? 'animate-[attention_0.4s_ease-in-out_5] bg-red-600 bg-opacity-90' : 'bg-black bg-opacity-80'}
           ${isComplete ? 'animate-[timerComplete_0.5s_ease-in-out_5]' : ''}
           text-white
         `}
         style={getBackgroundStyle()}
       >
-        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+        <div className={timeClasses}>
+          {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+        </div>
       </div>
     </div>
   );
