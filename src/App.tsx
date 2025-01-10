@@ -66,24 +66,21 @@ function App() {
   });
 
   const clockTimeoutRef = useRef<NodeJS.Timeout>();
+  const clockIntervalRef = useRef<NodeJS.Timeout>();
 
+  // Splash screen effect
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 3000);
-
     return () => clearTimeout(timer);
   }, []);
 
+  // Local storage effects
   useEffect(() => {
     localStorage.setItem('programs', JSON.stringify(programs));
   }, [programs]);
 
-  useEffect(() => {
-    localStorage.setItem('background', JSON.stringify(background));
-  }, [background]);
-
-  // Sync timer state with localStorage
   useEffect(() => {
     localStorage.setItem('timerState', JSON.stringify({
       minutes: liveTimer.minutes,
@@ -95,12 +92,10 @@ function App() {
     }));
   }, [liveTimer, isTimerComplete]);
 
-  // Sync extra time state
   useEffect(() => {
     localStorage.setItem('extraTime', JSON.stringify(extraTime));
   }, [extraTime]);
 
-  // Sync alert state
   useEffect(() => {
     localStorage.setItem('alertState', JSON.stringify({
       message: alertMessage,
@@ -109,30 +104,39 @@ function App() {
     }));
   }, [alertMessage, isAlertFlashing, showAlert]);
 
-  // Sync next program notification
   useEffect(() => {
     localStorage.setItem('nextProgram', JSON.stringify(showNextProgram));
   }, [showNextProgram]);
 
+  useEffect(() => {
+    localStorage.setItem('showClock', JSON.stringify(showClock));
+    localStorage.setItem('currentTime', JSON.stringify(currentTime));
+  }, [showClock, currentTime]);
+
+  // Clock update effect
   useEffect(() => {
     if (showClock) {
       const updateTime = () => {
         const now = new Date();
         setCurrentTime(now.toLocaleTimeString());
       };
+      
       updateTime();
+      clockIntervalRef.current = setInterval(updateTime, 1000);
+      
       clockTimeoutRef.current = setTimeout(() => {
         setShowClock(false);
         setCurrentTime('');
       }, 3000);
     }
+    
     return () => {
-      if (clockTimeoutRef.current) {
-        clearTimeout(clockTimeoutRef.current);
-      }
+      if (clockTimeoutRef.current) clearTimeout(clockTimeoutRef.current);
+      if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
     };
   }, [showClock]);
 
+  // Timer completion effect
   useEffect(() => {
     if (liveTimer.isRunning && liveTimer.minutes === 0 && liveTimer.seconds === 0) {
       setIsTimerComplete(true);
@@ -140,6 +144,7 @@ function App() {
     }
   }, [liveTimer]);
 
+  // Live timer countdown effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -170,6 +175,7 @@ function App() {
     return () => clearInterval(interval);
   }, [liveTimer.isRunning, liveTimer.isPaused]);
 
+  // Extra time countdown effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -200,8 +206,25 @@ function App() {
     return () => clearInterval(interval);
   }, [extraTime.isRunning, extraTime.isPaused]);
 
-  const handleBackgroundChange = (type: string, source: string | null) => {
-    setBackground({ type, source });
+  // Handler functions
+  const handleBackgroundChange = async (type: string, source: string | null) => {
+    try {
+      if (type === 'webcam') {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('webcam-video') as HTMLVideoElement;
+        if (video) {
+          video.srcObject = stream;
+          video.play();
+        }
+      }
+      
+      const backgroundData = { type, source };
+      localStorage.setItem('background', JSON.stringify(backgroundData));
+      setBackground(backgroundData);
+    } catch (err) {
+      console.error('Error setting background:', err);
+      setBackground({ type: 'default', source: null });
+    }
   };
 
   const handleProgramDelete = (id: string) => {
@@ -314,14 +337,17 @@ function App() {
   if (showSplash) {
     return (
       <div 
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat flex flex-col items-center justify-center"
         style={{ 
           backgroundImage: 'url(https://images.unsplash.com/photo-1614850523459-c2f4c699c52e)',
           backgroundSize: 'cover'
         }}
       >
-        <div className="bg-black bg-opacity-50 p-8 rounded-lg">
-          <h1 className="text-6xl font-bold text-white text-center">Timer App</h1>
+        <div className="bg-black bg-opacity-50 p-8 rounded-lg text-center">
+          <h1 className="text-6xl font-bold text-white mb-4">Timer App</h1>
+          <p className="text-xl text-white opacity-80">
+            Developed by Positive Developer (Mr Positive)
+          </p>
         </div>
       </div>
     );
@@ -384,17 +410,21 @@ function App() {
                   background={background}
                 />
               ) : (
-                <div className="h-48 flex flex-col items-center justify-center bg-black">
-                  <h2 className="text-2xl font-bold text-white mb-2 animate-pulse">EXTRA TIME</h2>
+                <div className="bg-black animate-extraTimeBg rounded-lg overflow-hidden">
                   <ExtraTimeTimer
                     minutes={extraTime.minutes}
                     seconds={extraTime.seconds}
                     isRunning={extraTime.isRunning}
+                    fullscreen={false}
+                    showAnimation={true}
                   />
                 </div>
               )}
               {showNextProgram && (
-                <NextProgramNotification programName={showNextProgram} />
+                <NextProgramNotification 
+                  programName={showNextProgram}
+                  fullscreen={false}
+                />
               )}
               {(showAlert || isAlertFlashing) && (
                 <div className="absolute bottom-0 left-0 right-0">
@@ -542,7 +572,6 @@ function App() {
               onStart={startProgram}
               onNotify={(program) => {
                 setShowNextProgram(program.name);
-                // Auto-hide after 5 seconds
                 setTimeout(() => {
                   setShowNextProgram(null);
                 }, 5000);
@@ -553,10 +582,16 @@ function App() {
           {/* Extra Time */}
           <div className="bg-gray-800 p-4 rounded">
             <h2 className="text-xl text-white mb-4">Extra Time</h2>
-            <div className="text-2xl text-white mb-4 text-center">
-              {String(extraTime.minutes).padStart(2, '0')}:{String(extraTime.seconds).padStart(2, '0')}
+            <div className="bg-black rounded-lg overflow-hidden">
+              <ExtraTimeTimer
+                minutes={extraTime.minutes}
+                seconds={extraTime.seconds}
+                isRunning={extraTime.isRunning}
+                fullscreen={false}
+                showAnimation={false}
+              />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 mt-4">
               <TimerControls
                 onAdjustTime={(minutes) => setExtraTime(prev => ({
                   ...prev,

@@ -18,3 +18,10 @@ export interface ExtraTimeState {
   isRunning: boolean;
   isPaused: boolean;
 }
+
+export interface DisplaySizeSettings {
+  timer: number;
+  alert: number;
+  nextProgram: number;
+  alertSpeed: number; // Added alert speed setting
+}

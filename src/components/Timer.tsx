@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface TimerProps {
   minutes: number;
@@ -13,6 +13,47 @@ interface TimerProps {
 }
 
 export function Timer({ minutes, seconds, isAttention, isComplete, background, fullscreen = false }: TimerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [scale, setScale] = React.useState(100);
+
+  useEffect(() => {
+    const updateScale = () => {
+      const savedSizes = localStorage.getItem('displaySizes');
+      if (savedSizes) {
+        const sizes = JSON.parse(savedSizes);
+        setScale(sizes.timer);
+      }
+    };
+
+    // Initial load
+    updateScale();
+
+    // Listen for storage changes
+    window.addEventListener('storage', updateScale);
+    return () => window.removeEventListener('storage', updateScale);
+  }, []);
+
+  useEffect(() => {
+    if (background?.type === 'webcam') {
+      const startWebcam = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (err) {
+          console.error('Error accessing webcam:', err);
+        }
+      };
+      startWebcam();
+
+      return () => {
+        const stream = videoRef.current?.srcObject as MediaStream;
+        stream?.getTracks().forEach(track => track.stop());
+      };
+    }
+  }, [background?.type]);
+
   const getBackgroundStyle = () => {
     if (!background) return {};
     
@@ -25,7 +66,6 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
           backgroundRepeat: 'no-repeat',
         };
       case 'video':
-        return {};
       case 'webcam':
         return {};
       default:
@@ -37,9 +77,12 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
     ? 'fixed inset-0 flex items-center justify-center'
     : 'relative w-full h-48';
 
-  const timeClasses = fullscreen
-    ? 'text-[20vw]'  // Responsive font size based on viewport width
-    : 'text-6xl';
+  // Calculate font size based on fullscreen and scale
+  const getFontSize = () => {
+    const baseSize = fullscreen ? 25 : 8; // Larger base sizes
+    const scaledSize = (baseSize * scale) / 100;
+    return fullscreen ? `${scaledSize}vw` : `${scaledSize}rem`;
+  };
 
   return (
     <div className={timerClasses}>
@@ -49,16 +92,18 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
           autoPlay
           loop
           muted
+          playsInline
         >
           <source src={background.source} type="video/mp4" />
         </video>
       )}
       {background?.type === 'webcam' && (
         <video
+          ref={videoRef}
           className="absolute inset-0 w-full h-full object-cover"
           autoPlay
           playsInline
-          id="webcam-video"
+          muted
         />
       )}
       <div
@@ -68,9 +113,11 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
           ${isComplete ? 'animate-[timerComplete_0.5s_ease-in-out_5]' : ''}
           text-white
         `}
-        style={getBackgroundStyle()}
+        style={{
+          ...getBackgroundStyle(),
+        }}
       >
-        <div className={timeClasses}>
+        <div style={{ fontSize: getFontSize() }}>
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
       </div>

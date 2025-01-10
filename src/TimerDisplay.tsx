@@ -3,6 +3,7 @@ import { Timer } from './components/Timer';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { AlertBanner } from './components/AlertBanner';
 import { NextProgramNotification } from './components/NextProgramNotification';
+import { Clock } from 'lucide-react';
 
 function TimerDisplay() {
   const [timerState, setTimerState] = useState({
@@ -25,6 +26,8 @@ function TimerDisplay() {
   });
   const [nextProgram, setNextProgram] = useState<string | null>(null);
   const [background, setBackground] = useState({ type: 'default', source: null });
+  const [showClock, setShowClock] = useState(false);
+  const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
     const loadInitialStates = () => {
@@ -33,12 +36,16 @@ function TimerDisplay() {
       const storedAlertState = localStorage.getItem('alertState');
       const storedNextProgram = localStorage.getItem('nextProgram');
       const storedBackground = localStorage.getItem('background');
+      const storedShowClock = localStorage.getItem('showClock');
+      const storedCurrentTime = localStorage.getItem('currentTime');
 
       if (storedTimerState) setTimerState(JSON.parse(storedTimerState));
       if (storedExtraTime) setExtraTime(JSON.parse(storedExtraTime));
       if (storedAlertState) setAlertState(JSON.parse(storedAlertState));
       if (storedNextProgram) setNextProgram(JSON.parse(storedNextProgram));
       if (storedBackground) setBackground(JSON.parse(storedBackground));
+      if (storedShowClock) setShowClock(JSON.parse(storedShowClock));
+      if (storedCurrentTime) setCurrentTime(JSON.parse(storedCurrentTime));
     };
 
     loadInitialStates();
@@ -59,10 +66,16 @@ function TimerDisplay() {
           if (newValue) setAlertState(newValue);
           break;
         case 'nextProgram':
-          setNextProgram(newValue); // Can be null
+          setNextProgram(newValue);
           break;
         case 'background':
           if (newValue) setBackground(newValue);
+          break;
+        case 'showClock':
+          if (newValue !== null) setShowClock(newValue);
+          break;
+        case 'currentTime':
+          if (newValue) setCurrentTime(newValue);
           break;
       }
     };
@@ -71,34 +84,56 @@ function TimerDisplay() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Update clock
+  useEffect(() => {
+    if (showClock) {
+      const updateTime = () => {
+        const now = new Date();
+        setCurrentTime(now.toLocaleTimeString());
+      };
+      
+      updateTime();
+      const interval = setInterval(updateTime, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [showClock]);
+
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
       {!extraTime.isRunning ? (
-        <Timer
-          minutes={timerState.minutes}
-          seconds={timerState.seconds}
-          isAttention={timerState.isAttention}
-          isComplete={timerState.isComplete}
-          background={background}
-          fullscreen={true}
-        />
+        <>
+          <Timer
+            minutes={timerState.minutes}
+            seconds={timerState.seconds}
+            isAttention={timerState.isAttention}
+            isComplete={timerState.isComplete}
+            background={background}
+            fullscreen={true}
+          />
+          {showClock && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-20">
+              <span className="text-[20vw] font-bold text-white">{currentTime}</span>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="h-screen flex flex-col items-center justify-center">
-          <h2 className="text-8xl font-bold text-white mb-12 animate-pulse">EXTRA TIME</h2>
-          <div className="transform scale-150">
-            <ExtraTimeTimer
-              minutes={extraTime.minutes}
-              seconds={extraTime.seconds}
-              isRunning={extraTime.isRunning}
-            />
-          </div>
+        <div className="absolute inset-0 bg-black animate-extraTimeBg">
+          <ExtraTimeTimer
+            minutes={extraTime.minutes}
+            seconds={extraTime.seconds}
+            isRunning={extraTime.isRunning}
+            fullscreen={true}
+            showAnimation={true}
+          />
         </div>
       )}
       
       {nextProgram && (
-        <div className="fixed top-8 right-8 scale-150 transform origin-top-right z-50">
-          <NextProgramNotification programName={nextProgram} />
-        </div>
+        <NextProgramNotification 
+          programName={nextProgram}
+          fullscreen={true}
+        />
       )}
       
       {(alertState.show || alertState.isFlashing) && (
