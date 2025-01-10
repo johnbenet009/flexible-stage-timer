@@ -339,12 +339,12 @@ function App() {
       <div 
         className="fixed inset-0 bg-cover bg-center bg-no-repeat flex flex-col items-center justify-center"
         style={{ 
-          backgroundImage: 'url(https://images.unsplash.com/photo-1614850523459-c2f4c699c52e)',
+          backgroundImage: 'url(bg.jpg)',
           backgroundSize: 'cover'
         }}
       >
         <div className="bg-black bg-opacity-50 p-8 rounded-lg text-center">
-          <h1 className="text-6xl font-bold text-white mb-4">Timer App</h1>
+          <h1 className="text-6xl font-bold text-white mb-4">Stage Timer App</h1>
           <p className="text-xl text-white opacity-80">
             Developed by Positive Developer (Mr Positive)
           </p>
