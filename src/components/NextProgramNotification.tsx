@@ -25,8 +25,8 @@ export function NextProgramNotification({ programName, fullscreen = false }: Nex
     : `text-[${1 * scale/100}rem] font-bold`;
 
   const nameClasses = fullscreen
-    ? `text-[${4 * scale/100}rem] font-bold mt-1`
-    : `text-[${1.25 * scale/100}rem]`;
+    ? `text-[${6 * scale/100}rem] font-bold mt-1`
+    : `text-[${8 * scale/100}rem]`;
 
   const style = {
     transform: `scale(${scale/100})`,

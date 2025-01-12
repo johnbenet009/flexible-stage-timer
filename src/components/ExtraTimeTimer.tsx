@@ -6,6 +6,7 @@ interface ExtraTimeTimerProps {
   isRunning: boolean;
   fullscreen?: boolean;
   showAnimation?: boolean;
+  hideTitle?: boolean;
 }
 
 export function ExtraTimeTimer({ 
@@ -13,7 +14,8 @@ export function ExtraTimeTimer({
   seconds, 
   isRunning, 
   fullscreen = false,
-  showAnimation = true 
+  showAnimation = true,
+  hideTitle = false
 }: ExtraTimeTimerProps) {
   const [milliseconds, setMilliseconds] = useState(0);
 
@@ -22,7 +24,7 @@ export function ExtraTimeTimer({
     if (isRunning && showAnimation) {
       interval = setInterval(() => {
         setMilliseconds(prev => (prev + 1) % 60);
-      }, 16); // Approximately 60fps
+      }, 16);
     }
     return () => clearInterval(interval);
   }, [isRunning, showAnimation]);
@@ -38,6 +40,11 @@ export function ExtraTimeTimer({
 
   return (
     <div className={containerClasses}>
+      {!hideTitle && (
+        <div className={`font-bold text-white text-7xl font-bold font-mono tracking-tight`}>
+          EXTRA TIME
+        </div>
+      )}
       <div className={`${timeClasses} font-bold text-white font-mono tracking-tight`}>
         {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         {showAnimation && (

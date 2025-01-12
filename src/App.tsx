@@ -68,7 +68,6 @@ function App() {
   const clockTimeoutRef = useRef<NodeJS.Timeout>();
   const clockIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Splash screen effect
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
@@ -76,7 +75,6 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Local storage effects
   useEffect(() => {
     localStorage.setItem('programs', JSON.stringify(programs));
   }, [programs]);
@@ -113,7 +111,6 @@ function App() {
     localStorage.setItem('currentTime', JSON.stringify(currentTime));
   }, [showClock, currentTime]);
 
-  // Clock update effect
   useEffect(() => {
     if (showClock) {
       const updateTime = () => {
@@ -136,7 +133,6 @@ function App() {
     };
   }, [showClock]);
 
-  // Timer completion effect
   useEffect(() => {
     if (liveTimer.isRunning && liveTimer.minutes === 0 && liveTimer.seconds === 0) {
       setIsTimerComplete(true);
@@ -144,7 +140,6 @@ function App() {
     }
   }, [liveTimer]);
 
-  // Live timer countdown effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -175,7 +170,6 @@ function App() {
     return () => clearInterval(interval);
   }, [liveTimer.isRunning, liveTimer.isPaused]);
 
-  // Extra time countdown effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -206,7 +200,6 @@ function App() {
     return () => clearInterval(interval);
   }, [extraTime.isRunning, extraTime.isPaused]);
 
-  // Handler functions
   const handleBackgroundChange = async (type: string, source: string | null) => {
     try {
       if (type === 'webcam') {
@@ -334,6 +327,21 @@ function App() {
     setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
+const addTimeToLiveTimer = (minutes: number) => {
+  if (liveTimer.isRunning) {
+    setLiveTimer(prev => ({
+      ...prev,
+      minutes: Math.max(0, prev.minutes + minutes)
+    }));
+  }
+};
+
+  const handleProgramEdit = (program: Program) => {
+    setPrograms(prev => prev.map(p => 
+      p.id === program.id ? program : p
+    ));
+  };
+
   if (showSplash) {
     return (
       <div 
@@ -377,7 +385,7 @@ function App() {
           {/* Live Preview Section */}
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-white">Live Preview</h2>
+              <h2 className="text-2xl font-bold text-white">Live</h2>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setShowClock(true)}
@@ -465,8 +473,23 @@ function App() {
                     className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500"
                   >
                     <RefreshCw className="inline-block mr-2" size={18} />
-                    Reset
+                    Stop
                   </button>
+                  
+<button
+  onClick={() => addTimeToLiveTimer(-1)}
+  className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-red-500"
+>
+  -1m
+</button>
+
+                  <button
+                    onClick={() => addTimeToLiveTimer(1)}
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+                  >
+                    +1m
+                  </button>
+                 
                 </>
               )}
               <button
@@ -474,7 +497,7 @@ function App() {
                 className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-500"
               >
                 <AlertTriangle className="inline-block mr-2" size={18} />
-                Attention
+                Attention!
               </button>
             </div>
 
@@ -531,39 +554,39 @@ function App() {
                 onChange={(e) => setProgramName(e.target.value)}
               />
               <div className="flex items-center space-x-2">
+                <span className="bg-gray-700 text-white px-4 py-2 rounded min-w-[60px] text-center">
+                  <b>{programDuration}M</b>
+                </span>
                 <button
                   onClick={() => adjustProgramDuration(-5)}
-                  className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                  className="bg-red-700 text-white px-3 py-2 rounded hover:bg-gray-600"
                 >
-                  -5m
+                  -5M
                 </button>
                 <button
                   onClick={() => adjustProgramDuration(-1)}
-                  className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                  className="bg-red-700 text-white px-3 py-2 rounded hover:bg-gray-600"
                 >
-                  -1m
+                  -1M
                 </button>
-                <span className="bg-gray-700 text-white px-4 py-2 rounded min-w-[60px] text-center">
-                  {programDuration}m
-                </span>
                 <button
                   onClick={() => adjustProgramDuration(1)}
-                  className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                  className="bg-green-700 text-white px-3 py-2 rounded hover:bg-gray-600"
                 >
-                  +1m
+                  +1M
                 </button>
                 <button
                   onClick={() => adjustProgramDuration(5)}
-                  className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                  className="bg-green-700 text-white px-3 py-2 rounded hover:bg-gray-600"
                 >
-                  +5m
+                  +5M
                 </button>
               </div>
               <button
                 onClick={addProgram}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
               >
-                Add
+                Save
               </button>
             </div>
             <ProgramList
@@ -576,6 +599,7 @@ function App() {
                   setShowNextProgram(null);
                 }, 5000);
               }}
+              onEdit={handleProgramEdit}
             />
           </div>
 
@@ -589,6 +613,7 @@ function App() {
                 isRunning={extraTime.isRunning}
                 fullscreen={false}
                 showAnimation={false}
+                hideTitle={true}
               />
             </div>
             <div className="space-y-2 mt-4">

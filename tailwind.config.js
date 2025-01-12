@@ -44,6 +44,13 @@ export default {
           '50%': { color: '#000000' },
           '75%': { color: '#fbbf24' },
           '100%': { color: '#ffffff' },
+        },
+        lastMinute: {
+          '0%': { backgroundColor: '#dc2626' },
+          '25%': { backgroundColor: '#000000' },
+          '50%': { backgroundColor: '#fbbf24' },
+          '75%': { backgroundColor: '#ffffff' },
+          '100%': { backgroundColor: '#dc2626' },
         }
       },
       animation: {
@@ -54,6 +61,7 @@ export default {
         slideIn: 'slideIn 0.3s ease-out',
         extraTimeBg: 'extraTimeBg 2s ease-in-out infinite',
         extraTimeText: 'extraTimeText 2s ease-in-out infinite',
+        lastMinute: 'lastMinute 1s ease-in-out infinite',
       },
     },
   },

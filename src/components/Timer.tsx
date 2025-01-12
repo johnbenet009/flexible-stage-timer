@@ -25,10 +25,7 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
       }
     };
 
-    // Initial load
     updateScale();
-
-    // Listen for storage changes
     window.addEventListener('storage', updateScale);
     return () => window.removeEventListener('storage', updateScale);
   }, []);
@@ -77,12 +74,15 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
     ? 'fixed inset-0 flex items-center justify-center'
     : 'relative w-full h-48';
 
-  // Calculate font size based on fullscreen and scale
   const getFontSize = () => {
-    const baseSize = fullscreen ? 25 : 8; // Larger base sizes
+    const baseSize = fullscreen ? 25 : 8;
     const scaledSize = (baseSize * scale) / 100;
     return fullscreen ? `${scaledSize}vw` : `${scaledSize}rem`;
   };
+
+  // Calculate if we're in the last minute
+  const totalSeconds = minutes * 60 + seconds;
+  const isLastMinute = totalSeconds <= 60 && totalSeconds > 0;
 
   return (
     <div className={timerClasses}>
@@ -109,8 +109,9 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
       <div
         className={`
           absolute inset-0 flex items-center justify-center font-bold transition-colors duration-300
-          ${isAttention ? 'animate-[attention_0.4s_ease-in-out_5] bg-red-600 bg-opacity-90' : 'bg-black bg-opacity-80'}
+          ${isAttention ? 'animate-[attention_0.4s_ease-in-out_5]' : ''}
           ${isComplete ? 'animate-[timerComplete_0.5s_ease-in-out_5]' : ''}
+          ${isLastMinute ? 'animate-lastMinute' : 'bg-black bg-opacity-80'}
           text-white
         `}
         style={{
