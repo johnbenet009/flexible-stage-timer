@@ -14,9 +14,7 @@
 ## Getting Started
 
 ### System Requirements
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Internet connection for initial load
-- Display resolution: 1024x768 or higher recommended
+- Minimum of 2GB RAM is Good to do with an HDMI, VGA, DIsplay Port or Any other display output
 
 ### Initial Setup
 1. Open the application in your browser
@@ -148,22 +146,14 @@
 
 ### Common Issues
 - **Timer Not Visible**: Check display settings
-- **Animations Lag**: Reduce background complexity
-- **Alert Not Showing**: Verify message entered
+- **Alert Not Showing**: Verify font-size of message entered
 - **Program List Issues**: Clear and re-add programs
 
 ### Quick Fixes
-1. Refresh the page
+1. Restart app
 2. Reset display settings
 3. Clear program list and rebuild
-4. Check browser compatibility
-
-## Keyboard Shortcuts (if implemented)
-- Space: Start/Pause timer
-- Esc: Stop timer
-- A: Toggle attention mode
-- C: Show clock
-- E: Start extra time
+4. Check external display cables
 
 ## Support
 
