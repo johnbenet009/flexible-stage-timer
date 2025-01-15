@@ -40,4 +40,4 @@ Stage Timer App is maintained and regularly updated by Positive Developer (Mr Po
 
 ### License
 
-Copyright © 2024 Positive Developer (Mr Positive). All rights reserved.
+Copyright © 2024 Positive Developer. All rights reserved.
