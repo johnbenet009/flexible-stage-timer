@@ -389,17 +389,17 @@ const addTimeToLiveTimer = (minutes: number) => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => setShowClock(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+                  className="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-500"
                 >
-                  <Clock className="inline-block mr-2" size={18} />
-                  Show Clock
+                  <Clock className="inline-block mr-2" size={12} />
+                  Clock
                 </button>
                 <button
                   onClick={() => setShowSettings(true)}
-                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-500"
+                  className="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-500"
                 >
-                  <Settings className="inline-block mr-2" size={18} />
-                  Display Settings
+                  <Settings className="inline-block mr-2" size={12} />
+                  Settings
                 </button>
               </div>
             </div>
@@ -540,55 +540,93 @@ const addTimeToLiveTimer = (minutes: number) => {
           </div>
         </div>
 
-        {/* Bottom Section */}
-        <div className="grid grid-cols-2 gap-4 mt-8">
-          {/* Program List */}
-          <div className="bg-gray-800 p-4 rounded">
-            <h2 className="text-xl text-white mb-4">Order of Program</h2>
-            <div className="flex space-x-2 mb-4">
-              <input
-                type="text"
-                placeholder="Program name"
-                className="flex-grow p-2 rounded bg-gray-700 text-white"
-                value={programName}
-                onChange={(e) => setProgramName(e.target.value)}
-              />
-              <div className="flex items-center space-x-2">
-                <span className="bg-gray-700 text-white px-4 py-2 rounded min-w-[60px] text-center">
-                  <b>{programDuration}M</b>
-                </span>
-                <button
-                  onClick={() => adjustProgramDuration(-5)}
-                  className="bg-red-700 text-white px-3 py-2 rounded hover:bg-gray-600"
-                >
-                  -5M
-                </button>
-                <button
-                  onClick={() => adjustProgramDuration(-1)}
-                  className="bg-red-700 text-white px-3 py-2 rounded hover:bg-gray-600"
-                >
-                  -1M
-                </button>
-                <button
-                  onClick={() => adjustProgramDuration(1)}
-                  className="bg-green-700 text-white px-3 py-2 rounded hover:bg-gray-600"
-                >
-                  +1M
-                </button>
-                <button
-                  onClick={() => adjustProgramDuration(5)}
-                  className="bg-green-700 text-white px-3 py-2 rounded hover:bg-gray-600"
-                >
-                  +5M
-                </button>
-              </div>
-              <button
-                onClick={addProgram}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
-              >
-                Save
-              </button>
-            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{/* Bottom Section */}
+<div className="grid grid-cols-2 gap-2 mt-6">
+  <div className="bg-gray-800 p-4 rounded">
+    <h2 className="text-xl text-white mb-4">Order of Program</h2>
+    <div className="flex flex-col space-y-2 mb-4"> {/* Changed to flex-col */}
+      <div className="flex space-x-2">
+        <input
+          type="text"
+          placeholder="Program name"
+          className="flex-grow p-2 rounded bg-gray-700 text-white"
+          value={programName}
+          onChange={(e) => setProgramName(e.target.value)}
+        />
+      
+	  <span className="bg-gray-700 text-white px-4 py-2 rounded min-w-[60px] text-center">
+          <b>{programDuration} Minute(s)</b>
+        </span>
+	  
+	  
+	  
+      </div>
+      <div className="flex items-center space-x-2"> {/* New container for duration */}
+        
+      </div>
+      {/* Minute Buttons Below */}
+      <div className="flex justify-center space-x-2">   <button
+          onClick={() => adjustProgramDuration(5)}
+          className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+        >
+          +5M
+        </button>
+        <button
+          onClick={() => adjustProgramDuration(-5)}
+          className="bg-red-800 text-white px-3 py-2 rounded hover:bg-gray-600"
+        >
+          -5M
+        </button>
+		
+		   <button
+          onClick={() => adjustProgramDuration(1)}
+          className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+        >
+          +1M
+        </button>
+      
+		
+        <button
+          onClick={() => adjustProgramDuration(-1)}
+          className="bg-red-800 text-white px-3 py-2 rounded hover:bg-gray-600"
+        >
+          -1M
+        </button>
+     
+		  <button
+          onClick={addProgram}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-900"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  
+			
+			
+			
+			
+			
+			
+			
+			
             <ProgramList
               programs={programs}
               onDelete={handleProgramDelete}
