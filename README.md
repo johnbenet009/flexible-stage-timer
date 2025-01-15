@@ -1,6 +1,5 @@
 # Flexible Stage Timer
 
-[![GitHub](https://img.shields.io/github/license/johnbenet009/flexible-stage-timer)](https://github.com/johnbenet009/flexible-stage-timer/blob/main/LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/johnbenet009/flexible-stage-timer)](https://github.com/johnbenet009/flexible-stage-timer/issues)
 [![GitHub Stars](https://img.shields.io/github/stars/johnbenet009/flexible-stage-timer)](https://github.com/johnbenet009/flexible-stage-timer/stargazers)
 
