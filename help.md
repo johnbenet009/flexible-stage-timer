@@ -23,6 +23,7 @@
 4. Test the timer display on your presentation screen
 
 ## Main Interface
+![image](https://github.com/user-attachments/assets/5e310738-eef8-4694-af6f-e55d23707e3c)
 
 ### Setup Timer (Left Panel)
 - Used for preparing the next timer duration
@@ -31,6 +32,8 @@
 - Start button transfers time to Live Timer
 
 ### Live Timer (Right Panel)
+![image](https://github.com/user-attachments/assets/256538fa-6b63-41df-96cb-1092180acde9)
+
 - Displays the active countdown
 - Changes color in the last minute
 - Supports attention mode
@@ -59,6 +62,8 @@
 3. Click "Save" to add to the list
 
 ### Program Controls
+![image](https://github.com/user-attachments/assets/47eaa692-708d-4048-8f92-317655c9c621)
+
 - **Play**: Start timer with program duration
 - **Bell**: Show "Up Next" notification
 - **Edit**: Modify program name or duration
@@ -72,6 +77,8 @@
 ## Extra Time Features
 
 ### Using Extra Time
+![image](https://github.com/user-attachments/assets/eab2a994-0ea6-4bd5-bfcf-e1794650c815)
+
 1. Access Extra Time panel
 2. Set desired duration
 3. Start Extra Time mode
@@ -84,6 +91,7 @@
 - Cannot run simultaneously with main timer
 
 ## Display Settings
+![image](https://github.com/user-attachments/assets/ec52ba98-fdc3-4ea4-90aa-0bd73a539277)
 
 ### Background Options
 - **Default**: Standard black background
