@@ -131,4 +131,4 @@ For questions, suggestions, or issues, please open an issue on GitHub, or contac
 
 Credits
 
-Developed by John Benet (Positive Developer).
+Developed by: Positive Developer.
