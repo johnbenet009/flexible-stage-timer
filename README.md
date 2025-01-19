@@ -1,4 +1,5 @@
 # Flexible Stage Timer App
+![image](https://github.com/user-attachments/assets/21eeb34f-b213-4d9f-8958-1d038cfee3ee)
 
 ![Flexible Stage Timer App]
 
@@ -11,20 +12,27 @@ A professional stage timing application built with vite, TypeScript, and Electro
   - Live timer with fullscreen display
   - Extra time management
   - Visual alerts and notifications
+![image](https://github.com/user-attachments/assets/cdb0339d-c704-4e13-b9c7-1da1f5c6a675)
 
 - **Program Management**
+- ![image](https://github.com/user-attachments/assets/1f97992a-5121-46fd-8368-4a4b2bb9cc8b)
+
   - Organize programs by categories
   - Quick program selection and timing
   - Edit and delete functionality
   - Program notifications
 
 - **Alert System**
+- ![image](https://github.com/user-attachments/assets/acbf77fc-8877-44c8-8da9-9b6025c60584)
+
   - Custom alert messages
   - Flash alerts
   - Scrolling text display
   - Attention mode
 
 - **Display Customization**
+- ![image](https://github.com/user-attachments/assets/9b5ca390-e48b-4ccd-b03b-3cd1a32757fa)
+
   - Adjustable timer sizes
   - Custom backgrounds (Image/Video/Webcam)
   - Alert scroll speed control
