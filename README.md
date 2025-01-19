@@ -1,8 +1,6 @@
 # Flexible Stage Timer App
 ![image](https://github.com/user-attachments/assets/21eeb34f-b213-4d9f-8958-1d038cfee3ee)
 
-![Flexible Stage Timer App]
-
 A professional stage timing application built with vite, TypeScript, and Electron, designed for live events, presentations, and performances. This application bundles a Node.js server to ensure that it will run on different operating systems, even without having Node.js installed on the system.
 
 ## Features
