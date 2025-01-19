@@ -101,7 +101,7 @@ function createSecondWindow() {
                 contextIsolation: false,
             },
         });
-        secondWindow.loadURL('http://localhost:1000/timer'); // Corrected: load /timer on second screen
+        secondWindow.loadURL('http://localhost:1000/timer');
     } else {
         secondWindow = new BrowserWindow({
             x: externalDisplay.bounds.x,
@@ -115,7 +115,7 @@ function createSecondWindow() {
                 contextIsolation: false,
             },
         });
-        secondWindow.loadURL('http://localhost:1000/timer'); // Corrected: load /timer on second screen
+        secondWindow.loadURL('http://localhost:1000/timer');
 
         secondWindow.once('ready-to-show', () => {
             secondWindow.show();

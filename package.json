@@ -1,1 +1,49 @@
-{"name":"stage-timer-app","version":"0.1.0","main":"index.js","scripts":{"start":"concurrently \"node server.js\" \"wait-on http://localhost:1000 && electron .\"","build":"electron-builder"},"dependencies":{"electronify-server":"^0.5.1","node-static":"^0.7.7"},"devDependencies":{"concurrently":"^9.1.2","electron":"^29.1.7","electron-builder":"^24.13.1","wait-on":"^7.2.0"},"build":{"appId":"com.stage-timer.app","productName":"Stage Timer App","copyright":"Copyright © 2024 Positive Developer","asar":true,"directories":{"output":"dist","buildResources":"public"},"win":{"target":["nsis"],"icon":"public/icon.ico"},"nsis":{"oneClick":false,"perMachine":true,"allowToChangeInstallationDirectory":true,"deleteAppDataOnUninstall":true,"installerIcon":"public/icon.ico","uninstallerIcon":"public/icon.ico"},"files":["**/*","!**/node_modules/*","!**/*.map","!src","!dist","!public/*"]}}
+{
+    "name": "stage-timer-app",
+    "version": "0.1.0",
+    "main": "index.js",
+    "scripts": {
+        "start": "concurrently \"node server.js\" \"wait-on http://localhost:1000 && electron .\"",
+        "build": "electron-builder"
+    },
+    "dependencies": {
+        "electronify-server": "^0.5.1",
+        "node-static": "^0.7.7"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2",
+        "electron-builder": "^24.13.1",
+        "wait-on": "^7.2.0",
+        "electron": "^13.6.9"
+    },
+    "build": {
+        "appId": "com.stage-timer.app",
+        "productName": "Stage Timer App",
+        "copyright": "Copyright © 2024 Positive Developer",
+        "asar": false,
+        "directories": {
+            "output": "dist",
+            "buildResources": "public"
+        },
+        "win": {
+            "target": ["nsis"],
+            "icon": "public/icon.ico"
+        },
+        "nsis": {
+           "oneClick": false,
+            "perMachine": true,
+             "allowToChangeInstallationDirectory": true,
+            "deleteAppDataOnUninstall": true,
+            "installerIcon": "public/icon.ico",
+            "uninstallerIcon": "public/icon.ico"
+        },
+        "files": [
+            "**/*",
+            "!**/node_modules/*",
+            "!**/*.map",
+            "!src",
+            "!dist",
+            "!public/*"
+        ]
+    }
+}

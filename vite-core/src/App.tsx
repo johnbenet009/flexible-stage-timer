@@ -4,11 +4,12 @@ import { TimerControls } from './components/TimerControls';
 import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
-import { Program, TimerState, ExtraTimeState } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell } from 'lucide-react';
+import { Program, TimerState, ExtraTimeState, Category } from './types';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { NextProgramNotification } from './components/NextProgramNotification';
 import { DeleteConfirmation } from './components/DeleteConfirmation';
+import { CategoryManager } from './components/CategoryManager';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -39,6 +40,11 @@ function App() {
     const savedPrograms = localStorage.getItem('programs');
     return savedPrograms ? JSON.parse(savedPrograms) : [];
   });
+
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const savedCategories = localStorage.getItem('categories');
+    return savedCategories ? JSON.parse(savedCategories) : [];
+  });
   
   const [alertMessage, setAlertMessage] = useState('');
   const [isAlertFlashing, setIsAlertFlashing] = useState(false);
@@ -50,6 +56,8 @@ function App() {
   const [isTimerComplete, setIsTimerComplete] = useState(false);
   const [programName, setProgramName] = useState('');
   const [programDuration, setProgramDuration] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [background, setBackground] = useState<{ type: string; source: string | null }>(() => {
     const savedBackground = localStorage.getItem('background');
     return savedBackground ? JSON.parse(savedBackground) : { type: 'default', source: null };
@@ -78,6 +86,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('programs', JSON.stringify(programs));
   }, [programs]);
+
+  useEffect(() => {
+    localStorage.setItem('categories', JSON.stringify(categories));
+  }, [categories]);
 
   useEffect(() => {
     localStorage.setItem('timerState', JSON.stringify({
@@ -252,15 +264,34 @@ function App() {
   };
 
   const addProgram = () => {
-    if (programName && programDuration > 0) {
+    if (programName && programDuration > 0 && selectedCategory) {
       setPrograms(prev => [...prev, {
         id: Date.now().toString(),
         name: programName,
         duration: programDuration,
+        categoryId: selectedCategory
       }]);
       setProgramName('');
       setProgramDuration(0);
     }
+  };
+
+  const addCategory = (name: string) => {
+    setCategories(prev => [...prev, {
+      id: Date.now().toString(),
+      name
+    }]);
+  };
+
+  const updateCategory = (category: Category) => {
+    setCategories(prev => prev.map(c => 
+      c.id === category.id ? category : c
+    ));
+  };
+
+  const deleteCategory = (id: string) => {
+    setCategories(prev => prev.filter(c => c.id !== id));
+    setPrograms(prev => prev.filter(p => p.categoryId !== id));
   };
 
   const startLiveTimer = () => {
@@ -327,14 +358,14 @@ function App() {
     setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
-const addTimeToLiveTimer = (minutes: number) => {
-  if (liveTimer.isRunning) {
-    setLiveTimer(prev => ({
-      ...prev,
-      minutes: Math.max(0, prev.minutes + minutes)
-    }));
-  }
-};
+  const addTimeToLiveTimer = (minutes: number) => {
+    if (liveTimer.isRunning) {
+      setLiveTimer(prev => ({
+        ...prev,
+        minutes: Math.max(0, prev.minutes + minutes)
+      }));
+    }
+  };
 
   const handleProgramEdit = (program: Program) => {
     setPrograms(prev => prev.map(p => 
@@ -423,8 +454,6 @@ const addTimeToLiveTimer = (minutes: number) => {
                     minutes={extraTime.minutes}
                     seconds={extraTime.seconds}
                     isRunning={extraTime.isRunning}
-                    fullscreen={false}
-                    showAnimation={true}
                   />
                 </div>
               )}
@@ -476,12 +505,12 @@ const addTimeToLiveTimer = (minutes: number) => {
                     Stop
                   </button>
                   
-<button
-  onClick={() => addTimeToLiveTimer(-1)}
-  className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-red-500"
->
-  -1m
-</button>
+                  <button
+                    onClick={() => addTimeToLiveTimer(-1)}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-red-500"
+                  >
+                    -1m
+                  </button>
 
                   <button
                     onClick={() => addTimeToLiveTimer(1)}
@@ -533,102 +562,94 @@ const addTimeToLiveTimer = (minutes: number) => {
                   }}
                   className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-500"
                 >
-                  Clear Alert
+                 Clear Alert
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{/* Bottom Section */}
-<div className="grid grid-cols-2 gap-2 mt-6">
-  <div className="bg-gray-800 p-4 rounded">
-    <h2 className="text-xl text-white mb-4">Order of Program</h2>
-    <div className="flex flex-col space-y-2 mb-4"> {/* Changed to flex-col */}
-      <div className="flex space-x-2">
-        <input
-          type="text"
-          placeholder="Program name"
-          className="flex-grow p-2 rounded bg-gray-700 text-white"
-          value={programName}
-          onChange={(e) => setProgramName(e.target.value)}
-        />
-      
-	  <span className="bg-gray-700 text-white px-4 py-2 rounded min-w-[60px] text-center">
-          <b>{programDuration} Minute(s)</b>
-        </span>
-	  
-	  
-	  
-      </div>
-      <div className="flex items-center space-x-2"> {/* New container for duration */}
-        
-      </div>
-      {/* Minute Buttons Below */}
-      <div className="flex justify-center space-x-2">   <button
-          onClick={() => adjustProgramDuration(5)}
-          className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-gray-600"
-        >
-          +5M
-        </button>
-        <button
-          onClick={() => adjustProgramDuration(-5)}
-          className="bg-red-800 text-white px-3 py-2 rounded hover:bg-gray-600"
-        >
-          -5M
-        </button>
-		
-		   <button
-          onClick={() => adjustProgramDuration(1)}
-          className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-gray-600"
-        >
-          +1M
-        </button>
-      
-		
-        <button
-          onClick={() => adjustProgramDuration(-1)}
-          className="bg-red-800 text-white px-3 py-2 rounded hover:bg-gray-600"
-        >
-          -1M
-        </button>
-     
-		  <button
-          onClick={addProgram}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-900"
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  
-			
-			
-			
-			
-			
-			
-			
-			
+        {/* Bottom Section */}
+        <div className="grid grid-cols-2 gap-2 mt-6">
+          <div className="bg-gray-800 p-4 rounded">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl text-white">Order of Program</h2>
+              <button
+                onClick={() => setShowCategoryManager(true)}
+                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-500 flex items-center"
+              >
+                <FolderPlus size={16} className="mr-1" />
+                Categories
+              </button>
+            </div>
+            <div className="flex flex-col space-y-2 mb-4">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Program name"
+                  className="flex-grow p-2 rounded bg-gray-700 text-white"
+                  value={programName}
+                  onChange={(e) => setProgramName(e.target.value)}
+                />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="p-2 rounded bg-gray-700 text-white"
+                >
+                  <option value="">Select Category</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="bg-gray-700 text-white px-4 py-2 rounded min-w-[60px] text-center">
+                  <b>{programDuration} Minute(s)</b>
+                </span>
+              </div>
+              <div className="flex justify-center space-x-2">
+                <button
+                  onClick={() => adjustProgramDuration(5)}
+                  className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                >
+                  +5M
+                </button>
+                <button
+                  onClick={() => adjustProgramDuration(-5)}
+                  className="bg-red-800 text-white px-3 py-2 rounded hover:bg-gray-600"
+                >
+                  -5M
+                </button>
+                <button
+                  onClick={() => adjustProgramDuration(1)}
+                  className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-gray-600"
+                >
+                  +1M
+                </button>
+                <button
+                  onClick={() => adjustProgramDuration(-1)}
+                  className="bg-red-800 text-white px-3 py-2 rounded hover:bg-gray-600"
+                >
+                  -1M
+                </button>
+                <button
+                  onClick={addProgram}
+                  disabled={!selectedCategory}
+                  className={`px-4 py-2 rounded ${
+                    selectedCategory
+                      ? 'bg-green-600 hover:bg-green-900 text-white'
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
             <ProgramList
               programs={programs}
+              categories={categories}
               onDelete={handleProgramDelete}
               onStart={startProgram}
               onNotify={(program) => {
@@ -649,9 +670,6 @@ const addTimeToLiveTimer = (minutes: number) => {
                 minutes={extraTime.minutes}
                 seconds={extraTime.seconds}
                 isRunning={extraTime.isRunning}
-                fullscreen={false}
-                showAnimation={false}
-                hideTitle={true}
               />
             </div>
             <div className="space-y-2 mt-4">
@@ -697,6 +715,17 @@ const addTimeToLiveTimer = (minutes: number) => {
         <DisplaySettings 
           onClose={() => setShowSettings(false)} 
           onBackgroundChange={handleBackgroundChange}
+        />
+      )}
+
+      {showCategoryManager && (
+        <CategoryManager
+          isOpen={showCategoryManager}
+          onClose={() => setShowCategoryManager(false)}
+          categories={categories}
+          onAdd={addCategory}
+          onUpdate={updateCategory}
+          onDelete={deleteCategory}
         />
       )}
 

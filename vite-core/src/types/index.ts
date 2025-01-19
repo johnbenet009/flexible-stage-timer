@@ -2,6 +2,12 @@ export interface Program {
   id: string;
   name: string;
   duration: number;
+  categoryId: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
 }
 
 export interface TimerState {
@@ -23,5 +29,5 @@ export interface DisplaySizeSettings {
   timer: number;
   alert: number;
   nextProgram: number;
-  alertSpeed: number; // Added alert speed setting
+  alertSpeed: number;
 }

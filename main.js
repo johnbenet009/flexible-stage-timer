@@ -1,45 +1,24 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('path');
+const static = require('node-static');
+const file = new static.Server('./public');
+const http = require('http');
 
-let mainWindow;
-
-app.on('ready', () => {
-    mainWindow = new BrowserWindow({
-        width: 1024,
-        height: 768,
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-        },
-    });
-
-    // Load your server's URL
-    mainWindow.loadURL('http://127.0.0.1:8080/');
-
-    // Uncomment to open DevTools (optional)
-    // mainWindow.webContents.openDevTools();
-
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
-});
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
-});
-
-app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = new BrowserWindow({
-            width: 1024,
-            height: 768,
-            webPreferences: {
-                nodeIntegration: true,
-                contextIsolation: false,
-            },
+const server = http.createServer((request, response) => {
+    request.addListener('end', () => {
+        file.serve(request, response, (e) => {
+            if (e) {
+                if (e.status === 404) {
+                file.serveFile('/index.html', 200, {}, request, response);
+                } else {
+                    response.writeHead(e.status, { 'Content-Type': 'text/plain' });
+                    response.end(`Error: ${e.message}`);
+                }
+            }
         });
-        mainWindow.loadURL('http://127.0.0.1:8080/');
-    }
+    }).resume();
 });
+
+server.listen(1000, () => {
+    console.log('Server running at http://localhost:1000/');
+});
+
+module.exports = server;
