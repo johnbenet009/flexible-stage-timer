@@ -1,0 +1,33 @@
+https://bolt.new/~/sb1-mefqxc8b
+
+
+Steps:
+
+We need to install python and FFMPEG:
+
+Install Chocolatey (if you don't have it already, Open CMD as an Admin. command:
+
+Step1 INSTALL Chocolatey:
+@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+
+
+Step 2.
+Install FFMPEG, Close and re-open CMD as an administrator: 
+Command: choco install ffmpeg
+
+Or download via: 
+https://ffmpeg.org/download.html
+
+Step 3:
+pip install -r requirements.txt
+
+
+IF THERE'S ERROR
+create a fresh virtual environment:
+
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python stream.py
+
+
