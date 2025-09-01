@@ -110,15 +110,26 @@ function TimerDisplay() {
             isComplete={timerState.isComplete}
             background={background}
             fullscreen={true}
+            isRunning={timerState.isRunning}
           />
           {showClock && (
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-20">
-              <span className="text-[20vw] font-bold text-white">{currentTime}</span>
+              <span 
+                className="font-bold text-white"
+                style={{
+                  fontSize: '8vw',
+                  fontFamily: 'Arial, sans-serif',
+                  textShadow: '4px 4px 8px rgba(0,0,0,0.8)',
+                  letterSpacing: '0.05em'
+                }}
+              >
+                {currentTime}
+              </span>
             </div>
           )}
         </>
       ) : (
-        <div className="absolute inset-0 bg-black animate-extraTimeBg">
+        <div className="absolute inset-0 bg-black animate-extraTimeFlash">
           <ExtraTimeTimer
             minutes={extraTime.minutes}
             seconds={extraTime.seconds}
@@ -137,11 +148,14 @@ function TimerDisplay() {
       )}
       
       {(alertState.show || alertState.isFlashing) && (
-        <div className="fixed bottom-0 left-0 right-0 transform scale-150 origin-bottom z-50">
-          <AlertBanner 
-            message={alertState.message} 
-            isFlashing={alertState.isFlashing} 
-          />
+        <div className="fixed bottom-0 left-0 right-0 z-50 w-full">
+          <div className="w-full overflow-hidden">
+            <AlertBanner 
+              message={alertState.message} 
+              isFlashing={alertState.isFlashing} 
+              fullscreen={true}
+            />
+          </div>
         </div>
       )}
     </div>

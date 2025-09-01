@@ -3,12 +3,13 @@ import { Plus, Minus, RefreshCw, Play } from 'lucide-react';
 
 interface TimerControlsProps {
   onAdjustTime: (minutes: number) => void;
+  onAdjustSeconds?: (seconds: number) => void;
   onReset: () => void;
   onStart?: () => void;
   showStartButton?: boolean;
 }
 
-export function TimerControls({ onAdjustTime, onReset, onStart, showStartButton }: TimerControlsProps) {
+export function TimerControls({ onAdjustTime, onAdjustSeconds, onReset, onStart, showStartButton }: TimerControlsProps) {
   const timeButtons = [
     { value: 1, label: '+1' },
     { value: -1, label: '-1' },
@@ -18,6 +19,13 @@ export function TimerControls({ onAdjustTime, onReset, onStart, showStartButton 
     { value: -10, label: '-10' },
     { value: 30, label: '+30' },
     { value: -30, label: '-30' },
+  ];
+
+  const secondsButtons = [
+    { value: 5, label: '+5s' },
+    { value: -5, label: '-5s' },
+    { value: 10, label: '+10s' },
+    { value: -10, label: '-10s' },
   ];
 
   return (
@@ -33,6 +41,19 @@ export function TimerControls({ onAdjustTime, onReset, onStart, showStartButton 
           </button>
         ))}
       </div>
+      {onAdjustSeconds && (
+        <div className="grid grid-cols-4 gap-2">
+          {secondsButtons.map((btn) => (
+            <button
+              key={btn.label}
+              onClick={() => onAdjustSeconds(btn.value)}
+              className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex space-x-2">
         {showStartButton && onStart && (
           <button

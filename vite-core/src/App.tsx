@@ -53,6 +53,7 @@ function App() {
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
   const [showNextProgram, setShowNextProgram] = useState<string | null>(null);
+
   const [isTimerComplete, setIsTimerComplete] = useState(false);
   const [programName, setProgramName] = useState('');
   const [programDuration, setProgramDuration] = useState(0);
@@ -145,6 +146,44 @@ function App() {
     };
   }, [showClock]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in input fields
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      switch (event.key.toLowerCase()) {
+        case ' ': // Spacebar - Start/Pause timer
+          event.preventDefault();
+          if (!liveTimer.isRunning) {
+            startLiveTimer();
+          } else {
+            liveTimer.isPaused ? resumeLiveTimer() : pauseLiveTimer();
+          }
+          break;
+        case 's': // S - Stop timer
+          if (event.ctrlKey || event.metaKey) return; // Don't interfere with Ctrl+S
+          resetLiveTimer();
+          break;
+        case 'r': // R - Reset timer
+          if (event.ctrlKey || event.metaKey) return; // Don't interfere with Ctrl+R
+          resetLiveTimer();
+          break;
+        case 'a': // A - Toggle attention
+          toggleAttention();
+          break;
+        case 'c': // C - Show clock
+          setShowClock(true);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [liveTimer.isRunning, liveTimer.isPaused]);
+
   useEffect(() => {
     if (liveTimer.isRunning && liveTimer.minutes === 0 && liveTimer.seconds === 0) {
       setIsTimerComplete(true);
@@ -215,7 +254,10 @@ function App() {
   const handleBackgroundChange = async (type: string, source: string | null) => {
     try {
       if (type === 'webcam') {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const constraints = {
+          video: source ? { deviceId: { exact: source } } : true
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         const video = document.getElementById('webcam-video') as HTMLVideoElement;
         if (video) {
           video.srcObject = stream;
@@ -257,6 +299,30 @@ function App() {
       ...prev,
       minutes: Math.max(0, prev.minutes + minutes),
     }));
+  };
+
+  const handleSetupSecondsAdjust = (seconds: number) => {
+    setSetupTimer(prev => {
+      const totalSeconds = prev.minutes * 60 + prev.seconds + seconds;
+      if (totalSeconds < 0) return { ...prev, minutes: 0, seconds: 0 };
+      return {
+        ...prev,
+        minutes: Math.floor(totalSeconds / 60),
+        seconds: totalSeconds % 60,
+      };
+    });
+  };
+
+  const handleLiveSecondsAdjust = (seconds: number) => {
+    setLiveTimer(prev => {
+      const totalSeconds = prev.minutes * 60 + prev.seconds + seconds;
+      if (totalSeconds < 0) return { ...prev, minutes: 0, seconds: 0 };
+      return {
+        ...prev,
+        minutes: Math.floor(totalSeconds / 60),
+        seconds: totalSeconds % 60,
+      };
+    });
   };
 
   const adjustProgramDuration = (minutes: number) => {
@@ -367,6 +433,28 @@ function App() {
     }
   };
 
+  const addSecondsToLiveTimer = (seconds: number) => {
+    if (liveTimer.isRunning) {
+      setLiveTimer(prev => {
+        const totalSeconds = prev.minutes * 60 + prev.seconds + seconds;
+        const newMinutes = Math.floor(Math.max(0, totalSeconds) / 60);
+        const newSeconds = Math.max(0, totalSeconds) % 60;
+        return {
+          ...prev,
+          minutes: newMinutes,
+          seconds: newSeconds
+        };
+      });
+    }
+  };
+
+  const clearCacheAndRefresh = () => {
+    // Clear all localStorage data
+    localStorage.clear();
+    // Refresh the page
+    window.location.reload();
+  };
+
   const handleProgramEdit = (program: Program) => {
     setPrograms(prev => prev.map(p => 
       p.id === program.id ? program : p
@@ -394,8 +482,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <div className="container mx-auto p-4">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="container mx-auto p-2 sm:p-4">
+        {/* Developer Credit Header */}
+        <div className="text-center mb-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Stage Timer App</h1>
+          <p className="text-xs sm:text-sm text-gray-400">by Positive Developer: +2349014532386</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Setup Section */}
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-white mb-4">Setup</h2>
@@ -407,6 +500,7 @@ function App() {
             />
             <TimerControls
               onAdjustTime={handleSetupTimerAdjust}
+              onAdjustSeconds={handleSetupSecondsAdjust}
               onReset={() => setSetupTimer(prev => ({ ...prev, minutes: 0, seconds: 0 }))}
               showStartButton={true}
               onStart={startLiveTimer}
@@ -415,9 +509,9 @@ function App() {
 
           {/* Live Preview Section */}
           <div className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-white">Live</h2>
-              <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Live</h2>
+              <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
                 <button
                   onClick={() => setShowClock(true)}
                   className="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-500"
@@ -447,6 +541,7 @@ function App() {
                   isAttention={liveTimer.isAttention}
                   isComplete={isTimerComplete}
                   background={background}
+                  isRunning={liveTimer.isRunning}
                 />
               ) : (
                 <div className="bg-black animate-extraTimeBg rounded-lg overflow-hidden">
@@ -464,70 +559,138 @@ function App() {
                 />
               )}
               {(showAlert || isAlertFlashing) && (
-                <div className="absolute bottom-0 left-0 right-0">
-                  <AlertBanner message={alertMessage} isFlashing={isAlertFlashing} />
+                <div className="absolute top-0 left-0 right-0 z-10">
+                  <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-semibold shadow-lg">
+                    <div className={`${isAlertFlashing ? 'animate-flash' : ''}`}>
+                      {alertMessage}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
             
-            <div className="flex space-x-2">
-              {!liveTimer.isRunning ? (
+
+              
+              {/* Live Timer Controls - Mobile Friendly Layout */}
+            <div className="space-y-3">
+              {/* Row 1: Start/Pause/Stop Controls */}
+              <div className="flex flex-wrap gap-2 justify-center">
+                {!liveTimer.isRunning ? (
+                  <button
+                    onClick={startLiveTimer}
+                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-500"
+                  >
+                    <Play className="inline-block mr-2" size={18} />
+                    Start
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={liveTimer.isPaused ? resumeLiveTimer : pauseLiveTimer}
+                      className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
+                    >
+                      {liveTimer.isPaused ? (
+                        <>
+                          <Play className="inline-block mr-2" size={18} />
+                          Resume
+                        </>
+                      ) : (
+                        <>
+                          <Pause className="inline-block mr-2" size={18} />
+                          Pause
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={resetLiveTimer}
+                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500"
+                    >
+                      <RefreshCw className="inline-block mr-2" size={18} />
+                      Stop
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={startLiveTimer}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+                  onClick={toggleAttention}
+                  className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-500"
                 >
-                  <Play className="inline-block mr-2" size={18} />
-                  Start
+                  <AlertTriangle className="inline-block mr-2" size={18} />
+                  Attention!
                 </button>
-              ) : (
-                <>
+              </div>
+              
+              {/* Row 2: Minute Controls */}
+              {liveTimer.isRunning && (
+                <div className="flex flex-wrap gap-2 justify-center">
                   <button
-                    onClick={liveTimer.isPaused ? resumeLiveTimer : pauseLiveTimer}
-                    className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
+                    onClick={() => addTimeToLiveTimer(-10)}
+                    className="bg-red-700 text-white px-3 py-2 rounded hover:bg-red-600 text-sm"
                   >
-                    {liveTimer.isPaused ? (
-                      <>
-                        <Play className="inline-block mr-2" size={18} />
-                        Resume
-                      </>
-                    ) : (
-                      <>
-                        <Pause className="inline-block mr-2" size={18} />
-                        Pause
-                      </>
-                    )}
+                    -10m
                   </button>
                   <button
-                    onClick={resetLiveTimer}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500"
+                    onClick={() => addTimeToLiveTimer(-5)}
+                    className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-500 text-sm"
                   >
-                    <RefreshCw className="inline-block mr-2" size={18} />
-                    Stop
+                    -5m
                   </button>
-                  
                   <button
                     onClick={() => addTimeToLiveTimer(-1)}
-                    className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-red-500"
+                    className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-400 text-sm"
                   >
                     -1m
                   </button>
-
                   <button
                     onClick={() => addTimeToLiveTimer(1)}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+                    className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-400 text-sm"
                   >
                     +1m
                   </button>
-                 
-                </>
+                  <button
+                    onClick={() => addTimeToLiveTimer(5)}
+                    className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-500 text-sm"
+                  >
+                    +5m
+                  </button>
+                  <button
+                    onClick={() => addTimeToLiveTimer(10)}
+                    className="bg-green-700 text-white px-3 py-2 rounded hover:bg-green-600 text-sm"
+                  >
+                    +10m
+                  </button>
+                </div>
               )}
-              <button
-                onClick={toggleAttention}
-                className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-500"
-              >
-                <AlertTriangle className="inline-block mr-2" size={18} />
-                Attention!
-              </button>
+              
+              {/* Row 3: Second Controls */}
+              {liveTimer.isRunning && (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <button
+                    onClick={() => addSecondsToLiveTimer(-10)}
+                    className="bg-orange-700 text-white px-3 py-2 rounded hover:bg-orange-600 text-sm"
+                  >
+                    -10s
+                  </button>
+                  <button
+                    onClick={() => addSecondsToLiveTimer(-5)}
+                    className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-500 text-sm"
+                  >
+                    -5s
+                  </button>
+                  <button
+                    onClick={() => addSecondsToLiveTimer(5)}
+                    className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-500 text-sm"
+                  >
+                    +5s
+                  </button>
+                  <button
+                    onClick={() => addSecondsToLiveTimer(10)}
+                    className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-blue-600 text-sm"
+                  >
+                    +10s
+                  </button>
+                </div>
+              )}
+
             </div>
 
             <div className="space-y-2">
@@ -569,8 +732,20 @@ function App() {
           </div>
         </div>
 
+        {/* Keyboard Shortcuts Help */}
+        <div className="mt-6 bg-gray-800 p-3 rounded">
+          <h3 className="text-sm font-semibold text-gray-300 mb-2">Keyboard Shortcuts</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs text-gray-400">
+            <div><kbd className="bg-gray-700 px-1 rounded">Space</kbd> Start/Pause</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">S</kbd> Stop</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">R</kbd> Reset</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">A</kbd> Attention</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">C</kbd> Clock</div>
+          </div>
+        </div>
+
         {/* Bottom Section */}
-        <div className="grid grid-cols-2 gap-2 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
           <div className="bg-gray-800 p-4 rounded">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl text-white">Order of Program</h2>
@@ -712,10 +887,11 @@ function App() {
       </div>
 
       {showSettings && (
-        <DisplaySettings 
-          onClose={() => setShowSettings(false)} 
-          onBackgroundChange={handleBackgroundChange}
-        />
+          <DisplaySettings 
+            onClose={() => setShowSettings(false)} 
+            onBackgroundChange={handleBackgroundChange}
+            onClearCache={clearCacheAndRefresh}
+          />
       )}
 
       {showCategoryManager && (

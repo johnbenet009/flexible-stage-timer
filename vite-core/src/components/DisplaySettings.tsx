@@ -1,10 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { X, Image, Camera, Video, RefreshCw, ZoomIn, ZoomOut, FastForward, Rewind } from 'lucide-react';
+import { X, Image, Camera, Video, RefreshCw, ZoomIn, ZoomOut, FastForward, Rewind, ChevronDown } from 'lucide-react';
 import { DisplaySizeSettings } from '../types';
 
 interface DisplaySettingsProps {
   onClose: () => void;
   onBackgroundChange: (type: string, source: string | null) => void;
+  onClearCache?: () => void;
 }
 
 const DEFAULT_SIZES: DisplaySizeSettings = {
@@ -14,8 +15,10 @@ const DEFAULT_SIZES: DisplaySizeSettings = {
   alertSpeed: 100,
 };
 
-export function DisplaySettings({ onClose, onBackgroundChange }: DisplaySettingsProps) {
+export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: DisplaySettingsProps) {
   const [selectedOption, setSelectedOption] = useState<string>('default');
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [sizes, setSizes] = useState<DisplaySizeSettings>(() => {
     const savedSizes = localStorage.getItem('displaySizes');
     return savedSizes ? JSON.parse(savedSizes) : DEFAULT_SIZES;
@@ -54,15 +57,35 @@ export function DisplaySettings({ onClose, onBackgroundChange }: DisplaySettings
     }
   };
 
+  const loadAvailableCameras = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      setAvailableCameras(cameras);
+      if (cameras.length > 0 && !selectedCameraId) {
+        setSelectedCameraId(cameras[0].deviceId);
+      }
+    } catch (err) {
+      console.error('Error enumerating cameras:', err);
+    }
+  }, [selectedCameraId]);
+
   const startWebcam = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      onBackgroundChange('webcam', null);
+      const constraints = {
+        video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : true
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      onBackgroundChange('webcam', selectedCameraId);
       setSelectedOption('webcam');
     } catch (err) {
       console.error('Error accessing webcam:', err);
     }
-  }, [onBackgroundChange]);
+  }, [onBackgroundChange, selectedCameraId]);
+
+  useEffect(() => {
+    loadAvailableCameras();
+  }, [loadAvailableCameras]);
 
   const adjustSize = (key: keyof DisplaySizeSettings, amount: number) => {
     setSizes(prev => ({
@@ -104,12 +127,33 @@ export function DisplaySettings({ onClose, onBackgroundChange }: DisplaySettings
               onChange={handleImageUpload}
             />
 
+            {/* Camera Selection */}
+            {availableCameras.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300">Select Camera:</label>
+                <div className="relative">
+                  <select
+                    value={selectedCameraId}
+                    onChange={(e) => setSelectedCameraId(e.target.value)}
+                    className="w-full bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none appearance-none pr-8"
+                  >
+                    {availableCameras.map((camera) => (
+                      <option key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                </div>
+              </div>
+            )}
+
             <button 
               onClick={startWebcam}
               className={`w-full ${selectedOption === 'webcam' ? 'bg-blue-700' : 'bg-blue-600'} text-white px-4 py-2 rounded hover:bg-blue-500`}
             >
               <Camera className="inline-block mr-2" size={18} />
-              Use Webcam
+              Use Selected Camera
             </button>
 
             <button 
@@ -230,6 +274,17 @@ export function DisplaySettings({ onClose, onBackgroundChange }: DisplaySettings
               <RefreshCw className="inline-block mr-2" size={18} />
               Reset All Sizes
             </button>
+            
+            {onClearCache && (
+              <button
+                onClick={onClearCache}
+                className="w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-500 mt-2"
+                title="Clear cache and refresh"
+              >
+                <RefreshCw className="inline-block mr-2" size={18} />
+                Clear Cache
+              </button>
+            )}
           </div>
         </div>
       </div>
