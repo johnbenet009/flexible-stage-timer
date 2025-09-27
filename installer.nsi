@@ -4,7 +4,7 @@
 !define APPNAME "Stage Timer App"
 !define COMPANYNAME "Positive Developer"
 !define DESCRIPTION "A flexible stage timer application for presentations and events"
-!define VERSIONMAJOR 1
+!define VERSIONMAJOR 2
 !define VERSIONMINOR 0
 !define VERSIONBUILD 0
 !define HELPURL "https://github.com/johnbenet009/flexible-stage-timer"

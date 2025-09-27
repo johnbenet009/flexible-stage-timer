@@ -41,20 +41,31 @@ export function ProgramList({ programs, categories, onDelete, onStart, onNotify,
     );
   };
 
+  const getProgramCount = (categoryId: string) => {
+    return programs.filter(program => program.categoryId === categoryId).length;
+  };
+
   return (
-    <div className="max-h-[400px] overflow-y-auto space-y-2">
+    <div className="max-h-[400px] overflow-y-auto space-y-2 custom-scrollbar">
       {categories.map(category => (
         <div key={category.id} className="bg-gray-700 rounded overflow-hidden">
           <button
             onClick={() => toggleCategory(category.id)}
             className="w-full flex items-center justify-between p-3 text-white hover:bg-gray-600"
           >
-            <span className="font-bold">{category.name}</span>
-            {expandedCategories.includes(category.id) ? (
-              <ChevronDown size={20} />
-            ) : (
-              <ChevronRight size={20} />
-            )}
+            <div className="flex items-center justify-between w-full">
+              <span className="font-bold">{category.name}</span>
+              <div className="flex items-center space-x-2">
+                <span className="bg-gray-700 text-gray-300 text-xs px-3 py-1 rounded-md font-medium border border-gray-600">
+                  {getProgramCount(category.id)} {getProgramCount(category.id) === 1 ? 'program' : 'programs'}
+                </span>
+                {expandedCategories.includes(category.id) ? (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </div>
           </button>
           
           {expandedCategories.includes(category.id) && (

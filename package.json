@@ -1,75 +1,59 @@
 {
-    "name": "stage-timer-app",
-    "version": "0.1.0",
-    "description": "A flexible stage timer application for presentations and events",
-    "author": "Positive Developer",
-    "main": "main.js",
-    "scripts": {
-        "start": "electron .",
-        "build": "cd vite-core && npm run build",
-        "build-app": "npm run build && electron-builder",
-        "dev": "cd vite-core && npm run dev"
-    },
-    "devDependencies": {
-        "electron": "^13.6.9",
-        "electron-builder": "^24.13.1",
-        "electron-packager": "^17.1.2"
-    },
-    "build": {
-        "appId": "com.stage-timer.app",
-        "productName": "Stage Timer App",
-        "copyright": "Copyright © 2024 Positive Developer",
-        "asar": false,
-        "compression": "maximum",
-        "removePackageScripts": true,
-        "directories": {
-            "output": "dist",
-            "buildResources": "public"
-        },
-        "win": {
-            "target": [
-                {
-                    "target": "nsis",
-                    "arch": ["x64"]
-                }
-            ],
-            "icon": "public/icon.ico",
-            "sign": false,
-            "publisherName": "Positive Developer",
-            "verifyUpdateCodeSignature": false
-        },
-        "nsis": {
-            "oneClick": false,
-            "perMachine": false,
-            "allowElevation": true,
-            "allowToChangeInstallationDirectory": true,
-            "deleteAppDataOnUninstall": true,
-            "createDesktopShortcut": true,
-            "createStartMenuShortcut": true,
-            "shortcutName": "Stage Timer",
-            "installerIcon": "public/icon.ico",
-            "uninstallerIcon": "public/icon.ico",
-            "installerHeaderIcon": "public/icon.ico",
-            "installerSidebar": null,
-            "uninstallerSidebar": null,
-            "warningsAsErrors": false,
-            "displayLanguageSelector": false,
-            "language": "1033",
-            "multiLanguageInstaller": false,
-            "packElevateHelper": false,
-            "differentialPackage": false
-        },
-        "files": [
-            "main.js",
-            "vite-core/dist/**/*",
-            "vite-core/src/icons/**/*",
-            "!**/node_modules/*",
-            "!**/*.map",
-            "!vite-core/src/*",
-            "!vite-core/node_modules/*",
-            "!public/*",
-            "!server.js",
-            "!index.js"
-        ]
-    }
+  "name": "stage-timer-app",
+  "version": "2.0.0",
+  "description": "A flexible stage timer application for presentations and events",
+  "author": "Positive Developer",
+  "main": "main.js",
+   "scripts": {
+     "start": "electron .",
+     "build": "cd vite-core && npm run build && cd .. && xcopy vite-core\\dist\\* public\\ /E /Y",
+     "build-app": "npm run build && electron-builder",
+     "build-clean": "npm run build && electron-builder --dir && node build-clean.js",
+     "build-installer": "npm run build && electron-builder --win nsis && node build-clean.js",
+     "dev": "cd vite-core && npm run dev"
+   },
+  "devDependencies": {
+    "electron": "^13.6.9",
+    "electron-builder": "^24.13.1",
+    "electron-packager": "^17.1.2"
+  },
+   "build": {
+     "appId": "com.stage-timer.app",
+     "productName": "Stage Timer App",
+     "copyright": "Copyright © 2024 Positive Developer",
+     "asar": false,
+     "compression": "maximum",
+     "directories": {
+       "output": "dist",
+       "buildResources": "public"
+     },
+     "icon": "public/icon.ico",
+     "win": {
+       "target": "nsis",
+       "icon": "public/icon.ico"
+     },
+     "files": [
+       "main.js",
+       "preload.js",
+       "public/**/*",
+       "!public/bg.jpg",
+       "!**/node_modules/**",
+       "!**/*.map",
+       "!vite-core/src/**",
+       "!vite-core/node_modules/**",
+       "!vite-core/dist/**"
+     ],
+     "nsis": {
+       "oneClick": false,
+       "perMachine": false,
+       "allowElevation": true,
+       "allowToChangeInstallationDirectory": true,
+       "deleteAppDataOnUninstall": true,
+       "createDesktopShortcut": true,
+       "createStartMenuShortcut": true,
+       "shortcutName": "Stage Timer",
+       "installerIcon": "public/icon.ico",
+       "uninstallerIcon": "public/icon.ico"
+     }
+   }
 }

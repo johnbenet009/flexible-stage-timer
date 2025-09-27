@@ -1,180 +1,249 @@
-# Flexible Stage Timer App
-![image](https://github.com/user-attachments/assets/21eeb34f-b213-4d9f-8958-1d038cfee3ee)
+# Stage Timer App v2.0
 
-A professional stage timing application built with vite, TypeScript, and Electron, designed for live events, presentations, and performances. This application bundles a Node.js server to ensure that it will run on different operating systems, even without having Node.js installed on the system.
+![Stage Timer App](https://github.com/user-attachments/assets/21eeb34f-b213-4d9f-8958-1d038cfee3ee)
 
-## Features
+A professional stage timing application built with React, TypeScript, and Electron, designed for live events, presentations, and performances. Features a massive attention-grabbing "Up Next" display and comprehensive program management.
 
-- **Dual Timer Display**
-  - Setup timer for preparation
-  - Live timer with fullscreen display
-  - Extra time management
-  - Visual alerts and notifications
-![image](https://github.com/user-attachments/assets/cdb0339d-c704-4e13-b9c7-1da1f5c6a675)
+## ✨ Key Features
 
-- **Program Management**
-- ![image](https://github.com/user-attachments/assets/1f97992a-5121-46fd-8368-4a4b2bb9cc8b)
+### 🎭 Massive "Up Next" Display
+- **Attention-grabbing color sequence**: 8 bright colors cycling rapidly for 1.6 seconds
+- **Massive text sizes**: Program names up to 192px (12rem) for distant visibility
+- **Duration display**: Shows exact minutes prominently
+- **Full screen coverage**: Maximum visual impact for stage presentations
 
-  - Organize programs by categories
-  - Quick program selection and timing
-  - Edit and delete functionality
-  - Program notifications
+### ⏱️ Advanced Timer System
+- **Dual Timer Display**: Setup timer for preparation + Live timer with fullscreen
+- **Background timer protection**: Prevents pausing when window is in background
+- **Extra time management**: Add bonus time during presentations
+- **Timer history**: Track and replay previous timers (48-hour auto-expiration)
+- **Single instance protection**: Prevents multiple app windows
 
-- **Alert System**
-- ![image](https://github.com/user-attachments/assets/acbf77fc-8877-44c8-8da9-9b6025c60584)
+### 📋 Program Management
+- **Category organization**: Group programs by event segments
+- **Program counts**: Visual badges showing programs per category
+- **Export/Import**: CSV template for bulk program management
+- **Quick program selection**: One-click program timing
+- **"Up Next" notifications**: Send program alerts with massive display
 
-  - Custom alert messages
-  - Flash alerts
-  - Scrolling text display
-  - Attention mode
+### 🚨 Enhanced Alert System
+- **Custom alert messages**: Display any text on screen
+- **Flash alerts**: Attention-grabbing flashing mode
+- **Scrolling text display**: Smooth text animation
+- **Alert consistency**: Identical display on main and live screens
 
-- **Display Customization**
-- ![image](https://github.com/user-attachments/assets/9b5ca390-e48b-4ccd-b03b-3cd1a32757fa)
+### 🎨 Display Customization
+- **Adjustable timer sizes**: Scale all display elements
+- **Custom backgrounds**: Image, Video, or Webcam support
+- **Splash screen customization**: Default gradient or custom image
+- **Clock display option**: Show current time
+- **Custom scrollbars**: Professional UI throughout
 
-  - Adjustable timer sizes
-  - Custom backgrounds (Image/Video/Webcam)
-  - Alert scroll speed control
-  - Clock display option
 
-- **Multi-Screen Support**
-  - Opens a secondary timer window on an available secondary screen, without showing the icon in the taskbar
-  - Detects when there's a secondary screen and displays an alert if none are available.
+### 🖥️ Multi-Screen Support
+- **Automatic detection**: Opens on secondary screen when available
+- **Display switching**: Easy switching between multiple displays
+- **Taskbar integration**: Secondary window hidden from taskbar
+- **Cross-screen synchronization**: Consistent alerts across displays
 
-- **Persistent Data**
-  - Store programs, categories, and settings using local storage
-- **Responsive Design**
-  - Clean, modern interface
-  - Touch-friendly controls
-  - Fullscreen display mode
-  - Professional animations
+### 💾 Data Management
+- **Persistent storage**: All data saved locally
+- **Export/Import programs**: CSV template system
+- **Category management**: Safe deletion with confirmation modals
+- **Cache management**: Clear cache option with data preservation
+- **Auto-backup**: Timer history with expiration
 
-- **Bundled Nodejs**
-   - Includes a bundled version of Nodejs to ensure it works on systems without NodeJS installed.
+## 🛠️ Tech Stack
 
-## Tech Stack
+- **Frontend**: React 18, TypeScript, Tailwind CSS
+- **Build Tool**: Vite
+- **Desktop**: Electron
+- **Icons**: Lucide React
+- **Server**: Node.js HTTP server (bundled)
 
-- React 18
-- TypeScript
-- Tailwind CSS
-- Vite
-- Lucide Icons
-- React Router
-- Electron
+## 📁 Project Structure
 
-## Project Structure
+```
+flexible-stage-timer/
+├── vite-core/                 # React frontend application
+│   ├── src/
+│   │   ├── components/        # React components
+│   │   ├── types/            # TypeScript definitions
+│   │   └── main.tsx          # App entry point
+│   └── dist/                 # Built frontend files
+├── public/                   # Static assets and built files
+├── main.js                   # Electron main process
+├── preload.js               # Electron preload script
+└── package.json             # Project configuration
+```
 
-The project is structured into two main parts:
-
-- **`vite-core`:** Contains the vite frontend application built with Vite.
-
-- **Root directory:** Contains the Electron application which is responsible for packaging and launching the `vite-core` application, including a local Node.js server.
-
-## Installation and Setup
+## 🚀 Installation & Setup
 
 ### Prerequisites
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [npm](https://www.npmjs.com/) (comes with Node.js)
+- [Git](https://git-scm.com/) (for contributing)
 
--   [Node.js](https://nodejs.org/) (required for development and building)
--   [npm](https://www.npmjs.com/) (comes with Node.js)
--   [Git](https://git-scm.com/) (Optional, if you want to contribute to the project)
+### Quick Start
 
-### Steps
-
-1.  Clone the repository:
-
+1. **Clone the repository:**
     ```bash
     git clone https://github.com/johnbenet009/flexible-stage-timer.git
-    ```
-2.  Navigate to the project directory:
-
-    ```bash
     cd flexible-stage-timer
     ```
-3.  Install the Electron app's dependencies:
 
+2. **Install dependencies:**
     ```bash
+   # Install main dependencies
     npm install
-    ```
-4. **Install dependencies for vite project**:
 
-    ```bash
+   # Install frontend dependencies
     cd vite-core
     npm install
+   cd ..
     ```
 
-### Running the Application
-
-1. To start the application in development mode, launch the server and electron app from the root folder:
+3. **Run in development:**
     ```bash
+   # Start the app
     npm start
+   
+   # Or run frontend in dev mode
+   npm run dev
     ```
 
-### Building the Application
+### Building for Production
 
-1. To build the Vite application, navigate to the `vite-core` directory and run:
+#### Quick Build (Recommended)
     ```bash
-        cd vite-core
-        npm run build
-    ```
-2.  Copy the contents of the `vite-core/dist` folder to `public` folder of the Electron project.
-3. Build the electron app and generate a standalone installer in the root folder:
+# Build clean directory version (removes language packs)
+npm run build-clean
+
+# Build NSIS installer with cleanup
+npm run build-installer
+```
+
+#### Manual Build Steps
     ```bash
+# 1. Build frontend and copy to public folder
       npm run build
-    ```
 
-4. The installer and unpacked application files will be located in the `dist` directory.
+# 2. Build Electron app directory
+npx electron-builder --dir
 
-## Usage
+# 3. Clean up unnecessary files (removes language packs)
+node build-clean.js
 
-### Main Timer Controls
+# 4. Build NSIS installer (optional)
+npx electron-builder --win nsis
+```
 
--   Use the setup timer to prepare your timing.
--   Start/Stop/Pause the live timer.
--   Add or subtract time with quick controls.
--   Toggle attention mode for important moments.
+#### Build Output
+- **`dist/Stage Timer App Setup 2.0.0.exe`** - NSIS installer for distribution
+- **`dist/win-unpacked/`** - Clean app directory (no language packs)
+- **`build-clean.js`** - Automated cleanup script
+
+#### Build Optimization
+The build process automatically removes:
+- Language packs (saves ~50+ files)
+- Unnecessary Chrome files
+- Duplicate resources
+
+This results in a significantly smaller and cleaner build.
+
+## 📖 Usage Guide
+
+### Basic Timer Controls
+- **Setup Timer**: Prepare timing with +/- controls
+- **Live Timer**: Fullscreen display for presentations
+- **Keyboard Shortcuts**: Space (start/pause), S (stop), R (reset), A (attention)
 
 ### Program Management
+1. **Create Categories**: Organize programs by event type
+2. **Add Programs**: Use the modal form with duration controls
+3. **Quick Start**: Click program name to start timing
+4. **Send Notifications**: Use "Up Next" to alert audience
 
--   Create categories for different event segments.
--   Add programs with specific durations.
--   Quick-start programs from the list.
--   Send "Up Next" notifications.
-
-### Alert System
-
--   Display custom alert messages.
--   Use flash alerts for immediate attention.
--   Control alert display size and scroll speed.
--   Clear alerts with a single click.
 
 ### Display Settings
+- **Timer Sizes**: Adjust all display elements
+- **Backgrounds**: Upload images, videos, or use webcam
+- **Splash Screen**: Customize startup display
+- **Multi-Screen**: Switch between available displays
 
--   Customize timer and alert sizes.
--   Upload background images or videos.
--   Use webcam as background.
--   Toggle clock display.
+## 🤝 Contributing
 
-### Multi-Screen Support
+We welcome contributions! Please follow these guidelines:
 
--   If a secondary screen is detected, it will open on that screen by default.
--   If a secondary screen is not detected, it will show on your main screen with a prompt.
+### Development Workflow
 
-## Contributing
+1. **Fork the repository**
+2. **Create a feature branch:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. **Make your changes** following the existing code style
+4. **Test thoroughly** - ensure all features work correctly
+5. **Build and test** the installer
+6. **Commit with clear messages:**
+   ```bash
+   git commit -m "feat: add new timer feature"
+   ```
+7. **Push to your fork:**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+8. **Create a Pull Request** with detailed description
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Code Standards
 
-## License
+- **TypeScript**: Use strict typing
+- **React**: Functional components with hooks
+- **Styling**: Tailwind CSS utility classes
+- **Commits**: Follow conventional commit format
+- **Testing**: Test on multiple screen configurations
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+### Pull Request Guidelines
 
-## Author
+- **Clear title**: Describe the feature/fix
+- **Detailed description**: Explain what changed and why
+- **Screenshots**: For UI changes
+- **Testing notes**: How to test the changes
+- **Breaking changes**: Document any breaking changes
 
-**John Benet**
+### Branch Naming Convention
 
--   GitHub: [@johnbenet009](https://github.com/johnbenet009)
+- `feature/description` - New features
+- `fix/description` - Bug fixes
+- `docs/description` - Documentation updates
+- `refactor/description` - Code refactoring
 
-## Acknowledgments
+## 🐛 Bug Reports
 
--   Built with vite.
--   Styled with Tailwind CSS.
--   Icons by Lucide React.
--   Packaged using Electron.
+When reporting bugs, please include:
+
+1. **OS and version**
+2. **App version** (check Help > About)
+3. **Steps to reproduce**
+4. **Expected vs actual behavior**
+5. **Screenshots** if applicable
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE.txt).
+
+## 👨‍💻 Author
+
+**John Benet** - [@johnbenet009](https://github.com/johnbenet009)
+
+## 🙏 Acknowledgments
+
+- Built with [React](https://reactjs.org/) and [TypeScript](https://www.typescriptlang.org/)
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
+- Icons by [Lucide React](https://lucide.dev/)
+- Packaged with [Electron](https://www.electronjs.org/)
+- Built with [Vite](https://vitejs.dev/)
+
+---
+
+**Ready for professional stage presentations!** 🎭✨

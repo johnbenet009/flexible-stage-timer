@@ -26,6 +26,7 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const splashInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem('displaySizes', JSON.stringify(sizes));
@@ -40,6 +41,18 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
       reader.onloadend = () => {
         onBackgroundChange('image', reader.result as string);
         setSelectedOption('image');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSplashUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        localStorage.setItem('splashImage', reader.result as string);
+        alert('Custom splash screen image saved! Restart the app to see changes.');
       };
       reader.readAsDataURL(file);
     }
@@ -100,7 +113,7 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 p-6 rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 p-6 rounded-lg w-[600px] max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-white">Display Settings</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -181,6 +194,42 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
               <RefreshCw className="inline-block mr-2" size={18} />
               Reset to Default
             </button>
+          </div>
+
+          {/* Splash Screen Settings */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white mb-2">Startup Splash Screen</h3>
+            
+            <button 
+              onClick={() => splashInputRef.current?.click()}
+              className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500"
+            >
+              <Image className="inline-block mr-2" size={18} />
+              Upload Custom Splash Image
+            </button>
+            <input
+              ref={splashInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleSplashUpload}
+            />
+            
+            <button 
+              onClick={() => {
+                localStorage.removeItem('splashImage');
+                alert('Splash screen reset to default gradient background');
+              }}
+              className="w-full bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-500"
+            >
+              <RefreshCw className="inline-block mr-2" size={18} />
+              Reset to Default Gradient
+            </button>
+            
+            <p className="text-sm text-gray-400">
+              Custom splash images will override the default gradient background. 
+              The gradient provides a modern, professional look.
+            </p>
           </div>
 
           {/* Size Controls */}

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, dialog, nativeTheme, Menu, shell } = require('electron');
+const { app, BrowserWindow, screen, dialog, nativeTheme, Menu, shell, powerSaveBlocker, ipcMain } = require('electron');
 const path = require('path');
 const { readFileSync } = require('fs');
 const url = require('url');
@@ -6,9 +6,29 @@ const url = require('url');
 let mainWindow;
 let secondWindow;
 
+// Single instance functionality
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, focus our window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.show();
+    }
+  });
+}
+
 app.on('ready', () => {
     // Set Dark Theme
     nativeTheme.themeSource = 'dark';
+    
+    // Prevent the app from going to sleep when timer is running
+    powerSaveBlocker.start('prevent-app-suspension');
 
     mainWindow = new BrowserWindow({
         width: 1050,
@@ -20,7 +40,8 @@ app.on('ready', () => {
             contextIsolation: true,
             enableRemoteModule: false,
             webSecurity: true,
-            cache: false
+            cache: false,
+            preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'public', 'icon.ico'),
         maximizable: true,
@@ -342,6 +363,20 @@ function setupMenu() {
                     click: createSecondWindow
                 },
                 {
+                    label: 'Switch Timer Display',
+                    accelerator: 'CmdOrCtrl+Shift+T',
+                    click: () => {
+                        // Close existing timer display and create new one
+                        if (secondWindow) {
+                            secondWindow.close();
+                        }
+                        // Wait a moment for the window to close, then create new one
+                        setTimeout(() => {
+                            createSecondWindow();
+                        }, 500);
+                    }
+                },
+                {
                     label: 'Close Timer Display',
                     accelerator: 'CmdOrCtrl+W',
                     click: () => {
@@ -391,6 +426,40 @@ function setupMenu() {
                 },
                 { type: 'separator' },
                 {
+                    label: 'Clear All Data (Reset App)',
+                    accelerator: 'CmdOrCtrl+Shift+Delete',
+                    click: async () => {
+                        const result = await dialog.showMessageBox(mainWindow, {
+                            type: 'warning',
+                            buttons: ['Cancel', 'Clear All Data'],
+                            defaultId: 0,
+                            title: 'Clear All Data',
+                            message: 'This will clear all saved data including:',
+                            detail: '• Programs and categories\n• Timer history\n• Display settings\n• Background preferences\n\nThis action cannot be undone. Are you sure you want to continue?'
+                        });
+                        
+                        if (result.response === 1) {
+                            // Clear all storage data
+                            if (mainWindow && mainWindow.webContents) {
+                                const session = mainWindow.webContents.session;
+                                await session.clearCache();
+                                await session.clearStorageData();
+                                await session.clearCodeCaches({});
+                                mainWindow.webContents.reloadIgnoringCache();
+                            }
+                            // Clear secondary window if it exists
+                            if (secondWindow && secondWindow.webContents) {
+                                const session = secondWindow.webContents.session;
+                                await session.clearCache();
+                                await session.clearStorageData();
+                                await session.clearCodeCaches({});
+                                secondWindow.webContents.reloadIgnoringCache();
+                            }
+                        }
+                    }
+                },
+                { type: 'separator' },
+                {
                     label: 'Exit',
                     accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
                     click: () => {
@@ -408,7 +477,7 @@ function setupMenu() {
                         dialog.showMessageBox(mainWindow, {
                             type: 'info',
                             title: 'About Stage Timer',
-                            message: 'Stage Timer App v1.0.0',
+                            message: 'Stage Timer App v2.0.0',
                             detail: 'A flexible timer application for stage management.'
                         });
                     }
@@ -420,3 +489,27 @@ function setupMenu() {
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
+
+// IPC Handlers
+ipcMain.handle('clear-cache', async () => {
+    try {
+        // Clear all types of cache and storage
+        if (mainWindow && mainWindow.webContents) {
+            const session = mainWindow.webContents.session;
+            await session.clearCache();
+            await session.clearCodeCaches({});
+            mainWindow.webContents.reloadIgnoringCache();
+        }
+        // Force refresh secondary window if it exists
+        if (secondWindow && secondWindow.webContents) {
+            const session = secondWindow.webContents.session;
+            await session.clearCache();
+            await session.clearCodeCaches({});
+            secondWindow.webContents.reloadIgnoringCache();
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+        return { success: false, error: error.message };
+    }
+});

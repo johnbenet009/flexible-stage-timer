@@ -24,7 +24,7 @@ function TimerDisplay() {
     isFlashing: false,
     show: false,
   });
-  const [nextProgram, setNextProgram] = useState<string | null>(null);
+  const [nextProgram, setNextProgram] = useState<any>(null);
   const [background, setBackground] = useState({ type: 'default', source: null });
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
@@ -142,19 +142,18 @@ function TimerDisplay() {
       
       {nextProgram && (
         <NextProgramNotification 
-          programName={nextProgram}
+          programName={typeof nextProgram === 'string' ? nextProgram : nextProgram.name}
           fullscreen={true}
+          duration={typeof nextProgram === 'object' ? nextProgram.duration : 0}
         />
       )}
       
       {(alertState.show || alertState.isFlashing) && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 w-full">
-          <div className="w-full overflow-hidden">
-            <AlertBanner 
-              message={alertState.message} 
-              isFlashing={alertState.isFlashing} 
-              fullscreen={true}
-            />
+        <div className="absolute top-0 left-0 right-0 z-50">
+          <div className="bg-red-600 text-white text-center py-4 px-4 text-4xl font-semibold shadow-lg">
+            <div className={`${alertState.isFlashing ? 'animate-flash' : ''}`}>
+              {alertState.message}
+            </div>
           </div>
         </div>
       )}

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Category } from '../types';
+import { Category, Program } from '../types';
 import { X, Edit2, Trash2, Check } from 'lucide-react';
+import { DeleteCategoryConfirmation } from './DeleteCategoryConfirmation';
 
 interface CategoryManagerProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
+  programs: Program[];
   onAdd: (name: string) => void;
   onUpdate: (category: Category) => void;
   onDelete: (id: string) => void;
@@ -15,6 +17,7 @@ export function CategoryManager({
   isOpen,
   onClose,
   categories,
+  programs,
   onAdd,
   onUpdate,
   onDelete,
@@ -22,6 +25,13 @@ export function CategoryManager({
   const [newCategory, setNewCategory] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    category: Category | null;
+  }>({
+    isOpen: false,
+    category: null,
+  });
 
   if (!isOpen) return null;
 
@@ -44,9 +54,38 @@ export function CategoryManager({
     }
   };
 
+  const handleDeleteClick = (category: Category) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      category,
+    });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmation.category) {
+      onDelete(deleteConfirmation.category.id);
+      setDeleteConfirmation({
+        isOpen: false,
+        category: null,
+      });
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      category: null,
+    });
+  };
+
+  const getProgramsInCategory = (categoryId: string) => {
+    return programs.filter(program => program.categoryId === categoryId);
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-white">Manage Categories</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -110,7 +149,7 @@ export function CategoryManager({
                       <Edit2 size={18} />
                     </button>
                     <button
-                      onClick={() => onDelete(category.id)}
+                      onClick={() => handleDeleteClick(category)}
                       className="text-red-500 hover:text-red-400"
                     >
                       <Trash2 size={18} />
@@ -121,7 +160,18 @@ export function CategoryManager({
             </div>
           ))}
         </div>
+        </div>
       </div>
+
+      {deleteConfirmation.isOpen && deleteConfirmation.category && (
+        <DeleteCategoryConfirmation
+          isOpen={deleteConfirmation.isOpen}
+          onClose={cancelDelete}
+          onConfirm={confirmDelete}
+          category={deleteConfirmation.category}
+          programsInCategory={getProgramsInCategory(deleteConfirmation.category.id)}
+        />
+      )}
     </div>
   );
 }
