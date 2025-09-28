@@ -1,10 +1,13 @@
 # Stage Timer App v2.0
 
-![Stage Timer App](https://github.com/user-attachments/assets/21eeb34f-b213-4d9f-8958-1d038cfee3ee)
+<img width="1043" height="953" alt="image" src="https://github.com/user-attachments/assets/10d812ce-50c5-42cb-818b-e015ea149a70" />
+
+![Uploading image.png…]()
 
 A professional stage timing application built with React, TypeScript, and Electron, designed for live events, presentations, and performances. Features a massive attention-grabbing "Up Next" display and comprehensive program management.
 
 ## ✨ Key Features
+<img width="674" height="517" alt="image" src="https://github.com/user-attachments/assets/a23648a2-674b-43bd-88ca-653b2a6964d7" />
 
 ### 🎭 Massive "Up Next" Display
 - **Attention-grabbing color sequence**: 8 bright colors cycling rapidly for 1.6 seconds
@@ -12,12 +15,17 @@ A professional stage timing application built with React, TypeScript, and Electr
 - **Duration display**: Shows exact minutes prominently
 - **Full screen coverage**: Maximum visual impact for stage presentations
 
+<img width="1058" height="955" alt="image" src="https://github.com/user-attachments/assets/d2777b9d-df06-4ca0-9203-1a25f7e4de54" />
+
 ### ⏱️ Advanced Timer System
 - **Dual Timer Display**: Setup timer for preparation + Live timer with fullscreen
 - **Background timer protection**: Prevents pausing when window is in background
 - **Extra time management**: Add bonus time during presentations
 - **Timer history**: Track and replay previous timers (48-hour auto-expiration)
 - **Single instance protection**: Prevents multiple app windows
+
+<img width="540" height="661" alt="image" src="https://github.com/user-attachments/assets/8cc324bf-c111-4987-97aa-6208ab0fd29a" />
+<img width="1037" height="934" alt="image" src="https://github.com/user-attachments/assets/9984b85b-06ca-4ba2-b747-c013ef5747e6" />
 
 ### 📋 Program Management
 - **Category organization**: Group programs by event segments
@@ -32,6 +40,8 @@ A professional stage timing application built with React, TypeScript, and Electr
 - **Scrolling text display**: Smooth text animation
 - **Alert consistency**: Identical display on main and live screens
 
+<img width="482" height="323" alt="image" src="https://github.com/user-attachments/assets/bde49a8f-c82f-4340-b379-940bf6ca84b7" />
+
 ### 🎨 Display Customization
 - **Adjustable timer sizes**: Scale all display elements
 - **Custom backgrounds**: Image, Video, or Webcam support
@@ -39,6 +49,7 @@ A professional stage timing application built with React, TypeScript, and Electr
 - **Clock display option**: Show current time
 - **Custom scrollbars**: Professional UI throughout
 
+![Uploading image.png…]()
 
 ### 🖥️ Multi-Screen Support
 - **Automatic detection**: Opens on secondary screen when available
@@ -246,4 +257,4 @@ This project is licensed under the [MIT License](LICENSE.txt).
 
 ---
 
-**Ready for professional stage presentations!** 🎭✨
+**Ready for professional stage presentations!** 🎭✨ 
