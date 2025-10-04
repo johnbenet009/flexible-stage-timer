@@ -154,14 +154,6 @@ npx electron-builder --win nsis
 - **`dist/win-unpacked/`** - Clean app directory (no language packs)
 - **`build-clean.js`** - Automated cleanup script
 
-#### Build Optimization
-The build process automatically removes:
-- Language packs (saves ~50+ files)
-- Unnecessary Chrome files
-- Duplicate resources
-
-This results in a significantly smaller and cleaner build.
-
 ## 📖 Usage Guide
 
 ### Basic Timer Controls
