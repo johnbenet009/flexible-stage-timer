@@ -30,4 +30,5 @@ export interface DisplaySizeSettings {
   alert: number;
   nextProgram: number;
   alertSpeed: number;
+  clock: number;
 }

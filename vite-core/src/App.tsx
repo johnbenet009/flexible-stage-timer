@@ -13,9 +13,11 @@ import { CategoryManager } from './components/CategoryManager';
 import { ExportImportManager } from './components/ExportImportManager';
 import { HowToGuide } from './components/HowToGuide';
 import { AddProgramModal } from './components/AddProgramModal';
+import TimerDisplay from './TimerDisplay';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [isTimerDisplayMode, setIsTimerDisplayMode] = useState(false);
   const [setupTimer, setSetupTimer] = useState<TimerState>({
     minutes: 0,
     seconds: 0,
@@ -52,9 +54,13 @@ function App() {
   const [alertMessage, setAlertMessage] = useState('');
   const [isAlertFlashing, setIsAlertFlashing] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  const [textCase, setTextCase] = useState<'normal' | 'uppercase' | 'lowercase' | 'capitalize'>(() => {
+    return (localStorage.getItem('textCase') as 'normal' | 'uppercase' | 'lowercase' | 'capitalize') || 'normal';
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+  const [clockScale, setClockScale] = useState(100);
   const [showNextProgram, setShowNextProgram] = useState<Program | null>(null);
 
   const [isTimerComplete, setIsTimerComplete] = useState(false);
@@ -92,11 +98,51 @@ function App() {
   const clockTimeoutRef = useRef<NodeJS.Timeout>();
   const clockIntervalRef = useRef<NodeJS.Timeout>();
 
+  // Case changer functions
+  const handleCaseChange = () => {
+    const cases: ('normal' | 'uppercase' | 'lowercase' | 'capitalize')[] = ['normal', 'uppercase', 'lowercase', 'capitalize'];
+    const currentIndex = cases.indexOf(textCase);
+    const nextIndex = (currentIndex + 1) % cases.length;
+    const newCase = cases[nextIndex];
+    setTextCase(newCase);
+    localStorage.setItem('textCase', newCase);
+    window.dispatchEvent(new Event('storage'));
+  };
+
+  const getProcessedAlertMessage = () => {
+    switch (textCase) {
+      case 'uppercase':
+        return alertMessage.toUpperCase();
+      case 'lowercase':
+        return alertMessage.toLowerCase();
+      case 'capitalize':
+        return alertMessage.replace(/\b\w/g, l => l.toUpperCase());
+      default:
+        return alertMessage;
+    }
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 3000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Handle routing for timer display mode
+  useEffect(() => {
+    const checkRoute = () => {
+      if (window.location.hash === '#/timer') {
+        setIsTimerDisplayMode(true);
+      } else {
+        setIsTimerDisplayMode(false);
+      }
+    };
+    
+    checkRoute();
+    window.addEventListener('hashchange', checkRoute);
+    
+    return () => window.removeEventListener('hashchange', checkRoute);
   }, []);
 
   useEffect(() => {
@@ -116,10 +162,22 @@ function App() {
       isAttention: liveTimer.isAttention,
       isComplete: isTimerComplete,
     }));
+    
+    // Dispatch storage event for timer display windows
+    localStorage.setItem('liveTimer', JSON.stringify({
+      minutes: liveTimer.minutes,
+      seconds: liveTimer.seconds,
+      isRunning: liveTimer.isRunning,
+      isPaused: liveTimer.isPaused,
+      isAttention: liveTimer.isAttention,
+      isComplete: isTimerComplete,
+    }));
+    window.dispatchEvent(new Event('storage'));
   }, [liveTimer, isTimerComplete]);
 
   useEffect(() => {
     localStorage.setItem('extraTime', JSON.stringify(extraTime));
+    window.dispatchEvent(new Event('storage'));
   }, [extraTime]);
 
   useEffect(() => {
@@ -128,6 +186,11 @@ function App() {
       isFlashing: isAlertFlashing,
       show: showAlert,
     }));
+    
+    // Dispatch storage events for timer display windows
+    localStorage.setItem('alertMessage', alertMessage);
+    localStorage.setItem('showAlert', JSON.stringify(showAlert));
+    window.dispatchEvent(new Event('storage'));
   }, [alertMessage, isAlertFlashing, showAlert]);
 
   useEffect(() => {
@@ -137,7 +200,22 @@ function App() {
   useEffect(() => {
     localStorage.setItem('showClock', JSON.stringify(showClock));
     localStorage.setItem('currentTime', JSON.stringify(currentTime));
+    window.dispatchEvent(new Event('storage'));
   }, [showClock, currentTime]);
+
+  useEffect(() => {
+    const updateClockScale = () => {
+      const savedSizes = localStorage.getItem('displaySizes');
+      if (savedSizes) {
+        const sizes = JSON.parse(savedSizes);
+        setClockScale(sizes.clock || 100);
+      }
+    };
+
+    updateClockScale();
+    window.addEventListener('storage', updateClockScale);
+    return () => window.removeEventListener('storage', updateClockScale);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('timerHistory', JSON.stringify(timerHistory));
@@ -170,18 +248,42 @@ function App() {
       
       updateTime();
       clockIntervalRef.current = setInterval(updateTime, 1000);
-      
-      clockTimeoutRef.current = setTimeout(() => {
-        setShowClock(false);
-        setCurrentTime('');
-      }, 3000);
-    }
     
     return () => {
-      if (clockTimeoutRef.current) clearTimeout(clockTimeoutRef.current);
       if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
     };
+    }
   }, [showClock]);
+
+  // Smart clock display logic - when timer is running
+  useEffect(() => {
+    if (showClock && liveTimer.isRunning) {
+      const totalSeconds = liveTimer.minutes * 60 + liveTimer.seconds;
+      
+      if (totalSeconds < 60) {
+        // Timer is in final minute - hide clock to not interfere with time-up animation
+        setShowClock(false);
+        return;
+      }
+      
+      // Timer has more than 1 minute - show clock for 3 seconds then hide
+      const hideTimeout = setTimeout(() => {
+        setShowClock(false);
+      }, 3000); // Show clock for 3 seconds
+      
+      return () => clearTimeout(hideTimeout);
+    }
+  }, [liveTimer.isRunning, liveTimer.minutes, liveTimer.seconds, showClock]);
+
+  // Handle clock display when timer finishes
+  useEffect(() => {
+    if (liveTimer.isComplete && showClock) {
+      // If timer finished and clock is activated, switch to clock permanently
+      setShowClock(true);
+      if (clockCycleIntervalRef.current) clearInterval(clockCycleIntervalRef.current);
+      if (clockTimeoutRef.current) clearTimeout(clockTimeoutRef.current);
+    }
+  }, [liveTimer.isComplete, showClock]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -616,6 +718,11 @@ function App() {
     );
   }
 
+  // Render timer display mode
+  if (isTimerDisplayMode) {
+    return <TimerDisplay />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-900">
       <div className="container mx-auto p-2 sm:p-4">
@@ -728,32 +835,52 @@ function App() {
               <h2 className="text-xl sm:text-2xl font-bold text-white">Live</h2>
               <div className="flex flex-wrap gap-1 justify-center sm:justify-end">
                 <button
-                  onClick={() => setShowClock(true)}
-                  className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-500"
+                  onClick={() => window.electronAPI?.openAdvancedMultiScreen()}
+                  className="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-opacity-80 transition-all duration-300 flex items-center gap-1"
                 >
-                  <Clock className="inline-block mr-1" size={10} />
+                  <Settings size={14} />
+                  Display
+                </button>
+                <button
+                  onClick={() => setShowClock(!showClock)}
+                  className={`${showClock ? 'bg-red-600 animate-pulse shadow-lg ring-2 ring-red-400' : 'bg-blue-600'} text-white px-3 py-2 rounded text-sm hover:bg-opacity-80 transition-all duration-300 flex items-center gap-1`}
+                >
+                  <Clock size={14} />
                   Clock
                 </button>
                 <button
                   onClick={() => setShowHowToGuide(true)}
-                  className="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-500"
+                  className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-500 flex items-center gap-1"
                 >
-                  <HelpCircle className="inline-block mr-1" size={10} />
+                  <HelpCircle size={14} />
                   Guide
                 </button>
                 <button
                   onClick={() => setShowSettings(true)}
-                  className="bg-purple-600 text-white p-1 rounded hover:bg-purple-500"
+                  className="bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-500 text-sm flex items-center gap-1"
                   title="Settings"
                 >
-                  <Settings size={12} />
+                  <Settings size={14} />
+                  Settings
                 </button>
               </div>
             </div>
             <div className={`relative rounded-lg ${isTimerComplete ? 'animate-[timerComplete_0.5s_ease-in-out_5]' : ''}`}>
               {showClock && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-10">
-                  <span className="text-6xl font-bold text-white">{currentTime}</span>
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-10 pointer-events-none">
+                  <span 
+                    className="font-bold text-white"
+                    style={{
+                      fontSize: `${2.5 * clockScale / 100}rem`, // Scale based on clock size setting
+                      fontFamily: 'Arial, sans-serif',
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                      letterSpacing: '0.02em',
+                      maxWidth: '90%',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {currentTime}
+                  </span>
                 </div>
               )}
               {!extraTime.isRunning ? (
@@ -783,12 +910,12 @@ function App() {
                 />
               )}
               {(showAlert || isAlertFlashing) && (
-                <div className="absolute top-0 left-0 right-0 z-10">
-                  <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-semibold shadow-lg">
-                    <div className={`${isAlertFlashing ? 'animate-flash' : ''}`}>
-                      {alertMessage}
-                    </div>
-                  </div>
+                <div className="absolute bottom-0 left-0 right-0 z-10">
+                  <AlertBanner 
+                    message={getProcessedAlertMessage()}
+                    isFlashing={isAlertFlashing}
+                    fullscreen={false}
+                  />
                 </div>
               )}
             </div>
@@ -845,40 +972,40 @@ function App() {
               
               {/* Minute Controls - Grid Layout */}
               {liveTimer.isRunning && (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-6 gap-1">
                   <button
                     onClick={() => addTimeToLiveTimer(-10)}
-                    className="bg-red-700 text-white px-3 py-2 rounded hover:bg-red-600"
+                    className="bg-red-800 text-white px-2 py-2 rounded hover:bg-red-700 text-sm"
                   >
                     -10m
                   </button>
                   <button
                     onClick={() => addTimeToLiveTimer(-5)}
-                    className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-500"
+                    className="bg-red-600 text-white px-2 py-2 rounded hover:bg-red-500 text-sm"
                   >
                     -5m
                   </button>
                   <button
                     onClick={() => addTimeToLiveTimer(-1)}
-                    className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-400"
+                    className="bg-orange-500 text-white px-2 py-2 rounded hover:bg-orange-400 text-sm"
                   >
                     -1m
                   </button>
                   <button
                     onClick={() => addTimeToLiveTimer(1)}
-                    className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-400"
+                    className="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 text-sm"
                   >
                     +1m
                   </button>
                   <button
                     onClick={() => addTimeToLiveTimer(5)}
-                    className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-500"
+                    className="bg-green-600 text-white px-2 py-2 rounded hover:bg-green-500 text-sm"
                   >
                     +5m
                   </button>
                   <button
                     onClick={() => addTimeToLiveTimer(10)}
-                    className="bg-green-700 text-white px-3 py-2 rounded hover:bg-green-600"
+                    className="bg-green-800 text-white px-2 py-2 rounded hover:bg-green-700 text-sm"
                   >
                     +10m
                   </button>
@@ -887,28 +1014,40 @@ function App() {
               
               {/* Second Controls - Grid Layout */}
               {liveTimer.isRunning && (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-6 gap-1">
                   <button
                     onClick={() => addSecondsToLiveTimer(-10)}
-                    className="bg-orange-700 text-white px-3 py-2 rounded hover:bg-orange-600"
+                    className="bg-red-700 text-white px-2 py-2 rounded hover:bg-red-600 text-sm"
                   >
                     -10s
                   </button>
                   <button
                     onClick={() => addSecondsToLiveTimer(-5)}
-                    className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-500"
+                    className="bg-red-500 text-white px-2 py-2 rounded hover:bg-red-400 text-sm"
                   >
                     -5s
                   </button>
                   <button
+                    onClick={() => addSecondsToLiveTimer(-1)}
+                    className="bg-orange-500 text-white px-2 py-2 rounded hover:bg-orange-400 text-sm"
+                  >
+                    -1s
+                  </button>
+                  <button
+                    onClick={() => addSecondsToLiveTimer(1)}
+                    className="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 text-sm"
+                  >
+                    +1s
+                  </button>
+                  <button
                     onClick={() => addSecondsToLiveTimer(5)}
-                    className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-500"
+                    className="bg-green-500 text-white px-2 py-2 rounded hover:bg-green-400 text-sm"
                   >
                     +5s
                   </button>
                   <button
                     onClick={() => addSecondsToLiveTimer(10)}
-                    className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-blue-600"
+                    className="bg-green-700 text-white px-2 py-2 rounded hover:bg-green-600 text-sm"
                   >
                     +10s
                   </button>
@@ -917,13 +1056,27 @@ function App() {
             </div>
 
             <div className="space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCaseChange}
+                  className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                    textCase === 'normal' ? 'bg-gray-600 text-white' :
+                    textCase === 'uppercase' ? 'bg-blue-600 text-white' :
+                    textCase === 'lowercase' ? 'bg-green-600 text-white' :
+                    'bg-purple-600 text-white'
+                  }`}
+                  title={`Case: ${textCase}`}
+                >
+                  {textCase === 'normal' ? 'Aa' : textCase === 'uppercase' ? 'AA' : textCase === 'lowercase' ? 'aa' : 'Aa'}
+                </button>
               <input
                 type="text"
                 placeholder="Alert message..."
-                className="w-full p-2 rounded bg-gray-800 text-white"
+                  className="flex-1 p-2 rounded bg-gray-800 text-white"
                 value={alertMessage}
                 onChange={(e) => setAlertMessage(e.target.value)}
               />
+              </div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setShowAlert(true)}
@@ -955,25 +1108,6 @@ function App() {
           </div>
         </div>
 
-        {/* Keyboard Shortcuts Help */}
-        <div className="mt-6 bg-gray-800 p-3 rounded">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-300">Keyboard Shortcuts</h3>
-            <button
-              onClick={() => setShowHowToGuide(true)}
-              className="text-xs text-green-400 hover:text-green-300 underline"
-            >
-              Need more help? Check How To Guide
-            </button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs text-gray-400">
-            <div><kbd className="bg-gray-700 px-1 rounded">Space</kbd> Start/Pause</div>
-            <div><kbd className="bg-gray-700 px-1 rounded">S</kbd> Stop</div>
-            <div><kbd className="bg-gray-700 px-1 rounded">R</kbd> Reset</div>
-            <div><kbd className="bg-gray-700 px-1 rounded">A</kbd> Attention</div>
-            <div><kbd className="bg-gray-700 px-1 rounded">C</kbd> Show Clock</div>
-          </div>
-        </div>
 
         {/* Bottom Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">

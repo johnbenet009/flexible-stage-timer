@@ -15,20 +15,39 @@ interface TimerProps {
 
 export function Timer({ minutes, seconds, isAttention, isComplete, background, fullscreen = false, isRunning = false }: TimerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [scale, setScale] = React.useState(100);
+  const [scale, setScale] = React.useState(() => {
+    const savedSizes = localStorage.getItem('displaySizes');
+    if (savedSizes) {
+      const sizes = JSON.parse(savedSizes);
+      return sizes.timer || 100;
+    }
+    return 100;
+  });
+  const [backgroundOpacity, setBackgroundOpacity] = React.useState(80);
+  const [churchLogo, setChurchLogo] = React.useState<string | null>(null);
 
   useEffect(() => {
-    const updateScale = () => {
+    const updateSettings = () => {
       const savedSizes = localStorage.getItem('displaySizes');
       if (savedSizes) {
         const sizes = JSON.parse(savedSizes);
         setScale(sizes.timer);
       }
+      
+      const savedOpacity = localStorage.getItem('backgroundOpacity');
+      if (savedOpacity) {
+        setBackgroundOpacity(parseInt(savedOpacity));
+      }
+      
+      const savedLogo = localStorage.getItem('churchLogo');
+      if (savedLogo) {
+        setChurchLogo(savedLogo);
+      }
     };
 
-    updateScale();
-    window.addEventListener('storage', updateScale);
-    return () => window.removeEventListener('storage', updateScale);
+    updateSettings();
+    window.addEventListener('storage', updateSettings);
+    return () => window.removeEventListener('storage', updateSettings);
   }, []);
 
   useEffect(() => {
@@ -76,7 +95,7 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
 
   const timerClasses = fullscreen
     ? 'fixed inset-0 flex items-center justify-center'
-    : 'relative w-full h-48';
+    : 'relative w-full h-48 overflow-hidden';
 
   const getFontSize = () => {
     const baseSize = fullscreen ? 25 : 8;
@@ -124,18 +143,25 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
       )}
       <div
         className={`
-          absolute inset-0 flex items-center justify-center font-bold transition-colors duration-300
+          absolute inset-0 flex items-center justify-center font-bold 
+          transition-all duration-500 ease-in-out
           ${isAttention ? 'animate-[attention_0.4s_ease-in-out_5]' : ''}
           ${isComplete ? 'animate-[timerComplete_0.5s_ease-in-out_5]' : ''}
-          ${isBackgroundFlash ? 'animate-lastMinute' : 'bg-black bg-opacity-80'}
-          text-white
+          ${isBackgroundFlash ? 'animate-lastMinute' : ''}
+          text-white pointer-events-none
         `}
         style={{
           ...getBackgroundStyle(),
+          backgroundColor: isBackgroundFlash ? 'transparent' : `rgba(0, 0, 0, ${backgroundOpacity / 100})`,
         }}
       >
         <div 
-          className={`${isFlashTime && totalSeconds <= 120 && totalSeconds > 60 ? 'animate-pulse' : ''}`}
+          className={`
+            transition-all duration-300 ease-in-out transform
+            ${isFlashTime && totalSeconds <= 120 && totalSeconds > 60 ? 'animate-pulse' : ''}
+            ${isAttention ? 'scale-105' : 'scale-100'}
+            ${isComplete ? 'scale-110' : ''}
+          `}
           style={{ 
             fontSize: getFontSize(),
             color: getTimerColor(),
@@ -145,6 +171,20 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
       </div>
+      
+      {/* Church Logo Display */}
+      {churchLogo && (
+        <div className="absolute top-4 left-4 z-10">
+          <img 
+            src={churchLogo} 
+            alt="Church Logo" 
+            className="max-h-16 max-w-32 object-contain opacity-90"
+            style={{
+              filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

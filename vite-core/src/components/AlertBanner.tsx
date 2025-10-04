@@ -39,21 +39,24 @@ export function AlertBanner({ message, isFlashing, fullscreen = false }: AlertBa
   const isShortMessage = message.length < 30;
 
   return (
-    <div className={`relative h-20 bg-red-600 overflow-hidden w-full ${isFlashing ? 'animate-flash' : ''}`}>
+    <div className={`relative bg-red-600 overflow-hidden w-full ${isFlashing ? 'animate-flash' : ''}`}
+         style={{ 
+           height: fullscreen ? `${Math.max(60, 2 * scale/100 * 20)}px` : `${Math.max(40, 1.5 * scale/100 * 20)}px`
+         }}>
       <div 
-          className={`absolute text-white font-bold flex items-center h-full ${
-            isShortMessage ? 'justify-center w-full' : 'whitespace-nowrap animate-marquee'
+          className={`absolute text-white font-bold flex items-center w-full ${
+            isShortMessage ? 'justify-center' : 'whitespace-nowrap animate-marquee'
           }`}
           style={{
-            fontSize: fullscreen ? `${Math.max(48, 4 * scale/100 * 16)}px` : `${Math.max(24, 2 * scale/100 * 16)}px`,
+            fontSize: fullscreen ? `${Math.max(32, 3 * scale/100 * 12)}px` : `${Math.max(18, 2 * scale/100 * 12)}px`,
             animationDuration: isShortMessage ? 'none' : `${animationDuration}s`,
             fontFamily: 'Arial, sans-serif',
-            textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
-            letterSpacing: '0.03em',
-            lineHeight: '1.1',
-            minHeight: fullscreen ? '120px' : '80px',
-            paddingLeft: '20px',
-            paddingRight: '20px'
+            textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
+            letterSpacing: '0.02em',
+            lineHeight: '1',
+            height: fullscreen ? `${Math.max(60, 2 * scale/100 * 20)}px` : `${Math.max(40, 1.5 * scale/100 * 20)}px`,
+            paddingLeft: '10px',
+            paddingRight: '10px'
           }}
       >
         {message}

@@ -1,6 +1,6 @@
 {
   "name": "stage-timer-app",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A flexible stage timer application for presentations and events",
   "author": "Positive Developer",
   "main": "main.js",

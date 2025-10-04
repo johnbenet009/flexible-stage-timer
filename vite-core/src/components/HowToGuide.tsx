@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Search, Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, Download, Upload, HelpCircle, Timer, List, Eye, Zap, Trash2, Plus } from 'lucide-react';
+import { X, Search, Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, Download, Upload, HelpCircle, Timer, List, Eye, Zap, Trash2, Plus, Type, Image } from 'lucide-react';
 
 interface HowToGuideProps {
   isOpen: boolean;
@@ -65,7 +65,8 @@ const guideItems: GuideItem[] = [
       'Pause/Resume: Temporarily stop or continue',
       'Stop: End current timer',
       'Attention: Flash attention animation',
-      'Time adjustments: +/-1m, +/-5m, +/-10m, +/-5s, +/-10s'
+      'Minute adjustments: -10m, -5m, -1m, +1m, +5m, +10m (color-coded by urgency)',
+      'Second adjustments: -10s, -5s, -1s, +1s, +5s, +10s (color-coded by urgency)'
     ],
     keywords: ['live', 'controls', 'start', 'pause', 'stop', 'adjust']
   },
@@ -319,23 +320,136 @@ const guideItems: GuideItem[] = [
     keywords: ['development', 'build', 'workflow', 'electron', 'vite', 'production']
   },
   {
-    id: 'ui-improvements',
-    title: 'UI Improvements',
-    icon: <Settings className="w-5 h-5" />,
-    category: 'Interface',
+    id: 'alert-system',
+    title: 'Alert System',
+    icon: <Bell className="w-5 h-5" />,
+    category: 'Features',
     steps: [
-      'Top buttons are now smaller and more organized',
-      '"Show Clock" changed to "Clock", "How To" to "Guide"',
-      'Clear Cache moved to Settings modal for cleaner interface',
-      'Settings button is now icon-only to save space',
-      '"Up Next" on main display is compact and less intrusive',
-      '"Up Next" on live screen has attention-grabbing color sequence',
-      'Live screen "Up Next" is much bigger and more visible from distance',
-      'Color sequence shows 8 bright colors rapidly for 1.6 seconds',
-      'Program counts moved to right side with better styling',
-      'Single instance protection prevents multiple app windows'
+      'Alerts appear at the bottom of the screen with scrolling text',
+      'Type your message in the "Alert message" field',
+      'Click "Show Alert" to display the message',
+      'Click "Flash Alert" for pulsing animation effect',
+      'Click "Clear Alert" to remove the current alert',
+      'Short messages (under 30 characters) stay centered',
+      'Long messages scroll horizontally across the screen',
+      'Alert size and speed can be adjusted in Display Settings',
+      'Alerts appear on both main window and live screen',
+      'Great for announcements, prayer requests, or emergency messages'
     ],
-    keywords: ['ui', 'interface', 'buttons', 'up next', 'attention', 'colors', 'visibility', 'single instance']
+    keywords: ['alerts', 'messages', 'announcements', 'flash', 'scroll', 'notifications']
+  },
+  {
+    id: 'clock-display',
+    title: 'Clock Display',
+    icon: <Clock className="w-5 h-5" />,
+    category: 'Features',
+    steps: [
+      'Click the "Clock" button to show current time on screen',
+      'Clock button turns red and pulses when active',
+      'Clock displays prominently on both preview and live screens',
+      'When timer is running: Clock shows current time',
+      'When timer is not running: Clock displays permanently until turned off',
+      'Clock size can be adjusted in Display Settings',
+      'Use keyboard shortcut "C" to toggle clock quickly',
+      'Great for showing current time during services or events',
+      'Clock automatically adjusts size based on your settings'
+    ],
+    keywords: ['clock', 'time', 'current time', 'display', 'toggle', 'red button']
+  },
+  {
+    id: 'background-opacity',
+    title: 'Background Opacity Control',
+    icon: <Settings className="w-5 h-5" />,
+    category: 'Customization',
+    steps: [
+      'Access opacity control in Display Settings',
+      'Controls the darkness of overlay on image/video/webcam backgrounds',
+      'Range: 10% (very transparent) to 100% (completely dark)',
+      'Default: 80% for good text readability',
+      'Lower values make background more visible',
+      'Higher values make text more readable',
+      'Works with all background types: image, video, webcam',
+      'Changes apply immediately to live display',
+      'Settings are saved automatically'
+    ],
+    keywords: ['opacity', 'background', 'overlay', 'transparency', 'darkness', 'readability']
+  },
+  {
+    id: 'alert-case-changer',
+    title: 'Alert Text Case Changer',
+    icon: <Type className="w-5 h-5" />,
+    category: 'Features',
+    steps: [
+      'Type your alert message in the input field',
+      'Click the case changer button (Aa) next to the input',
+      'Cycles through: Normal → UPPERCASE → lowercase → Capitalize',
+      'Button color changes to show current case type',
+      'Case setting applies to both preview and projection screens',
+      'Settings are saved automatically'
+    ],
+    keywords: ['alert', 'case', 'text', 'uppercase', 'lowercase', 'capitalize', 'formatting']
+  },
+  {
+    id: 'church-logo',
+    title: 'Church Logo Integration',
+    icon: <Image className="w-5 h-5" />,
+    category: 'Customization',
+    steps: [
+      'Access Display Settings (gear icon)',
+      'Find "Church Logo" section',
+      'Click "Upload Logo" to select an image file',
+      'Logo appears on both preview and projection screens',
+      'Use "Remove Logo" to delete the current logo immediately',
+      'Logo automatically scales to fit the display',
+      'Supports common image formats (JPG, PNG, GIF)'
+    ],
+    keywords: ['logo', 'church', 'upload', 'image', 'branding', 'display', 'remove']
+  },
+  {
+    id: 'improved-alerts',
+    title: 'Enhanced Alert System',
+    icon: <Bell className="w-5 h-5" />,
+    category: 'Features',
+    steps: [
+      'Alerts now have better text sizing and reduced padding',
+      'Size and speed controls from Display Settings work properly',
+      'Case changer integration for text formatting',
+      'Improved scrolling animation for long messages',
+      'Better visibility on both preview and projection screens',
+      'Alert text scales properly with size settings'
+    ],
+    keywords: ['alerts', 'text', 'sizing', 'scrolling', 'animation', 'visibility', 'improved']
+  },
+  {
+    id: 'advanced-multiscreen',
+    title: 'Advanced Multi-Screen Features',
+    icon: <Settings className="w-5 h-5" />,
+    category: 'Features',
+    steps: [
+      'Access File menu → Advanced Multi-Screen Options (Ctrl+M)',
+      'Single Display: Show timer on one secondary screen only',
+      'Multiple Displays: Display different timers on multiple screens simultaneously',
+      'Duplicate Display: Mirror the same timer to multiple screens',
+      'Span Display: Stretch timer across multiple screens',
+      'Use File menu → Close All Timer Displays to close all windows',
+      'All timer displays are hidden from taskbar for clean operation'
+    ],
+    keywords: ['multi-screen', 'multiple', 'displays', 'duplicate', 'span', 'advanced', 'windows']
+  },
+  {
+    id: 'multiscreen-keyboard',
+    title: 'Multi-Screen Keyboard Shortcuts',
+    icon: <Zap className="w-5 h-5" />,
+    category: 'Keyboard Shortcuts',
+    steps: [
+      'Ctrl+T: Open Timer Display (single screen)',
+      'Ctrl+M: Advanced Multi-Screen Options',
+      'Ctrl+Shift+T: Switch Timer Display',
+      'Ctrl+W: Close All Timer Displays',
+      'Ctrl+R: Refresh all displays',
+      'Ctrl+Shift+R: Force refresh all displays'
+    ],
+    keywords: ['keyboard', 'shortcuts', 'multiscreen', 'display', 'refresh', 'close']
   }
 ];
 
@@ -369,7 +483,14 @@ export function HowToGuide({ isOpen, onClose }: HowToGuideProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="bg-gray-800 rounded-lg w-[90vw] max-w-4xl h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-700">
@@ -383,6 +504,37 @@ export function HowToGuide({ isOpen, onClose }: HowToGuideProps) {
           >
             <X size={24} />
           </button>
+        </div>
+
+        {/* Contact Information */}
+        <div className="px-6 py-3 bg-gradient-to-r from-blue-900 to-purple-900 border-b border-gray-700">
+          <div className="text-center">
+            <p className="text-white text-xs mb-1">
+              <strong>FREE App - Need custom software?</strong>
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-3 text-xs">
+              <a 
+                href="mailto:johnbenet0009@gmail.com" 
+                className="text-blue-300 hover:text-blue-200 underline"
+              >
+                📧 johnbenet0009@gmail.com
+              </a>
+              <a 
+                href="tel:+2349014532386" 
+                className="text-green-300 hover:text-green-200 underline"
+              >
+                📞 +2349014532386
+              </a>
+              <a 
+                href="https://github.com/johnbenet009" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-purple-300 hover:text-purple-200 underline"
+              >
+                🔗 @johnbenet009
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Search and Filters */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Timer } from './components/Timer';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { AlertBanner } from './components/AlertBanner';
@@ -28,6 +28,28 @@ function TimerDisplay() {
   const [background, setBackground] = useState({ type: 'default', source: null });
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+  const [clockScale, setClockScale] = useState(100);
+  const [churchLogo, setChurchLogo] = useState<string | null>(null);
+  const [textCase, setTextCase] = useState<'normal' | 'uppercase' | 'lowercase' | 'capitalize'>(() => {
+    return (localStorage.getItem('textCase') as 'normal' | 'uppercase' | 'lowercase' | 'capitalize') || 'normal';
+  });
+
+  const clockIntervalRef = useRef<NodeJS.Timeout>();
+  const clockTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Text case processing function
+  const getProcessedAlertMessage = (message: string) => {
+    switch (textCase) {
+      case 'uppercase':
+        return message.toUpperCase();
+      case 'lowercase':
+        return message.toLowerCase();
+      case 'capitalize':
+        return message.replace(/\b\w/g, l => l.toUpperCase());
+      default:
+        return message;
+    }
+  };
 
   useEffect(() => {
     const loadInitialStates = () => {
@@ -38,6 +60,7 @@ function TimerDisplay() {
       const storedBackground = localStorage.getItem('background');
       const storedShowClock = localStorage.getItem('showClock');
       const storedCurrentTime = localStorage.getItem('currentTime');
+      const storedDisplaySizes = localStorage.getItem('displaySizes');
 
       if (storedTimerState) setTimerState(JSON.parse(storedTimerState));
       if (storedExtraTime) setExtraTime(JSON.parse(storedExtraTime));
@@ -46,6 +69,15 @@ function TimerDisplay() {
       if (storedBackground) setBackground(JSON.parse(storedBackground));
       if (storedShowClock) setShowClock(JSON.parse(storedShowClock));
       if (storedCurrentTime) setCurrentTime(JSON.parse(storedCurrentTime));
+      if (storedDisplaySizes) {
+        const sizes = JSON.parse(storedDisplaySizes);
+        setClockScale(sizes.clock || 100);
+      }
+      
+      const storedLogo = localStorage.getItem('churchLogo');
+      if (storedLogo) {
+        setChurchLogo(storedLogo);
+      }
     };
 
     loadInitialStates();
@@ -77,6 +109,20 @@ function TimerDisplay() {
         case 'currentTime':
           if (newValue) setCurrentTime(newValue);
           break;
+        case 'displaySizes':
+          if (newValue) {
+            const sizes = JSON.parse(newValue);
+            setClockScale(sizes.clock || 100);
+          }
+          break;
+        case 'textCase':
+          if (newValue) {
+            setTextCase(newValue as 'normal' | 'uppercase' | 'lowercase' | 'capitalize');
+          }
+          break;
+        case 'churchLogo':
+          setChurchLogo(newValue);
+          break;
       }
     };
 
@@ -99,6 +145,36 @@ function TimerDisplay() {
     }
   }, [showClock]);
 
+  // Smart clock display logic - when timer is running
+  useEffect(() => {
+    if (showClock && timerState.isRunning) {
+      const totalSeconds = timerState.minutes * 60 + timerState.seconds;
+      
+      if (totalSeconds < 60) {
+        // Timer is in final minute - hide clock to not interfere with time-up animation
+        setShowClock(false);
+        return;
+      }
+      
+      // Timer has more than 1 minute - show clock for 3 seconds then hide
+      const hideTimeout = setTimeout(() => {
+        setShowClock(false);
+      }, 3000); // Show clock for 3 seconds
+      
+      return () => clearTimeout(hideTimeout);
+    }
+  }, [timerState.isRunning, timerState.minutes, timerState.seconds, showClock]);
+
+  // Handle clock display when timer finishes
+  useEffect(() => {
+    if (timerState.isComplete && showClock) {
+      // If timer finished and clock is activated, switch to clock permanently
+      setShowClock(true);
+      if (clockCycleIntervalRef.current) clearInterval(clockCycleIntervalRef.current);
+      if (clockTimeoutRef.current) clearTimeout(clockTimeoutRef.current);
+    }
+  }, [timerState.isComplete, showClock]);
+
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
       {!extraTime.isRunning ? (
@@ -117,7 +193,7 @@ function TimerDisplay() {
               <span 
                 className="font-bold text-white"
                 style={{
-                  fontSize: '8vw',
+                  fontSize: `${8 * clockScale / 100}vw`,
                   fontFamily: 'Arial, sans-serif',
                   textShadow: '4px 4px 8px rgba(0,0,0,0.8)',
                   letterSpacing: '0.05em'
@@ -149,12 +225,26 @@ function TimerDisplay() {
       )}
       
       {(alertState.show || alertState.isFlashing) && (
-        <div className="absolute top-0 left-0 right-0 z-50">
-          <div className="bg-red-600 text-white text-center py-4 px-4 text-4xl font-semibold shadow-lg">
-            <div className={`${alertState.isFlashing ? 'animate-flash' : ''}`}>
-              {alertState.message}
-            </div>
-          </div>
+        <div className="absolute bottom-0 left-0 right-0 z-50">
+          <AlertBanner 
+            message={getProcessedAlertMessage(alertState.message)}
+            isFlashing={alertState.isFlashing}
+            fullscreen={true}
+          />
+        </div>
+      )}
+      
+      {/* Church Logo Display */}
+      {churchLogo && (
+        <div className="absolute top-6 left-6 z-50">
+          <img 
+            src={churchLogo} 
+            alt="Church Logo" 
+            className="max-h-20 max-w-40 object-contain opacity-90"
+            style={{
+              filter: 'drop-shadow(3px 3px 6px rgba(0,0,0,0.9))'
+            }}
+          />
         </div>
       )}
     </div>
