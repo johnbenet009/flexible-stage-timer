@@ -10,6 +10,9 @@
      "build-app": "npm run build && electron-builder",
      "build-clean": "npm run build && electron-builder --dir && node build-clean.js",
      "build-installer": "npm run build && electron-builder --win nsis && node build-clean.js",
+     "build-linux": "npm run build && electron-builder --linux --config.linux.target=dir && node build-clean-linux.js",
+     "build-linux-clean": "npm run build && electron-builder --linux --dir && node build-clean-linux.js",
+     "build-linux-appimage": "npm run build && electron-builder --linux --config.linux.target=AppImage && node build-clean-linux.js",
      "dev": "cd vite-core && npm run dev"
    },
   "devDependencies": {
@@ -31,6 +34,26 @@
      "win": {
        "target": "nsis",
        "icon": "public/icon.ico"
+     },
+     "linux": {
+       "target": [
+         {
+           "target": "AppImage",
+           "arch": ["x64"]
+         },
+         {
+           "target": "deb",
+           "arch": ["x64"]
+         }
+       ],
+       "icon": "public/icon.png",
+       "category": "Utility",
+       "desktop": {
+         "Name": "Stage Timer App",
+         "Comment": "A flexible stage timer application for presentations and events",
+         "Categories": "Utility;"
+       },
+       "artifactName": "${productName}-${version}-linux.${ext}"
      },
      "files": [
        "main.js",

@@ -125,13 +125,32 @@ flexible-stage-timer/
 
 ### Building for Production
 
-#### Quick Build (Recommended)
+#### Windows Build (Recommended for All Platforms)
     ```bash
 # Build clean directory version (removes language packs)
 npm run build-clean
 
 # Build NSIS installer with cleanup
 npm run build-installer
+```
+
+**Why Windows Build for All Platforms?**
+- ✅ **Works on Windows** - Native execution
+- ✅ **Works on Ubuntu/Linux** - Via Wine (simple installation)
+- ✅ **Works on macOS** - Via Wine or virtualization
+- ✅ **Single build process** - No cross-compilation needed
+- ✅ **Smaller distribution** - One executable for everyone
+
+#### Linux Build (Optional - For Native Linux)
+    ```bash
+# Build Linux directory (recommended - avoids Windows symlink issues)
+npm run build-linux
+
+# Build clean directory version for Linux (removes language packs)
+npm run build-linux-clean
+
+# Try AppImage build (may have symlink issues on Windows)
+npm run build-linux-appimage
 ```
 
 #### Manual Build Steps
@@ -150,9 +169,67 @@ npx electron-builder --win nsis
 ```
 
 #### Build Output
-- **`dist/Stage Timer App Setup 2.0.0.exe`** - NSIS installer for distribution
+
+**Primary Distribution (Windows Build):**
+- **`dist/Stage Timer App Setup 2.0.1.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
 - **`dist/win-unpacked/`** - Clean app directory (no language packs)
-- **`build-clean.js`** - Automated cleanup script
+
+**Alternative Distribution (Linux Build):**
+- **`dist/linux-unpacked/`** - Clean app directory (no language packs)
+- **`dist/Stage Timer App-2.0.1.AppImage`** - AppImage for distribution (may have issues on Windows)
+- **`dist/stage-timer-app_2.0.1_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
+
+**Cleanup Scripts:**
+- **`build-clean.js`** - Windows cleanup script
+- **`build-clean-linux.js`** - Linux cleanup script
+
+### Cross-Platform Building
+
+**Building Linux on Windows:**
+- Use `npm run build-linux` for directory builds (recommended)
+- AppImage/DEB builds may fail due to Windows symlink permissions
+- The `linux-unpacked` directory contains the complete Linux application
+
+**Building Windows on Linux:**
+- Use `npm run build-installer` for NSIS installer
+- Use `npm run build-clean` for directory builds
+
+### Installation Instructions
+
+#### Windows Users
+1. Download `Stage Timer App Setup 2.0.1.exe`
+2. Run the installer
+3. Launch from Start Menu or Desktop
+
+#### Ubuntu/Linux Users (Recommended Method)
+```bash
+# Install Wine (one-time setup)
+sudo apt update
+sudo apt install wine
+
+# Download and run the Windows installer
+wine "Stage Timer App Setup 2.0.1.exe"
+```
+
+#### Alternative Linux Installation
+```bash
+# Install Wine and run the unpacked version directly
+sudo apt install wine
+wine "win-unpacked/Stage Timer App.exe"
+
+# Or use native Linux build (requires manual setup)
+chmod +x "linux-unpacked/Stage Timer App"
+./"linux-unpacked/Stage Timer App"
+```
+
+#### macOS Users
+```bash
+# Install Wine via Homebrew
+brew install wine-stable
+
+# Run the Windows executable
+wine "Stage Timer App Setup 2.0.1.exe"
+```
 
 ## 📖 Usage Guide
 
