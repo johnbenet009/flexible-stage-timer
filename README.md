@@ -1,6 +1,9 @@
 # Stage Timer App v2.1.0
 
-<img width="1043" height="953" alt="image" src="https://github.com/user-attachments/assets/10d812ce-50c5-42cb-818b-e015ea149a70" />
+<img width="1212" height="907" alt="image" src="https://github.com/user-attachments/assets/b1db343f-c72b-4a50-a04b-0186f81af7a9" />
+<img width="1216" height="908" alt="image" src="https://github.com/user-attachments/assets/9e4a162f-b5fd-4bd1-b3e1-da7711bb895e" />
+<img width="1221" height="909" alt="image" src="https://github.com/user-attachments/assets/50d2f14d-7613-4108-946f-60347b767e1b" />
+
 
 A professional stage timing and broadcast graphics application built with React, TypeScript, and Electron. Designed for live events, houses of worship, and professional broadcast environments.
 
@@ -18,6 +21,7 @@ A professional stage timing and broadcast graphics application built with React,
 - Overall scale and font size sliders provide smoother control
 - Custom color picker for chroma key background (in addition to quick swatches)
 - Responsive widescreen layout that uses more space when maximized
+<img width="1218" height="894" alt="image" src="https://github.com/user-attachments/assets/6e0ddd06-76e5-4619-9c52-f8c2f43de581" />
 
 ### 🖥️ Multi‑Screen Improvements
 - Target Display shows all secondary screens with status tags:
@@ -41,6 +45,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **Themes**: High‑contrast Light and Dark
 - **Tabbed Dashboard**: “Overlay Control” provides a focused workspace
 - **Chroma Key Support**: Quick swatches + full color picker for OBS/vMix integration
+![Uploading image.png…]()
 
 ### 🎭 Cinematic "Up Next" Experience
 - **Cinematic Animations**: New scale-in and gradient pulse animations for transition alerts.
@@ -61,7 +66,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **Duration display**: Shows exact minutes prominently
 - **Full screen coverage**: Maximum visual impact for stage presentations
 
-<img width="1058" height="955" alt="image" src="https://github.com/user-attachments/assets/d2777b9d-df06-4ca0-9203-1a25f7e4de54" />
+<img width="1920" height="1079" alt="image" src="https://github.com/user-attachments/assets/a4444d3d-746a-4d6c-ab60-d00bca3e8786" />
 
 ### ⏱️ Advanced Timer System
 - **Dual Timer Display**: Setup timer for preparation + Live timer with fullscreen
