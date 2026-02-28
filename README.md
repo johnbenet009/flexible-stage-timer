@@ -7,7 +7,7 @@
 
 A professional stage timing and broadcast graphics application built with React, TypeScript, and Electron. Designed for live events, houses of worship, and professional broadcast environments.
 
-## 📝 What’s New in v2.1.0
+## 📝 What’s New in v2.0.1
 
 ### ▶️ Overlay: Program Info (formerly “Lower Third”)
 - Program Info overlay with title, subtitle and speaker lines
@@ -222,13 +222,13 @@ npx electron-builder --win nsis
 #### Build Output
 
 **Primary Distribution (Windows Build):**
-- **`dist/Stage Timer App Setup 2.1.0.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
+- **`dist/Stage Timer App Setup 2.0.1.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
 - **`dist/win-unpacked/`** - Clean app directory (no language packs)
 
 **Alternative Distribution (Linux Build):**
 - **`dist/linux-unpacked/`** - Clean app directory (no language packs)
-- **`dist/Stage Timer App-2.1.0.AppImage`** - AppImage for distribution (may have issues on Windows)
-- **`dist/stage-timer-app_2.1.0_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
+- **`dist/Stage Timer App-2.0.1.AppImage`** - AppImage for distribution (may have issues on Windows)
+- **`dist/stage-timer-app_2.0.1_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
 
 **Cleanup Scripts:**
 - **`build-clean.js`** - Windows cleanup script
@@ -248,7 +248,7 @@ npx electron-builder --win nsis
 ### Installation Instructions
 
 #### Windows Users
-1. Download `Stage Timer App Setup 2.1.0.exe`
+1. Download `Stage Timer App Setup 2.0.1.exe`
 2. Run the installer
 3. Launch from Start Menu or Desktop
 
@@ -259,7 +259,7 @@ sudo apt update
 sudo apt install wine
 
 # Download and run the Windows installer
-wine "Stage Timer App Setup 2.1.0.exe"
+wine "Stage Timer App Setup 2.0.1.exe"
 ```
 
 #### Alternative Linux Installation
@@ -279,7 +279,7 @@ chmod +x "linux-unpacked/Stage Timer App"
 brew install wine-stable
 
 # Run the Windows executable
-wine "Stage Timer App Setup 2.1.0.exe"
+wine "Stage Timer App Setup 2.0.1.exe"
 ```
 
 ## 📖 Usage Guide
