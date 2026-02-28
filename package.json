@@ -13,7 +13,8 @@
      "build-linux": "npm run build && electron-builder --linux --config.linux.target=dir && node build-clean-linux.js",
      "build-linux-clean": "npm run build && electron-builder --linux --dir && node build-clean-linux.js",
      "build-linux-appimage": "npm run build && electron-builder --linux --config.linux.target=AppImage && node build-clean-linux.js",
-     "dev": "cd vite-core && npm run dev"
+     "dev": "npm run build && npm start",
+     "dev-vite": "cd vite-core && npm run dev"
    },
   "devDependencies": {
     "electron": "^13.6.9",
@@ -23,7 +24,7 @@
    "build": {
      "appId": "com.stage-timer.app",
      "productName": "Stage Timer App",
-     "copyright": "Copyright © 2024 Positive Developer",
+     "copyright": "Copyright © 2025 Positive Developer",
      "asar": false,
      "compression": "maximum",
      "directories": {

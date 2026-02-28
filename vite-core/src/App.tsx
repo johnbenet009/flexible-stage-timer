@@ -4,8 +4,8 @@ import { TimerControls } from './components/TimerControls';
 import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
-import { Program, TimerState, ExtraTimeState, Category } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, HelpCircle, Plus, RotateCcw } from 'lucide-react';
+import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, Edit2, Check, X, User, Minus, Square } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { NextProgramNotification } from './components/NextProgramNotification';
 import { DeleteConfirmation } from './components/DeleteConfirmation';
@@ -14,10 +14,10 @@ import { ExportImportManager } from './components/ExportImportManager';
 import { HowToGuide } from './components/HowToGuide';
 import { AddProgramModal } from './components/AddProgramModal';
 import TimerDisplay from './TimerDisplay';
+import GreenScreenTimer from './GreenScreenTimer';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [isTimerDisplayMode, setIsTimerDisplayMode] = useState(false);
   const [setupTimer, setSetupTimer] = useState<TimerState>({
     minutes: 0,
     seconds: 0,
@@ -32,6 +32,16 @@ function App() {
     isRunning: false,
     isPaused: false,
     isAttention: false,
+  });
+
+  const [greenScreenTimer, setGreenScreenTimer] = useState<GreenScreenTimerState>(() => {
+    const saved = localStorage.getItem('greenScreenTimerState');
+    return saved ? JSON.parse(saved) : {
+      minutes: 0,
+      seconds: 0,
+      isRunning: false,
+      isPaused: false,
+    };
   });
 
   const [extraTime, setExtraTime] = useState<ExtraTimeState>({
@@ -60,8 +70,80 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [clockScale, setClockScale] = useState(100);
+  const [programNameScale, setProgramNameScale] = useState(100);
+  const [showProgramName, setShowProgramName] = useState(true);
   const [showNextProgram, setShowNextProgram] = useState<Program | null>(null);
+  const [availableDisplays, setAvailableDisplays] = useState<any[]>([]);
+  const [selectedGreenScreenDisplay, setSelectedGreenScreenDisplay] = useState<number | null>(null);
+  const [isGreenScreenActive, setIsGreenScreenActive] = useState(false);
+  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide'>('main');
+  const [guideSection, setGuideSection] = useState<'main' | 'overlay'>('main');
+  const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>(() => {
+    const savedSizes = localStorage.getItem('displaySizes');
+    const parsed = savedSizes ? JSON.parse(savedSizes) : {};
+    const overlay = parsed.overlay || {};
+    return {
+      timer: overlay.timer || parsed.greenScreenTimer || 100,
+      x: overlay.x !== undefined ? overlay.x : (parsed.greenScreenX !== undefined ? parsed.greenScreenX : 50),
+      y: overlay.y !== undefined ? overlay.y : (parsed.greenScreenY !== undefined ? parsed.greenScreenY : 92),
+      bgColor: overlay.bgColor || parsed.greenScreenBgColor || '#00ff00',
+      mode: overlay.mode || parsed.greenScreenMode || 'timer',
+      show: overlay.show !== undefined ? overlay.show : (parsed.showGreenScreen !== undefined ? parsed.showGreenScreen : true),
+      lowerThirdTitle: overlay.lowerThirdTitle || 'SUNDAY, FEBRUARY 22, 2026',
+      lowerThirdSubtitle: overlay.lowerThirdSubtitle || 'FAITH OF THE FAITHFUL',
+      lowerThirdDate: overlay.lowerThirdDate || 'PASTOR VOTE MIKOYO V.',
+      lowerThirdTheme: overlay.lowerThirdTheme || 'dark',
+      lowerThirdLogo: overlay.lowerThirdLogo || '',
+      lowerThirdTitleSize: overlay.lowerThirdTitleSize || 14,
+      lowerThirdSubtitleSize: overlay.lowerThirdSubtitleSize || 48,
+      lowerThirdDateSize: overlay.lowerThirdDateSize || 20,
+      lowerThirdFont: overlay.lowerThirdFont || 'JetBrains Mono',
+      lowerThirdDisplaySeconds: overlay.lowerThirdDisplaySeconds || 10,
+      lowerThirdSleepSeconds: overlay.lowerThirdSleepSeconds || 5,
+      timerFontSize: overlay.timerFontSize || 10,
+      clockFontSize: overlay.clockFontSize || 10,
+      isLive: overlay.isLive !== undefined ? overlay.isLive : false,
+    };
+  });
+
+  const [stagedOverlaySettings, setStagedOverlaySettings] = useState<OverlaySettings>(() => {
+    const savedSizes = localStorage.getItem('displaySizes');
+    const parsed = savedSizes ? JSON.parse(savedSizes) : {};
+    const overlay = parsed.overlay || {};
+    return {
+      timer: overlay.timer || parsed.greenScreenTimer || 100,
+      x: overlay.x !== undefined ? overlay.x : (parsed.greenScreenX !== undefined ? parsed.greenScreenX : 50),
+      y: overlay.y !== undefined ? overlay.y : (parsed.greenScreenY !== undefined ? parsed.greenScreenY : 92),
+      bgColor: overlay.bgColor || parsed.greenScreenBgColor || '#00ff00',
+      mode: overlay.mode || parsed.greenScreenMode || 'timer',
+      show: overlay.show !== undefined ? overlay.show : (parsed.showGreenScreen !== undefined ? parsed.showGreenScreen : true),
+      lowerThirdTitle: overlay.lowerThirdTitle || 'SUNDAY, FEBRUARY 22, 2026',
+      lowerThirdSubtitle: overlay.lowerThirdSubtitle || 'FAITH OF THE FAITHFUL',
+      lowerThirdDate: overlay.lowerThirdDate || 'PASTOR VOTE MIKOYO V.',
+      lowerThirdTheme: overlay.lowerThirdTheme || 'dark',
+      lowerThirdLogo: overlay.lowerThirdLogo || '',
+      lowerThirdTitleSize: overlay.lowerThirdTitleSize || 14,
+      lowerThirdSubtitleSize: overlay.lowerThirdSubtitleSize || 48,
+      lowerThirdDateSize: overlay.lowerThirdDateSize || 20,
+      lowerThirdFont: overlay.lowerThirdFont || 'JetBrains Mono',
+      lowerThirdDisplaySeconds: overlay.lowerThirdDisplaySeconds || 10,
+      lowerThirdSleepSeconds: overlay.lowerThirdSleepSeconds || 5,
+      timerFontSize: overlay.timerFontSize || 10,
+      clockFontSize: overlay.clockFontSize || 10,
+      isLive: overlay.isLive !== undefined ? overlay.isLive : false,
+    };
+  });
 
   const [isTimerComplete, setIsTimerComplete] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -97,6 +179,7 @@ function App() {
 
   const clockTimeoutRef = useRef<NodeJS.Timeout>();
   const clockIntervalRef = useRef<NodeJS.Timeout>();
+  const clockCycleIntervalRef = useRef<NodeJS.Timeout>();
 
   // Case changer functions
   const handleCaseChange = () => {
@@ -129,22 +212,6 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle routing for timer display mode
-  useEffect(() => {
-    const checkRoute = () => {
-      if (window.location.hash === '#/timer') {
-        setIsTimerDisplayMode(true);
-      } else {
-        setIsTimerDisplayMode(false);
-      }
-    };
-    
-    checkRoute();
-    window.addEventListener('hashchange', checkRoute);
-    
-    return () => window.removeEventListener('hashchange', checkRoute);
-  }, []);
-
   useEffect(() => {
     localStorage.setItem('programs', JSON.stringify(programs));
   }, [programs]);
@@ -161,6 +228,7 @@ function App() {
       isPaused: liveTimer.isPaused,
       isAttention: liveTimer.isAttention,
       isComplete: isTimerComplete,
+      programName: liveTimer.programName,
     }));
     
     // Dispatch storage event for timer display windows
@@ -171,6 +239,7 @@ function App() {
       isPaused: liveTimer.isPaused,
       isAttention: liveTimer.isAttention,
       isComplete: isTimerComplete,
+      programName: liveTimer.programName,
     }));
     window.dispatchEvent(new Event('storage'));
   }, [liveTimer, isTimerComplete]);
@@ -179,6 +248,11 @@ function App() {
     localStorage.setItem('extraTime', JSON.stringify(extraTime));
     window.dispatchEvent(new Event('storage'));
   }, [extraTime]);
+
+  useEffect(() => {
+    localStorage.setItem('greenScreenTimerState', JSON.stringify(greenScreenTimer));
+    window.dispatchEvent(new Event('storage'));
+  }, [greenScreenTimer]);
 
   useEffect(() => {
     localStorage.setItem('alertState', JSON.stringify({
@@ -204,17 +278,173 @@ function App() {
   }, [showClock, currentTime]);
 
   useEffect(() => {
-    const updateClockScale = () => {
+    if (window.electronAPI?.getDisplays) {
+      window.electronAPI.getDisplays().then(setAvailableDisplays);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeTab === 'overlay' && window.electronAPI?.getDisplays) {
+      window.electronAPI.getDisplays().then(setAvailableDisplays);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('greenScreenTimerState', JSON.stringify(greenScreenTimer));
+  }, [greenScreenTimer]);
+
+  useEffect(() => {
+    if (greenScreenTimer.isRunning && !greenScreenTimer.isPaused) {
+      const interval = setInterval(() => {
+        setGreenScreenTimer(prev => {
+          if (prev.minutes === 0 && prev.seconds === 0) {
+            return { ...prev, isRunning: false };
+          }
+          const totalSeconds = prev.minutes * 60 + prev.seconds - 1;
+          return {
+            ...prev,
+            minutes: Math.floor(totalSeconds / 60),
+            seconds: totalSeconds % 60,
+          };
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [greenScreenTimer.isRunning, greenScreenTimer.isPaused]);
+
+  const handleGreenScreenTimeAdjust = (minutes: number) => {
+    setGreenScreenTimer(prev => ({
+      ...prev,
+      minutes: Math.max(0, prev.minutes + minutes),
+    }));
+  };
+
+  const handleGreenScreenSecondsAdjust = (seconds: number) => {
+    setGreenScreenTimer(prev => {
+      const totalSeconds = prev.minutes * 60 + prev.seconds + seconds;
+      if (totalSeconds < 0) return { ...prev, minutes: 0, seconds: 0 };
+      return {
+        ...prev,
+        minutes: Math.floor(totalSeconds / 60),
+        seconds: totalSeconds % 60,
+      };
+    });
+  };
+
+  const startGreenScreenTimer = () => {
+    setGreenScreenTimer(prev => ({ ...prev, isRunning: true, isPaused: false }));
+  };
+
+  const pauseGreenScreenTimer = () => {
+    setGreenScreenTimer(prev => ({ ...prev, isPaused: true }));
+  };
+
+  const resumeGreenScreenTimer = () => {
+    setGreenScreenTimer(prev => ({ ...prev, isPaused: false }));
+  };
+
+  const resetGreenScreenTimer = () => {
+    setGreenScreenTimer({
+      minutes: 0,
+      seconds: 0,
+      isRunning: false,
+      isPaused: false,
+    });
+  };
+
+  const handleGreenScreenToggle = () => {
+    if (isGreenScreenActive) {
+      window.electronAPI?.closeGreenScreenTimer();
+      setIsGreenScreenActive(false);
+    } else if (selectedGreenScreenDisplay !== null) {
+      window.electronAPI?.openGreenScreenTimer(selectedGreenScreenDisplay);
+      setIsGreenScreenActive(true);
+    }
+  };
+
+  const updateOverlaySetting = (key: string, value: any) => {
+    const newSettings = { ...overlaySettings, [key]: value };
+    setOverlaySettings(newSettings);
+    setStagedOverlaySettings(newSettings);
+    
+    const savedSizes = localStorage.getItem('displaySizes');
+    const sizes = savedSizes ? JSON.parse(savedSizes) : {};
+    
+    const updatedSizes = {
+      ...sizes,
+      overlay: newSettings
+    };
+    
+    localStorage.setItem('displaySizes', JSON.stringify(updatedSizes));
+    window.dispatchEvent(new Event('storage'));
+  };
+
+  const updateStagedOverlaySetting = <K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) => {
+    setStagedOverlaySettings(prev => ({ ...prev, [key]: value }));
+    
+    // Live update for positioning and scale if broadcast is active
+    const liveKeys: (keyof OverlaySettings)[] = ['x', 'y', 'timer', 'timerFontSize', 'clockFontSize', 'lowerThirdTitleSize', 'lowerThirdSubtitleSize', 'lowerThirdDateSize'];
+    if (liveKeys.includes(key)) {
+      const newLiveSettings = { ...overlaySettings, [key]: value };
+      setOverlaySettings(newLiveSettings);
+      
+      const savedSizes = localStorage.getItem('displaySizes');
+      const sizes = savedSizes ? JSON.parse(savedSizes) : {};
+      const updatedSizes = { ...sizes, overlay: newLiveSettings };
+      
+      localStorage.setItem('displaySizes', JSON.stringify(updatedSizes));
+      window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        updateStagedOverlaySetting('lowerThirdImage', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const applyOverlaySettings = () => {
+    const newSettings = { ...stagedOverlaySettings, isLive: true };
+    setOverlaySettings(newSettings);
+    
+    const savedSizes = localStorage.getItem('displaySizes');
+    const sizes = savedSizes ? JSON.parse(savedSizes) : {};
+    
+    const updatedSizes = {
+      ...sizes,
+      overlay: newSettings
+    };
+    
+    localStorage.setItem('displaySizes', JSON.stringify(updatedSizes));
+    window.dispatchEvent(new Event('storage'));
+    
+    // Brief reset of isLive so we can re-trigger animations if needed
+    setTimeout(() => {
+      const resetLive = { ...newSettings, isLive: false };
+      setOverlaySettings(resetLive);
+      localStorage.setItem('displaySizes', JSON.stringify({ ...updatedSizes, overlay: resetLive }));
+      window.dispatchEvent(new Event('storage'));
+    }, 100);
+  };
+
+  useEffect(() => {
+    const updateDisplaySettings = () => {
       const savedSizes = localStorage.getItem('displaySizes');
       if (savedSizes) {
         const sizes = JSON.parse(savedSizes);
         setClockScale(sizes.clock || 100);
+        setProgramNameScale(sizes.programName || 100);
+        setShowProgramName(sizes.showProgramName !== undefined ? sizes.showProgramName : true);
       }
     };
 
-    updateClockScale();
-    window.addEventListener('storage', updateClockScale);
-    return () => window.removeEventListener('storage', updateClockScale);
+    updateDisplaySettings();
+    window.addEventListener('storage', updateDisplaySettings);
+    return () => window.removeEventListener('storage', updateDisplaySettings);
   }, []);
 
   useEffect(() => {
@@ -332,7 +562,34 @@ function App() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
+    if (greenScreenTimer.isRunning && !greenScreenTimer.isPaused) {
+      interval = setInterval(() => {
+        setGreenScreenTimer(prev => {
+          if (prev.minutes === 0 && prev.seconds === 0) {
+            return { ...prev, isRunning: false };
+          }
+          
+          let newSeconds = prev.seconds - 1;
+          let newMinutes = prev.minutes;
 
+          if (newSeconds < 0) {
+            newSeconds = 59;
+            newMinutes--;
+          }
+
+          return {
+            ...prev,
+            minutes: newMinutes,
+            seconds: newSeconds,
+          };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [greenScreenTimer.isRunning, greenScreenTimer.isPaused]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
     if (liveTimer.isRunning && !liveTimer.isPaused) {
       interval = setInterval(() => {
         setLiveTimer(prev => {
@@ -515,7 +772,9 @@ function App() {
       isRunning: false,
       isPaused: false,
       isAttention: false,
+      programName: undefined,
     });
+    setIsTimerComplete(false);
   };
 
   const toggleAttention = () => {
@@ -551,6 +810,7 @@ function App() {
       isRunning: true,
       isPaused: false,
       isAttention: false,
+      programName: program.name,
     });
     setExtraTime(prev => ({ ...prev, isRunning: false }));
     
@@ -608,6 +868,7 @@ function App() {
       isRunning: true,
       isPaused: false,
       isAttention: false,
+      programName: historyEntry.programName,
     });
     setExtraTime(prev => ({ ...prev, isRunning: false }));
     
@@ -718,18 +979,83 @@ function App() {
     );
   }
 
-  // Render timer display mode
-  if (isTimerDisplayMode) {
-    return <TimerDisplay />;
-  }
-
+  // Render control panel
   return (
-    <div className="min-h-screen bg-gray-900">
-      <div className="container mx-auto p-2 sm:p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Setup Section */}
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-white mb-4">Setup</h2>
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* Top Navigation Bar */}
+      <div className="sticky top-0 z-50 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 px-6 py-3 flex items-center justify-between shadow-md select-none" style={{ WebkitAppRegion: 'drag' as any }}>
+        <div className="flex items-center space-x-3" style={{ WebkitAppRegion: 'no-drag' as any }}>
+          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+            <span className="text-lg">⏱️</span>
+          </div>
+          <h1 className="text-xl font-bold text-white tracking-tight">Stage Timer <span className="text-xs text-blue-400 font-normal">v2.1.0</span></h1>
+        </div>
+        
+        <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700" style={{ WebkitAppRegion: 'no-drag' as any }}>
+          <button 
+            onClick={() => setActiveTab('main')}
+            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'main' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <Layout size={16} />
+            <span>Timer Control</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('overlay')}
+            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'overlay' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <Monitor size={16} />
+            <span>Overlay Control</span>
+          </button>
+          <button 
+            onClick={() => {
+              setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main');
+              setActiveTab('guide');
+            }}
+            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <HelpCircle size={16} />
+            <span>Guide</span>
+          </button>
+        </div>
+
+        <div className="flex items-center space-x-4" style={{ WebkitAppRegion: 'no-drag' as any }}>
+          <div className="text-right hidden md:block">
+            <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">System Clock</div>
+            <div className="text-sm text-blue-400 font-mono font-bold">{currentTime}</div>
+          </div>
+          <div className="flex items-center">
+            <button
+              onClick={() => window.electronAPI?.windowMinimize?.()}
+              className="w-10 h-8 flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 rounded"
+              title="Minimize"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              onClick={() => window.electronAPI?.windowToggleMaximize?.()}
+              className="w-10 h-8 flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 rounded"
+              title="Maximize"
+            >
+              <Square size={14} />
+            </button>
+            <button
+              onClick={() => window.electronAPI?.windowClose?.()}
+              className="w-10 h-8 flex items-center justify-center text-gray-300 hover:text-white hover:bg-red-600 rounded"
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 w-full p-2 sm:p-4 overflow-y-auto">
+        {activeTab === 'main' ? (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Setup Section */}
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-white mb-2">Setup</h2>
             
             {/* Tab Navigation */}
             <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg">
@@ -849,13 +1175,6 @@ function App() {
                   Clock
                 </button>
                 <button
-                  onClick={() => setShowHowToGuide(true)}
-                  className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-500 flex items-center gap-1"
-                >
-                  <HelpCircle size={14} />
-                  Guide
-                </button>
-                <button
                   onClick={() => setShowSettings(true)}
                   className="bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-500 text-sm flex items-center gap-1"
                   title="Settings"
@@ -884,14 +1203,31 @@ function App() {
                 </div>
               )}
               {!extraTime.isRunning ? (
-                <Timer
-                  minutes={liveTimer.minutes}
-                  seconds={liveTimer.seconds}
-                  isAttention={liveTimer.isAttention}
-                  isComplete={isTimerComplete}
-                  background={background}
-                  isRunning={liveTimer.isRunning}
-                />
+                <>
+                  <Timer
+                    minutes={liveTimer.minutes}
+                    seconds={liveTimer.seconds}
+                    isAttention={liveTimer.isAttention}
+                    isComplete={isTimerComplete}
+                    background={background}
+                    fullscreen={false}
+                    isRunning={liveTimer.isRunning}
+                  />
+                  {showProgramName && liveTimer.programName && (
+                    <div 
+                      className="absolute top-4 left-0 right-0 text-center z-10 pointer-events-none"
+                      style={{
+                        fontSize: `${1.2 * programNameScale / 100}rem`,
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                        fontWeight: 'bold',
+                        fontFamily: 'Arial, sans-serif'
+                      }}
+                    >
+                      Now: {liveTimer.programName}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="bg-black animate-extraTimeBg rounded-lg overflow-hidden">
                   <ExtraTimeTimer
@@ -1150,6 +1486,8 @@ function App() {
                 }, 5000);
               }}
               onEdit={handleProgramEdit}
+              currentProgramName={liveTimer.programName}
+              isRunning={liveTimer.isRunning}
             />
           </div>
 
@@ -1191,10 +1529,436 @@ function App() {
                   </button>
                   </div>
                 ))
-                )}
+              )}
             </div>
           </div>
         </div>
+      </>
+    ) : activeTab === 'overlay' ? (
+          /* Overlay Controller Tab */
+        <div className="bg-gray-800 p-6 md:p-8 rounded-2xl space-y-8 border border-gray-700 shadow-2xl mx-auto mb-10 w-full max-w-none xl:max-w-[1600px] 2xl:max-w-[1900px]">
+          <div className="flex justify-between items-center border-b border-gray-700 pb-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-3xl">
+                📺
+              </div>
+              <div>
+                <h3 className="text-3xl font-black text-white tracking-tight">Broadcast Overlay</h3>
+                <p className="text-gray-400 font-medium">Lower-thirds & production timers for live stream</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={applyOverlaySettings}
+                className="px-8 py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-black text-lg transition-all transform hover:scale-105 active:scale-95 shadow-2xl shadow-green-900/40"
+              >
+                APPLY CHANGES
+              </button>
+              <button
+                onClick={handleGreenScreenToggle}
+                disabled={selectedGreenScreenDisplay === null && !isGreenScreenActive}
+                className={`px-10 py-4 rounded-xl font-black text-lg transition-all transform hover:scale-105 active:scale-95 shadow-2xl ${
+                  isGreenScreenActive 
+                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/40' 
+                    : 'bg-blue-600 hover:bg-blue-500 text-white disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed shadow-blue-900/40'
+                }`}
+              >
+                {isGreenScreenActive ? 'Stop Broadcast' : 'Go Live'}
+              </button>
+            </div>
+          </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              {/* Settings Column */}
+              <div className="lg:col-span-4 space-y-6">
+                <div className="bg-gray-900/80 p-6 rounded-2xl border border-gray-700 space-y-6">
+                  <div>
+                    <label className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] block mb-3">Target Display</label>
+                    <select
+                      value={selectedGreenScreenDisplay || ''}
+                      onChange={(e) => setSelectedGreenScreenDisplay(Number(e.target.value))}
+                      disabled={isGreenScreenActive}
+                      className="w-full bg-gray-800 text-white px-5 py-4 rounded-xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none font-bold"
+                    >
+                      <option value="">Choose Screen...</option>
+                      {availableDisplays
+                        .filter(d => !d.isPrimary)
+                        .map(display => {
+                          const suffix = display.isUsedByMainTimer
+                            ? '(In-use: Timer)'
+                            : display.isUsedByOverlay
+                              ? '(In-use: Overlay)'
+                              : '(Available)';
+                          return (
+                            <option
+                              key={display.id}
+                              value={display.id}
+                              disabled={display.isUsedByMainTimer || display.isUsedByOverlay}
+                            >
+                              {display.label} {suffix}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] block mb-3">Chroma Key Background</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {['#00ff00', '#0000ff', '#ff0000', '#000000', '#ffffff'].map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateStagedOverlaySetting('bgColor', color)}
+                          className={`h-10 rounded-lg border-2 transition-all ${stagedOverlaySettings.bgColor === color ? 'border-white scale-110 ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900' : 'border-transparent opacity-40 hover:opacity-100'}`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                      <label className="col-span-5 mt-2 block">
+                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Custom Color</span>
+                        <input
+                          type="color"
+                          value={stagedOverlaySettings.bgColor}
+                          onChange={(e) => updateStagedOverlaySetting('bgColor', e.target.value)}
+                          className="w-full h-10 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer"
+                          title="Pick any chroma key color"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] block mb-3">Overlay Mode</label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {[
+                        { id: 'timer', label: 'Countdown Timer', icon: <Clock size={16} /> },
+                        { id: 'clock', label: 'System Clock', icon: <Watch size={16} /> },
+                        { id: 'lowerThird', label: 'Program Info', icon: <Type size={16} /> }
+                      ].map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => updateStagedOverlaySetting('mode', m.id)}
+                          className={`flex items-center space-x-3 px-5 py-3 rounded-xl font-bold transition-all border ${stagedOverlaySettings.mode === m.id ? 'bg-blue-600 text-white border-blue-400 shadow-lg scale-[1.02]' : 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white'}`}
+                        >
+                          {m.icon}
+                          <span>{m.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview Window (Simulated) */}
+                <div className="bg-gray-900/80 p-4 rounded-2xl border border-gray-700">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-4 text-center">STAGING PREVIEW</label>
+                  <div 
+                    className="aspect-video rounded-lg relative overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-700 shadow-inner"
+                    style={{ backgroundColor: stagedOverlaySettings.bgColor }}
+                  >
+                    <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                    
+                    {stagedOverlaySettings.mode === 'lowerThird' ? (
+                      <div 
+                        className="absolute transform transition-all"
+                        style={{ 
+                          left: `${stagedOverlaySettings.x}%`,
+                          top: `${stagedOverlaySettings.y}%`,
+                          transform: `translate(-50%, -50%) scale(${(stagedOverlaySettings.timer / 100) * 0.35})`,
+                          transformOrigin: 'center center'
+                        }}
+                      >
+                        <div className={`flex items-center space-x-4 p-1 rounded-xl shadow-2xl border-l-[8px] border-blue-600 ${stagedOverlaySettings.lowerThirdTheme === 'light' ? 'bg-white text-black' : 'bg-black text-white'}`}>
+                          <div className="w-16 h-16 bg-blue-600/10 rounded-lg flex items-center justify-center overflow-hidden">
+                            {stagedOverlaySettings.lowerThirdImage ? (
+                              <img src={stagedOverlaySettings.lowerThirdImage} className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={32} className="opacity-50" />
+                            )}
+                          </div>
+                          <div className="pr-6 py-2">
+                            <div className="font-black uppercase tracking-widest opacity-60" style={{ fontSize: `${stagedOverlaySettings.lowerThirdTitleSize}px` }}>{stagedOverlaySettings.lowerThirdTitle || 'PROGRAM TITLE'}</div>
+                            <div className="font-black tracking-tight leading-none" style={{ fontSize: `${stagedOverlaySettings.lowerThirdSubtitleSize}px` }}>{stagedOverlaySettings.lowerThirdSubtitle || 'MAIN SUBTITLE'}</div>
+                            <div className="font-bold opacity-80 border-t border-current/10 pt-1 uppercase tracking-wider" style={{ fontSize: `${stagedOverlaySettings.lowerThirdDateSize}px` }}>{stagedOverlaySettings.lowerThirdDate || 'MINISTER NAME'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div 
+                        className={`font-mono font-black text-white tracking-tighter drop-shadow-[0_0_30px_rgba(0,0,0,0.5)] transition-all ${stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.isRunning && !greenScreenTimer.isPaused ? 'animate-flash-zoom' : ''}`}
+                        style={{ 
+                          fontSize: `${(stagedOverlaySettings.mode === 'timer' ? stagedOverlaySettings.timerFontSize : stagedOverlaySettings.clockFontSize) * (stagedOverlaySettings.timer / 100) * 0.8}px`,
+                          position: 'absolute',
+                          left: `${stagedOverlaySettings.x}%`,
+                          top: `${stagedOverlaySettings.y}%`,
+                          transform: 'translate(-50%, -50%)',
+                          display: stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.seconds === 0 && greenScreenTimer.isRunning ? 'none' : 'block',
+                          animationDelay: '0s'
+                        }}
+                      >
+                        {stagedOverlaySettings.mode === 'timer' ? '00:00' : currentTime}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+                {/* Control Column */}
+                <div className="lg:col-span-8 space-y-6">
+                  {stagedOverlaySettings.mode === 'lowerThird' ? (
+                    <div className="bg-gray-900/80 p-8 rounded-3xl border border-gray-700 space-y-10 shadow-2xl">
+                      <div className="flex justify-between items-center border-b border-gray-800 pb-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-500">
+                            <Type size={24} />
+                          </div>
+                          <div>
+                            <h4 className="text-xl font-black text-white tracking-tight">Program Info Editor</h4>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Content & Metadata</p>
+                          </div>
+                        </div>
+                        <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700">
+                          <button 
+                            onClick={() => updateStagedOverlaySetting('lowerThirdTheme', 'dark')}
+                            className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${stagedOverlaySettings.lowerThirdTheme === 'dark' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
+                          >
+                            DARK
+                          </button>
+                          <button 
+                            onClick={() => updateStagedOverlaySetting('lowerThirdTheme', 'light')}
+                            className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${stagedOverlaySettings.lowerThirdTheme === 'light' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
+                          >
+                            LIGHT
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+                        {/* Text Fields Column (7 cols) */}
+                        <div className="md:col-span-7 space-y-6">
+                          {[
+                            { label: 'Program Name', key: 'lowerThirdTitle', sizeKey: 'lowerThirdTitleSize', placeholder: 'e.g. SUNDAY SERVICE' },
+                            { label: 'Message Title', key: 'lowerThirdSubtitle', sizeKey: 'lowerThirdSubtitleSize', placeholder: 'e.g. FAITH OF THE FAITHFUL', isLarge: true },
+                            { label: 'Minister/Speaker', key: 'lowerThirdDate', sizeKey: 'lowerThirdDateSize', placeholder: 'e.g. PASTOR JOHN DOE' }
+                          ].map((field) => (
+                            <div key={field.key} className="space-y-2">
+                              <div className="flex justify-between items-end">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">{field.label}</label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[8px] font-black text-gray-600 uppercase">Size</span>
+                                  <input 
+                                    type="number" 
+                                    value={stagedOverlaySettings[field.sizeKey as keyof OverlaySettings] as number}
+                                    onChange={(e) => updateStagedOverlaySetting(field.sizeKey as any, parseInt(e.target.value))}
+                                    className="w-14 bg-gray-800 text-blue-400 border border-gray-700 rounded-lg px-2 py-1 text-xs font-black focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                                  />
+                                </div>
+                              </div>
+                              <input 
+                                type="text"
+                                value={stagedOverlaySettings[field.key as keyof OverlaySettings] as string}
+                                onChange={(e) => updateStagedOverlaySetting(field.key as any, e.target.value)}
+                                placeholder={field.placeholder}
+                                className={`w-full bg-gray-800/50 text-white px-5 py-4 rounded-2xl border border-gray-700 focus:ring-2 focus:ring-blue-500 outline-none font-bold transition-all ${field.isLarge ? 'text-lg font-black' : ''}`}
+                              />
+                            </div>
+                          ))}
+
+                          {/* Position & Scale Sliders */}
+                          <div className="pt-8 space-y-6 border-t border-gray-800/50">
+                            {[
+                              { label: 'Horizontal Position (X)', key: 'x', min: 0, max: 100, unit: '%' },
+                              { label: 'Vertical Position (Y)', key: 'y', min: 0, max: 100, unit: '%' },
+                              { label: 'Overall Display Scale', key: 'timer', min: 10, max: 200, unit: '%' }
+                            ].map((slider) => (
+                              <div key={slider.key} className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{slider.label}</label>
+                                  <span className="text-xs font-mono font-black text-blue-400">{stagedOverlaySettings[slider.key as keyof OverlaySettings]}{slider.unit}</span>
+                                </div>
+                                <input 
+                                  type="range" 
+                                  min={slider.min} 
+                                  max={slider.max} 
+                                  value={stagedOverlaySettings[slider.key as keyof OverlaySettings] as number} 
+                                  onChange={(e) => updateStagedOverlaySetting(slider.key as any, parseInt(e.target.value))} 
+                                  className="range-knob" 
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Media & Timing Column (5 cols) */}
+                        <div className="md:col-span-5 space-y-8">
+                          <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 space-y-4">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block">Minister Image</label>
+                            <div className="relative group">
+                              <div className="w-full aspect-square bg-gray-900 rounded-2xl border-2 border-dashed border-gray-700 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500/50">
+                                {stagedOverlaySettings.lowerThirdImage ? (
+                                  <img src={stagedOverlaySettings.lowerThirdImage} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="flex flex-col items-center gap-3">
+                                    <User size={48} className="text-gray-700 group-hover:text-gray-500 transition-colors" />
+                                    <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">No Image Set</span>
+                                  </div>
+                                )}
+                                <input 
+                                  type="file" accept="image/*" onChange={handleImageUpload}
+                                  className="absolute inset-0 opacity-0 cursor-pointer z-20"
+                                />
+                                <div className="absolute inset-0 bg-blue-600/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center pointer-events-none z-10 gap-2">
+                                  <Monitor size={24} className="text-white" />
+                                  <span className="text-xs font-black text-white uppercase tracking-tighter">Click to Upload</span>
+                                </div>
+                              </div>
+                              {stagedOverlaySettings.lowerThirdImage && (
+                                <button 
+                                  onClick={() => updateStagedOverlaySetting('lowerThirdImage', undefined)}
+                                  className="absolute -top-2 -right-2 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-500 transition-all z-30"
+                                  title="Remove Image"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[9px] text-gray-600 font-bold text-center leading-relaxed">Square images (400x400) work best.</p>
+                          </div>
+
+                          <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 space-y-6">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block">Animation Cycle</label>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <span className="text-[8px] font-black text-gray-600 uppercase block text-center">Display (s)</span>
+                                <input 
+                                  type="number" min="1"
+                                  value={stagedOverlaySettings.lowerThirdDisplaySeconds}
+                                  onChange={(e) => updateStagedOverlaySetting('lowerThirdDisplaySeconds', parseInt(e.target.value))}
+                                  className="w-full bg-gray-900 text-white py-3 rounded-xl border border-gray-700 font-black focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <span className="text-[8px] font-black text-gray-600 uppercase block text-center">Sleep (s)</span>
+                                <input 
+                                  type="number" min="0"
+                                  value={stagedOverlaySettings.lowerThirdSleepSeconds}
+                                  onChange={(e) => updateStagedOverlaySetting('lowerThirdSleepSeconds', parseInt(e.target.value))}
+                                  className="w-full bg-gray-900 text-white py-3 rounded-xl border border-gray-700 font-black focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                  <div className="bg-gray-900/80 p-8 rounded-2xl border border-gray-700 space-y-8">
+                    <div 
+                      className="flex flex-col items-center justify-center py-10 rounded-3xl border border-gray-800 shadow-inner relative overflow-hidden"
+                      style={{ backgroundColor: stagedOverlaySettings.bgColor }}
+                    >
+                      <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                      <div className="text-xs font-black text-white/60 uppercase tracking-[0.3em] mb-4 relative z-10">Live Output Preview</div>
+                      <div 
+                        className={`font-mono font-black text-white tracking-tighter drop-shadow-[0_0_30px_rgba(0,0,0,0.5)] relative z-10 ${stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.isRunning && !greenScreenTimer.isPaused ? 'animate-flash-zoom' : ''}`}
+                        style={{ 
+                          fontSize: `${(stagedOverlaySettings.mode === 'timer' ? stagedOverlaySettings.timerFontSize : stagedOverlaySettings.clockFontSize) * (stagedOverlaySettings.timer / 100)}px`,
+                          position: 'absolute',
+                          left: `${stagedOverlaySettings.x}%`,
+                          top: `${stagedOverlaySettings.y}%`,
+                          transform: 'translate(-50%, -50%)',
+                          display: stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.seconds === 0 && greenScreenTimer.isRunning ? 'none' : 'block',
+                          animationDelay: '0s'
+                        }}
+                      >
+                        {stagedOverlaySettings.mode === 'timer' 
+                          ? `${String(greenScreenTimer.minutes).padStart(2, '0')}:${String(greenScreenTimer.seconds).padStart(2, '0')}`
+                          : currentTime
+                        }
+                      </div>
+                      
+                      {stagedOverlaySettings.mode === 'timer' && (
+                        <div className="mt-8 flex gap-4">
+                          {!greenScreenTimer.isRunning ? (
+                            <button onClick={startGreenScreenTimer} className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl shadow-green-900/20"><Play size={20} /> START</button>
+                          ) : (
+                            <>
+                              <button onClick={greenScreenTimer.isPaused ? resumeGreenScreenTimer : pauseGreenScreenTimer} className={`px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl ${greenScreenTimer.isPaused ? 'bg-green-600 hover:bg-green-500 shadow-green-900/20' : 'bg-yellow-600 hover:bg-yellow-500 shadow-yellow-900/20'} text-white`}>
+                                {greenScreenTimer.isPaused ? <Play size={20} /> : <Pause size={20} />} {greenScreenTimer.isPaused ? 'RESUME' : 'PAUSE'}
+                              </button>
+                              <button onClick={resetGreenScreenTimer} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl shadow-red-900/20"><RotateCcw size={20} /> RESET</button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {stagedOverlaySettings.mode === 'timer' && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {[-10, -5, -1].map(m => (
+                            <button key={m} onClick={() => handleGreenScreenTimeAdjust(m)} className="bg-red-600/10 hover:bg-red-600/20 text-red-500 py-3 rounded-xl font-black border border-red-900/30 transition-all">{m}m</button>
+                          ))}
+                          {[1, 5, 10].map(m => (
+                            <button key={m} onClick={() => handleGreenScreenTimeAdjust(m)} className="bg-green-600/10 hover:bg-green-600/20 text-green-500 py-3 rounded-xl font-black border border-green-900/30 transition-all">+{m}m</button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {[-30, -10, -5].map(s => (
+                            <button key={s} onClick={() => handleGreenScreenSecondsAdjust(s)} className="bg-red-600/10 hover:bg-red-600/20 text-red-400 py-2 rounded-xl font-bold border border-red-900/20 transition-all text-xs">{s}s</button>
+                          ))}
+                          {[5, 10, 30].map(s => (
+                            <button key={s} onClick={() => handleGreenScreenSecondsAdjust(s)} className="bg-green-600/10 hover:bg-green-600/20 text-green-400 py-2 rounded-xl font-bold border border-green-900/20 transition-all text-xs">+{s}s</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-gray-800">
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest block">Horizontal Position (X)</label>
+                        <div className="flex items-center gap-4">
+                          <input type="range" min="0" max="100" value={stagedOverlaySettings.x} onChange={(e) => updateStagedOverlaySetting('x', parseInt(e.target.value))} className="range-knob" />
+                          <span className="text-xs font-mono font-black text-blue-400 w-10">{stagedOverlaySettings.x}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest block">Vertical Position (Y)</label>
+                        <div className="flex items-center gap-4">
+                          <input type="range" min="0" max="100" value={stagedOverlaySettings.y} onChange={(e) => updateStagedOverlaySetting('y', parseInt(e.target.value))} className="range-knob" />
+                          <span className="text-xs font-mono font-black text-blue-400 w-10">{stagedOverlaySettings.y}%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest block">Font Size</label>
+                        <div className="flex items-center gap-4">
+                          <input 
+                            type="range" min="5" max="50" 
+                            value={stagedOverlaySettings.mode === 'timer' ? stagedOverlaySettings.timerFontSize : stagedOverlaySettings.clockFontSize} 
+                            onChange={(e) => updateStagedOverlaySetting(stagedOverlaySettings.mode === 'timer' ? 'timerFontSize' : 'clockFontSize', parseInt(e.target.value))} 
+                            className="range-knob" 
+                          />
+                          <span className="text-xs font-mono font-black text-blue-400 w-10">{stagedOverlaySettings.mode === 'timer' ? stagedOverlaySettings.timerFontSize : stagedOverlaySettings.clockFontSize}vw</span>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest block">Overall Scale</label>
+                        <div className="flex items-center gap-4">
+                          <input type="range" min="10" max="200" value={stagedOverlaySettings.timer} onChange={(e) => updateStagedOverlaySetting('timer', parseInt(e.target.value))} className="range-knob" />
+                          <span className="text-xs font-mono font-black text-blue-400 w-10">{stagedOverlaySettings.timer}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto w-full xl:max-w-[1600px] 2xl:max-w-[1900px]">
+            <HowToGuide variant="page" initialSection={guideSection} />
+          </div>
+        )}
       </div>
 
       {showSettings && (
@@ -1237,13 +2001,6 @@ function App() {
         />
       )}
 
-      {showHowToGuide && (
-        <HowToGuide
-          isOpen={showHowToGuide}
-          onClose={() => setShowHowToGuide(false)}
-        />
-      )}
-
 
       {showAddProgramModal && (
         <AddProgramModal
@@ -1254,7 +2011,7 @@ function App() {
           initialCategory={selectedCategory}
         />
       )}
-    </div>
+</div>
   );
 }
 

@@ -13,6 +13,7 @@ function TimerDisplay() {
     isPaused: false,
     isAttention: false,
     isComplete: false,
+    programName: '',
   });
   const [extraTime, setExtraTime] = useState({
     minutes: 0,
@@ -29,6 +30,8 @@ function TimerDisplay() {
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
   const [clockScale, setClockScale] = useState(100);
+  const [programNameScale, setProgramNameScale] = useState(100);
+  const [showProgramName, setShowProgramName] = useState(true);
   const [churchLogo, setChurchLogo] = useState<string | null>(null);
   const [textCase, setTextCase] = useState<'normal' | 'uppercase' | 'lowercase' | 'capitalize'>(() => {
     return (localStorage.getItem('textCase') as 'normal' | 'uppercase' | 'lowercase' | 'capitalize') || 'normal';
@@ -36,6 +39,7 @@ function TimerDisplay() {
 
   const clockIntervalRef = useRef<NodeJS.Timeout>();
   const clockTimeoutRef = useRef<NodeJS.Timeout>();
+  const clockCycleIntervalRef = useRef<NodeJS.Timeout>();
 
   // Text case processing function
   const getProcessedAlertMessage = (message: string) => {
@@ -72,6 +76,8 @@ function TimerDisplay() {
       if (storedDisplaySizes) {
         const sizes = JSON.parse(storedDisplaySizes);
         setClockScale(sizes.clock || 100);
+        setProgramNameScale(sizes.programName || 100);
+        setShowProgramName(sizes.showProgramName !== undefined ? sizes.showProgramName : true);
       }
       
       const storedLogo = localStorage.getItem('churchLogo');
@@ -83,9 +89,19 @@ function TimerDisplay() {
     loadInitialStates();
     
     const handleStorageChange = (e: StorageEvent) => {
-      if (!e.key) return;
+      if (!e.key) {
+        // Handle generic storage event by reloading all states
+        loadInitialStates();
+        return;
+      }
 
-      const newValue = e.newValue ? JSON.parse(e.newValue) : null;
+      let newValue;
+      try {
+        newValue = e.newValue ? JSON.parse(e.newValue) : null;
+      } catch (err) {
+        // If it's not JSON, use the raw value (for strings like churchLogo if they are not JSON)
+        newValue = e.newValue;
+      }
       
       switch (e.key) {
         case 'timerState':
@@ -104,15 +120,20 @@ function TimerDisplay() {
           if (newValue) setBackground(newValue);
           break;
         case 'showClock':
-          if (newValue !== null) setShowClock(newValue);
+          if (newValue !== null) {
+            // Ensure newValue is boolean if it was stringified
+            setShowClock(typeof newValue === 'string' ? JSON.parse(newValue) : newValue);
+          }
           break;
         case 'currentTime':
           if (newValue) setCurrentTime(newValue);
           break;
         case 'displaySizes':
           if (newValue) {
-            const sizes = JSON.parse(newValue);
-            setClockScale(sizes.clock || 100);
+            // newValue is already parsed by the try-catch block above
+            setClockScale(newValue.clock || 100);
+            setProgramNameScale(newValue.programName || 100);
+            setShowProgramName(newValue.showProgramName !== undefined ? newValue.showProgramName : true);
           }
           break;
         case 'textCase':
@@ -188,6 +209,20 @@ function TimerDisplay() {
             fullscreen={true}
             isRunning={timerState.isRunning}
           />
+          {showProgramName && timerState.programName && (
+            <div 
+              className="absolute top-10 left-0 right-0 text-center z-10 pointer-events-none"
+              style={{
+                fontSize: `${3 * programNameScale / 100}vw`,
+                color: 'rgba(255, 255, 255, 0.8)',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                fontWeight: 'bold',
+                fontFamily: 'Arial, sans-serif'
+              }}
+            >
+              Now: {timerState.programName}
+            </div>
+          )}
           {showClock && (
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-20">
               <span 

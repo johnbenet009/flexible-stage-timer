@@ -1,10 +1,27 @@
-# Stage Timer App v2.0.1
+# Stage Timer App v2.1.0
 
 <img width="1043" height="953" alt="image" src="https://github.com/user-attachments/assets/10d812ce-50c5-42cb-818b-e015ea149a70" />
 
-![Uploading image.png…]()
+A professional stage timing and broadcast graphics application built with React, TypeScript, and Electron. Designed for live events, houses of worship, and professional broadcast environments.
 
-A professional stage timing application built with React, TypeScript, and Electron, designed for live events, presentations, and performances. Features a massive attention-grabbing "Up Next" display and comprehensive program management.
+## 📝 Recent Changelog (v2.1.0)
+
+### 📺 New Broadcast Overlay System
+- **Lower Thirds**: Professional animated lower-third graphics for live streams.
+- **Independent Control**: Separate fields for Program Name, Message Title, and Minister/Speaker.
+- **Canva-Inspired Themes**: Toggle between high-contrast Light and Dark themes.
+- **Tabbed Dashboard**: New "Overlay Control" tab for quick access to broadcast graphics without scrolling.
+- **Chroma Key Support**: Customizable background colors (Green, Blue, etc.) for easy OBS/VMix integration.
+
+### 🎭 Cinematic "Up Next" Experience
+- **Cinematic Animations**: New scale-in and gradient pulse animations for transition alerts.
+- **Attention-Grabbing Sequence**: Improved 8-color rapid cycle sequence for maximum visibility.
+- **On-Screen Progress**: Added a countdown progress bar to notification overlays.
+
+### ⚙️ System Improvements
+- **Tab-Based Navigation**: Reorganized the main dashboard into "Main Control" and "Overlay Control".
+- **Performance Protection**: Disabled background throttling in Electron to ensure frame-perfect timer accuracy.
+- **Persistent Routing**: Improved window loading logic using `HashRouter` for guaranteed secondary display stability.
 
 ## ✨ Key Features
 <img width="674" height="517" alt="image" src="https://github.com/user-attachments/assets/a23648a2-674b-43bd-88ca-653b2a6964d7" />
@@ -171,13 +188,13 @@ npx electron-builder --win nsis
 #### Build Output
 
 **Primary Distribution (Windows Build):**
-- **`dist/Stage Timer App Setup 2.0.1.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
+- **`dist/Stage Timer App Setup 2.1.0.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
 - **`dist/win-unpacked/`** - Clean app directory (no language packs)
 
 **Alternative Distribution (Linux Build):**
 - **`dist/linux-unpacked/`** - Clean app directory (no language packs)
-- **`dist/Stage Timer App-2.0.1.AppImage`** - AppImage for distribution (may have issues on Windows)
-- **`dist/stage-timer-app_2.0.1_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
+- **`dist/Stage Timer App-2.1.0.AppImage`** - AppImage for distribution (may have issues on Windows)
+- **`dist/stage-timer-app_2.1.0_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
 
 **Cleanup Scripts:**
 - **`build-clean.js`** - Windows cleanup script
@@ -197,7 +214,7 @@ npx electron-builder --win nsis
 ### Installation Instructions
 
 #### Windows Users
-1. Download `Stage Timer App Setup 2.0.1.exe`
+1. Download `Stage Timer App Setup 2.1.0.exe`
 2. Run the installer
 3. Launch from Start Menu or Desktop
 
@@ -208,7 +225,7 @@ sudo apt update
 sudo apt install wine
 
 # Download and run the Windows installer
-wine "Stage Timer App Setup 2.0.1.exe"
+wine "Stage Timer App Setup 2.1.0.exe"
 ```
 
 #### Alternative Linux Installation
@@ -228,7 +245,7 @@ chmod +x "linux-unpacked/Stage Timer App"
 brew install wine-stable
 
 # Run the Windows executable
-wine "Stage Timer App Setup 2.0.1.exe"
+wine "Stage Timer App Setup 2.1.0.exe"
 ```
 
 ## 📖 Usage Guide

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { X, Image, Camera, Video, RefreshCw, ZoomIn, ZoomOut, FastForward, Rewind, ChevronDown } from 'lucide-react';
+import { X, Image, Camera, Video, RefreshCw, ZoomIn, ZoomOut, FastForward, Rewind, ChevronDown, Monitor } from 'lucide-react';
 import { DisplaySizeSettings } from '../types';
 
 interface DisplaySettingsProps {
@@ -14,6 +14,8 @@ const DEFAULT_SIZES: DisplaySizeSettings = {
   nextProgram: 100,
   alertSpeed: 100,
   clock: 100,
+  programName: 100,
+  showProgramName: true,
 };
 
 const DEFAULT_OPACITY = 80;
@@ -31,6 +33,8 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
       nextProgram: parsedSizes.nextProgram || DEFAULT_SIZES.nextProgram,
       alertSpeed: parsedSizes.alertSpeed || DEFAULT_SIZES.alertSpeed,
       clock: parsedSizes.clock || DEFAULT_SIZES.clock,
+      programName: parsedSizes.programName || DEFAULT_SIZES.programName,
+      showProgramName: parsedSizes.showProgramName !== undefined ? parsedSizes.showProgramName : DEFAULT_SIZES.showProgramName,
     };
   });
   
@@ -477,6 +481,39 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
                     onClick={() => adjustSize('clock', 10)}
                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white p-2 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl"
                     title="Increase clock size"
+                  >
+                    <ZoomIn size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Program Name Size */}
+              <div className="bg-gradient-to-br from-gray-700 to-gray-800 p-4 rounded-lg border border-gray-600 shadow-lg">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="text-white text-sm font-medium">Program Name</div>
+                  <button
+                    onClick={() => setSizes(prev => ({ ...prev, showProgramName: !prev.showProgramName }))}
+                    className={`p-1 rounded transition-colors ${sizes.showProgramName ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-400'}`}
+                    title={sizes.showProgramName ? "Hide program name" : "Show program name"}
+                  >
+                    <Monitor size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-center space-x-3">
+                  <button
+                    onClick={() => adjustSize('programName', -10)}
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white p-2 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl"
+                    title="Decrease program name size"
+                  >
+                    <ZoomOut size={16} />
+                  </button>
+                  <div className="bg-gray-900 px-3 py-2 rounded-lg border border-gray-600 min-w-[50px] text-center">
+                    <span className="text-white text-sm font-bold">{sizes.programName}%</span>
+                  </div>
+                  <button
+                    onClick={() => adjustSize('programName', 10)}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white p-2 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl"
+                    title="Increase program name size"
                   >
                     <ZoomIn size={16} />
                   </button>

@@ -5,6 +5,9 @@ const url = require('url');
 
 let mainWindow;
 let secondWindow;
+let secondWindowDisplayId = null;
+let greenScreenWindow;
+let overlayWindowDisplayId = null;
 let timerWindows = new Map(); // Store multiple timer windows
 
 // Single instance functionality
@@ -36,7 +39,10 @@ app.on('ready', () => {
         height: 900,
         minWidth: 1050,
         minHeight: 600,
-        title: 'Stage Timer - v2.0.1',
+        title: 'Stage Timer - v2.1.0',
+        backgroundColor: '#111827',
+        darkTheme: true,
+        frame: false,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -931,12 +937,12 @@ function createTimerWindow(display, windowId) {
 
     // Load the same timer display system as single screen
     const indexPath = path.join(__dirname, 'public', 'index.html');
-    timerWindow.loadFile(indexPath).then(() => {
-        // Navigate to timer route after loading (using hash routing)
-        timerWindow.webContents.executeJavaScript(`
-            window.location.hash = '#/timer';
-        `);
-    });
+    timerWindow.loadURL(url.format({
+        pathname: indexPath,
+        protocol: 'file:',
+        slashes: true,
+        hash: '/timer'
+    }));
     
     // Store the window reference
     timerWindows.set(windowId, timerWindow);
@@ -954,6 +960,8 @@ function openTimerWindow(display) {
         secondWindow.close();
     }
 
+    secondWindowDisplayId = display.id;
+
     secondWindow = new BrowserWindow({
         x: display.bounds.x,
         y: display.bounds.y,
@@ -962,21 +970,23 @@ function openTimerWindow(display) {
         fullscreen: true,
         frame: false,
         skipTaskbar: true,
+        title: 'Stage Display',
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            backgroundThrottling: false
         },
         icon: path.join(__dirname, 'public', 'icon.ico'),
     });
 
     // Load the timer route
     const indexPath = path.join(__dirname, 'public', 'index.html');
-    secondWindow.loadFile(indexPath).then(() => {
-        // Navigate to timer route after loading (using hash routing)
-        secondWindow.webContents.executeJavaScript(`
-            window.location.hash = '#/timer';
-        `);
-    });
+    secondWindow.loadURL(url.format({
+        pathname: indexPath,
+        protocol: 'file:',
+        slashes: true,
+        hash: '/timer'
+    }));
 
     secondWindow.on('closed', () => {
         secondWindow = null;
@@ -1157,6 +1167,69 @@ ipcMain.on('open-advanced-multiscreen', () => {
     showAdvancedMultiScreenModal();
 });
 
+ipcMain.handle('get-displays', () => {
+    const displays = screen.getAllDisplays();
+    const primaryDisplay = screen.getPrimaryDisplay();
+    return displays.map((display, idx) => ({
+        id: display.id,
+        label: display.label || `Display ${idx + 1}: ${display.bounds.width}x${display.bounds.height}`,
+        bounds: display.bounds,
+        isPrimary: display.id === primaryDisplay.id,
+        isUsedByMainTimer: display.id === secondWindowDisplayId,
+        isUsedByOverlay: display.id === overlayWindowDisplayId
+    }));
+});
+
+ipcMain.on('open-green-screen-timer', (event, displayId) => {
+    const displays = screen.getAllDisplays();
+    const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+
+    if (greenScreenWindow) {
+        greenScreenWindow.close();
+    }
+
+    greenScreenWindow = new BrowserWindow({
+        x: targetDisplay.bounds.x,
+        y: targetDisplay.bounds.y,
+        width: targetDisplay.bounds.width,
+        height: targetDisplay.bounds.height,
+        fullscreen: true,
+        frame: false,
+        skipTaskbar: true,
+        title: 'Green Screen Timer',
+        backgroundColor: '#000000',
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js'),
+            backgroundThrottling: false
+        },
+        icon: path.join(__dirname, 'public', 'icon.ico'),
+    });
+
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    greenScreenWindow.loadURL(url.format({
+        pathname: indexPath,
+        protocol: 'file:',
+        slashes: true,
+        hash: '/green-screen'
+    }));
+
+    overlayWindowDisplayId = targetDisplay.id;
+
+    greenScreenWindow.on('closed', () => {
+        greenScreenWindow = null;
+        overlayWindowDisplayId = null;
+    });
+});
+
+ipcMain.on('close-green-screen-timer', () => {
+    if (greenScreenWindow) {
+        greenScreenWindow.close();
+    }
+    overlayWindowDisplayId = null;
+});
+
 ipcMain.handle('clear-cache', async () => {
     try {
         // Clear all types of cache and storage
@@ -1178,4 +1251,30 @@ ipcMain.handle('clear-cache', async () => {
         console.error('Error clearing cache:', error);
         return { success: false, error: error.message };
     }
+});
+
+// Window controls for custom title bar
+ipcMain.on('window:minimize', () => {
+    if (mainWindow) {
+        mainWindow.minimize();
+    }
+});
+
+ipcMain.on('window:toggle-maximize', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+    } else {
+        mainWindow.maximize();
+    }
+});
+
+ipcMain.on('window:close', () => {
+    if (mainWindow) {
+        mainWindow.close();
+    }
+});
+
+ipcMain.handle('window:is-maximized', () => {
+    return mainWindow ? mainWindow.isMaximized() : false;
 });

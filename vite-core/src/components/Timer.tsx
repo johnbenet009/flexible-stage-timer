@@ -98,7 +98,7 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
     : 'relative w-full h-48 overflow-hidden';
 
   const getFontSize = () => {
-    const baseSize = fullscreen ? 25 : 8;
+    const baseSize = fullscreen ? 25 : 6; // Reduced from 8 for better preview fit
     const scaledSize = (baseSize * scale) / 100;
     return fullscreen ? `${scaledSize}vw` : `${scaledSize}rem`;
   };

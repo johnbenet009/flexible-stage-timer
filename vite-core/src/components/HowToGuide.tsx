@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { X, Search, Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, Download, Upload, HelpCircle, Timer, List, Eye, Zap, Trash2, Plus, Type, Image } from 'lucide-react';
+import { X, Search, Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, Download, Upload, HelpCircle, Timer, List, Eye, Zap, Trash2, Plus, Type, Image, Monitor, Layout } from 'lucide-react';
 
 interface HowToGuideProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  variant?: 'modal' | 'page';
+  initialSection?: 'main' | 'overlay';
 }
 
 interface GuideItem {
@@ -13,6 +15,7 @@ interface GuideItem {
   category: string;
   steps: string[];
   keywords: string[];
+  section?: 'main' | 'overlay' | 'both';
 }
 
 const guideItems: GuideItem[] = [
@@ -428,13 +431,12 @@ const guideItems: GuideItem[] = [
     steps: [
       'Access File menu → Advanced Multi-Screen Options (Ctrl+M)',
       'Single Display: Show timer on one secondary screen only',
-      'Multiple Displays: Display different timers on multiple screens simultaneously',
       'Duplicate Display: Mirror the same timer to multiple screens',
-      'Span Display: Stretch timer across multiple screens',
       'Use File menu → Close All Timer Displays to close all windows',
       'All timer displays are hidden from taskbar for clean operation'
     ],
-    keywords: ['multi-screen', 'multiple', 'displays', 'duplicate', 'span', 'advanced', 'windows']
+    keywords: ['multi-screen', 'multiple', 'displays', 'duplicate', 'advanced', 'windows'],
+    section: 'overlay'
   },
   {
     id: 'multiscreen-keyboard',
@@ -449,18 +451,168 @@ const guideItems: GuideItem[] = [
       'Ctrl+R: Refresh all displays',
       'Ctrl+Shift+R: Force refresh all displays'
     ],
-    keywords: ['keyboard', 'shortcuts', 'multiscreen', 'display', 'refresh', 'close']
+    keywords: ['keyboard', 'shortcuts', 'multiscreen', 'display', 'refresh', 'close'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-basics',
+    title: 'Broadcast Overlay Basics',
+    icon: <Monitor className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Choose Target Display (secondary screen) for live output',
+      'Pick Overlay Mode: Countdown Timer, System Clock, or Program Info',
+      'Click "Go Live" to open/close the overlay on the selected display',
+      'Use X/Y to position and Overall Scale to resize output',
+      'Overlay runs on a green/blue/red background for chroma key'
+    ],
+    keywords: ['overlay', 'live', 'display', 'mode', 'chroma', 'program info'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-target-display',
+    title: 'Target Display Selection',
+    icon: <Eye className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Open the Target Display dropdown to list available secondary screens',
+      'Displays used by the main timer are disabled to avoid conflicts',
+      'Selection is locked while broadcasting is live - stop broadcast to change',
+      'If no secondary display is connected, use File -> Display Options to manage multi-screen setup'
+    ],
+    keywords: ['target display', 'secondary', 'screen', 'selection', 'disabled'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-go-live',
+    title: 'Go Live and Stop Broadcast',
+    icon: <Play className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Click "Go Live" to open the overlay on the selected display',
+      'While live: some controls are disabled to avoid accidental changes',
+      'Click "Stop Broadcast" to close the overlay window',
+      'Use Apply Changes to push staged values live and re-trigger animations'
+    ],
+    keywords: ['go live', 'stop', 'broadcast', 'apply changes', 'window'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-modes',
+    title: 'Overlay Modes',
+    icon: <Settings className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Countdown Timer: shows the green-screen timer with flashing animation at 00:00',
+      'System Clock: shows current time with your configured font size and position',
+      'Program Info: shows title, subtitle and speaker line with optional image and theme'
+    ],
+    keywords: ['modes', 'timer', 'clock', 'program info'],
+    section: 'overlay'
+  },
+  {
+    id: 'program-info-editor',
+    title: 'Program Info Editor',
+    icon: <Type className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Set Program Name, Message Title, and Minister/Speaker',
+      'Upload a square image for the minister logo/avatar',
+      'Choose DARK or LIGHT theme to match your production',
+      'Use X (Horizontal), Y (Vertical), and Overall Scale to position',
+      'Set display and sleep seconds for automatic cycle on/off'
+    ],
+    keywords: ['program info', 'title', 'speaker', 'image', 'theme', 'position'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-font-scale',
+    title: 'Font Size vs Overall Scale',
+    icon: <Type className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Overall Scale adjusts the entire overlay (including padding and image) proportionally',
+      'Font Size controls the number size for Timer/Clock modes independently',
+      'For Program Info, individual sizes control Title, Subtitle and Speaker lines'
+    ],
+    keywords: ['font', 'scale', 'size', 'overall', 'program info'],
+    section: 'overlay'
+  },
+  {
+    id: 'position-scale',
+    title: 'Positioning and Scaling',
+    icon: <Layout className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'X controls horizontal position; Y controls vertical position',
+      'Overall Scale adjusts the entire overlay size consistently',
+      'Font Size controls timer/clock size when in those modes',
+      'Preview updates live when broadcasting is active',
+      'Use Apply Changes to stage values and push them live'
+    ],
+    keywords: ['position', 'scale', 'x', 'y', 'font size'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-chroma',
+    title: 'Chroma Key Background',
+    icon: <Image className="w-5 h-5" />,
+    category: 'Overlay',
+    steps: [
+      'Choose between green, blue, red, black or white backgrounds',
+      'Use green or blue for typical chroma key setups in vMix/OBS',
+      'Ensure camera lighting and keyer settings are tuned to avoid fringing'
+    ],
+    keywords: ['chroma', 'green', 'blue', 'background', 'key'],
+    section: 'overlay'
+  },
+  {
+    id: 'overlay-troubleshooting',
+    title: 'Overlay Troubleshooting',
+    icon: <RefreshCw className="w-5 h-5" />,
+    category: 'Troubleshooting',
+    steps: [
+      'If the overlay is not visible: verify the correct Target Display is selected',
+      'If changes do not appear: click Apply Changes or File -> Refresh',
+      'If windows get out of sync: use File -> Close All Timer Displays then Go Live again',
+      'Use File -> Force Refresh (Clear All Cache) if assets seem stale'
+    ],
+    keywords: ['troubleshooting', 'refresh', 'clear', 'cache', 'display'],
+    section: 'overlay'
+  },
+  {
+    id: 'project-story',
+    title: 'Story: How This Was Built',
+    icon: <HelpCircle className="w-5 h-5" />,
+    category: 'About',
+    steps: [
+      'It began in my church - we needed a simple way to show a timer and manage our service efficiently.',
+      'There weren’t many free options that truly fit church workflows - most were paid or limited.',
+      'I asked: what if I build something churches can use for free, with the features we actually need?',
+      'By the grace of God, this app came to life and has served us well ever since.',
+      'I’m John O. - and I keep this open source so anyone can improve it and bless their community.'
+    ],
+    keywords: ['about', 'story', 'church', 'free', 'open source', 'john o'],
+    section: 'both'
   }
 ];
 
-export function HowToGuide({ isOpen, onClose }: HowToGuideProps) {
+export function HowToGuide({ isOpen = true, onClose = () => {}, variant = 'modal', initialSection = 'main' }: HowToGuideProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSection, setSelectedSection] = useState<'main' | 'overlay'>(initialSection);
 
   const categories = ['All', ...Array.from(new Set(guideItems.map(item => item.category)))];
 
   const filteredItems = useMemo(() => {
     let filtered = guideItems;
+
+    // Section filter: default items without section to 'main'
+    filtered = filtered.filter(item => {
+      if (!item.section) return selectedSection === 'main';
+      if (item.section === 'both') return true;
+      return item.section === selectedSection;
+    });
 
     // Filter by category
     if (selectedCategory !== 'All') {
@@ -477,150 +629,207 @@ export function HowToGuide({ isOpen, onClose }: HowToGuideProps) {
       );
     }
 
+    // Sort to show story first when present
+    filtered = filtered.sort((a, b) => {
+      if (a.id === 'project-story') return -1;
+      if (b.id === 'project-story') return 1;
+      return 0;
+    });
+
     return filtered;
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, selectedSection]);
 
-  if (!isOpen) return null;
+  if (variant === 'modal' && !isOpen) return null;
 
-  return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="bg-gray-800 rounded-lg w-[90vw] max-w-4xl h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-700">
-          <div className="flex items-center space-x-3">
-            <HelpCircle className="text-blue-400" size={28} />
-            <h2 className="text-2xl font-bold text-white">How To Guide</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+  const Header = (
+    <div className="flex justify-between items-center p-6 border-b border-gray-700">
+      <div className="flex items-center space-x-3">
+        <HelpCircle className="text-blue-400" size={28} />
+        <h2 className="text-2xl font-bold text-white">How To Guide</h2>
+      </div>
+      {variant === 'modal' && (
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-white transition-colors"
+        >
+          <X size={24} />
+        </button>
+      )}
+    </div>
+  );
+
+  const ContactBanner = (
+    <div className="px-6 py-3 bg-gradient-to-r from-blue-900 to-purple-900 border-b border-gray-700">
+      <div className="text-center">
+        <p className="text-white text-xs mb-1">
+          This app is free and open source, developed by Positive Developer. Contact me for proposed new features and improvements - feel free to fork and push your contributions. Available for custom software for churches, corporate or personal projects.
+        </p>
+        <div className="flex flex-wrap justify-center items-center gap-3 text-xs">
+          <a 
+            href="mailto:johnbenet0009@gmail.com" 
+            className="text-blue-300 hover:text-blue-200 underline"
           >
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Contact Information */}
-        <div className="px-6 py-3 bg-gradient-to-r from-blue-900 to-purple-900 border-b border-gray-700">
-          <div className="text-center">
-            <p className="text-white text-xs mb-1">
-              <strong>FREE App - Need custom software?</strong>
-            </p>
-            <div className="flex flex-wrap justify-center items-center gap-3 text-xs">
-              <a 
-                href="mailto:johnbenet0009@gmail.com" 
-                className="text-blue-300 hover:text-blue-200 underline"
-              >
-                📧 johnbenet0009@gmail.com
-              </a>
-              <a 
-                href="tel:+2349014532386" 
-                className="text-green-300 hover:text-green-200 underline"
-              >
-                📞 +2349014532386
-              </a>
-              <a 
-                href="https://github.com/johnbenet009" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-purple-300 hover:text-purple-200 underline"
-              >
-                🔗 @johnbenet009
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="p-6 border-b border-gray-700">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search for help topics..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-
-            {/* Category Filter */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none min-w-[150px]"
-            >
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-          {filteredItems.length === 0 ? (
-            <div className="text-center py-12">
-              <HelpCircle className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-xl font-semibold text-gray-300 mb-2">No results found</h3>
-              <p className="text-gray-400">Try different search terms or categories</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {filteredItems.map((item) => (
-                <div key={item.id} className="bg-gray-700 rounded-lg p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 p-2 bg-blue-600 rounded-lg">
-                      {item.icon}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xl font-semibold text-white">{item.title}</h3>
-                        <span className="text-sm text-blue-300 bg-blue-900 px-2 py-1 rounded">
-                          {item.category}
-                        </span>
-                      </div>
-                      <ol className="space-y-2">
-                        {item.steps.map((step, index) => (
-                          <li key={index} className="flex items-start space-x-3 text-gray-300">
-                            <span className="flex-shrink-0 w-6 h-6 bg-gray-600 text-white text-sm rounded-full flex items-center justify-center font-medium">
-                              {index + 1}
-                            </span>
-                            <span>{step}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t border-gray-700 bg-gray-900">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-400">
-              Found {filteredItems.length} help topic{filteredItems.length !== 1 ? 's' : ''}
-            </div>
-            <button
-              onClick={onClose}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-500 transition-colors"
-            >
-              Got it!
-            </button>
-          </div>
+            📧 johnbenet0009@gmail.com
+          </a>
+          <a 
+            href="tel:+2349014532386" 
+            className="text-green-300 hover:text-green-200 underline"
+          >
+            📞 +2349014532386
+          </a>
+          <a 
+            href="https://github.com/johnbenet009/flexible-stage-timer" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-purple-300 hover:text-purple-200 underline"
+          >
+            🔗 Project on GitHub
+          </a>
         </div>
       </div>
+    </div>
+  );
+
+  const SearchFilters = (
+    <div className="p-6 border-b border-gray-700 space-y-4">
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={() => setSelectedSection('main')}
+          className={`px-4 py-2 rounded-lg text-xs font-black ${selectedSection === 'main' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+        >
+          Timer Control Guide
+        </button>
+        <button
+          onClick={() => setSelectedSection('overlay')}
+          className={`px-4 py-2 rounded-lg text-xs font-black ${selectedSection === 'overlay' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+        >
+          Overlay Control Guide
+        </button>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search for help topics..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none min-w-[150px]"
+        >
+          {categories.map(category => (
+            <option key={category} value={category}>{category}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  const Content = (
+    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          {filteredItems.length === 0 ? (
+        <div className="text-center py-12">
+          <HelpCircle className="mx-auto text-gray-400 mb-4" size={48} />
+          <h3 className="text-xl font-semibold text-gray-300 mb-2">No results found</h3>
+          <p className="text-gray-400">Try different search terms or categories</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {filteredItems.map((item) => (
+            <div key={item.id} className="bg-gray-700 rounded-lg p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 p-2 bg-blue-600 rounded-lg">
+                  {item.icon}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xl font-semibold text-white">{item.title}</h3>
+                    <span className="text-sm text-blue-300 bg-blue-900 px-2 py-1 rounded">
+                      {item.category}
+                    </span>
+                  </div>
+                      {item.id === 'project-story' ? (
+                        <div className="space-y-3 text-gray-300 leading-relaxed">
+                          {item.steps.map((p, idx) => (
+                            <p key={idx}>{p.replace(/—/g, '-')}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <ol className="space-y-2">
+                          {item.steps.map((step, index) => (
+                            <li key={index} className="flex items-start space-x-3 text-gray-300">
+                              <span className="flex-shrink-0 w-6 h-6 bg-gray-600 text-white text-sm rounded-full flex items-center justify-center font-medium">
+                                {index + 1}
+                              </span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const Footer = (
+    <div className="p-6 border-t border-gray-700 bg-gray-900">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-400">
+          Found {filteredItems.length} help topic{filteredItems.length !== 1 ? 's' : ''}
+        </div>
+        {variant === 'modal' ? (
+          <button
+            onClick={onClose}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-500 transition-colors"
+          >
+            Got it!
+          </button>
+        ) : (
+          <div className="text-xs text-gray-400">
+            This project is free and open source - contributions welcome.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (variant === 'modal') {
+    return (
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div className="bg-gray-800 rounded-lg w-[90vw] max-w-4xl h-[90vh] flex flex-col">
+          {Header}
+          {ContactBanner}
+          {SearchFilters}
+          {Content}
+          {Footer}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-lg w-full flex flex-col border border-gray-700">
+      {Header}
+      {ContactBanner}
+      {SearchFilters}
+      {Content}
+      {Footer}
     </div>
   );
 }

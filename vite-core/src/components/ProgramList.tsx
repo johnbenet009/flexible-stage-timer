@@ -9,9 +9,20 @@ interface ProgramListProps {
   onStart: (program: Program) => void;
   onNotify: (program: Program) => void;
   onEdit: (program: Program) => void;
+  currentProgramName?: string;
+  isRunning?: boolean;
 }
 
-export function ProgramList({ programs, categories, onDelete, onStart, onNotify, onEdit }: ProgramListProps) {
+export function ProgramList({ 
+  programs, 
+  categories, 
+  onDelete, 
+  onStart, 
+  onNotify, 
+  onEdit,
+  currentProgramName,
+  isRunning = false
+}: ProgramListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDuration, setEditDuration] = useState(0);
@@ -72,80 +83,108 @@ export function ProgramList({ programs, categories, onDelete, onStart, onNotify,
             <div className="p-2 space-y-2">
               {programs
                 .filter(program => program.categoryId === category.id)
-                .map(program => (
-                  <div key={program.id} className="flex items-center justify-between bg-gray-800 p-2 rounded">
-                    {editingId === program.id ? (
-                      <div className="flex-1 flex items-center space-x-2">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="flex-1 bg-gray-700 text-white px-2 py-1 rounded"
-                        />
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setEditDuration(Math.max(0, editDuration - 1))}
-                            className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500"
-                          >
-                            -1
-                          </button>
-                          <span className="text-white w-12 text-center">{editDuration}m</span>
-                          <button
-                            onClick={() => setEditDuration(editDuration + 1)}
-                            className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-500"
-                          >
-                            +1
-                          </button>
+                .map(program => {
+                  const isCurrent = program.name === currentProgramName && isRunning;
+                  return (
+                    <div 
+                      key={program.id} 
+                      className={`flex items-center justify-between p-2 rounded transition-all ${
+                        isCurrent ? 'bg-green-900/40 border border-green-500/50' : 'bg-gray-800'
+                      }`}
+                    >
+                      {editingId === program.id ? (
+                        <div className="flex-1 flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="flex-1 bg-gray-700 text-white px-2 py-1 rounded"
+                          />
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setEditDuration(Math.max(0, editDuration - 1))}
+                              className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500"
+                            >
+                              -1
+                            </button>
+                            <span className="text-white w-12 text-center">{editDuration}m</span>
+                            <button
+                              onClick={() => setEditDuration(editDuration + 1)}
+                              className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-500"
+                            >
+                              +1
+                            </button>
+                          </div>
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => saveEdit(program.id, program.categoryId)}
+                              className="p-1 bg-green-600 text-white rounded hover:bg-green-500"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="p-1 bg-gray-600 text-white rounded hover:bg-gray-500"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={() => saveEdit(program.id, category.id)}
-                          className="p-1 text-green-500 hover:text-green-400"
-                        >
-                          <Check size={18} />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="p-1 text-red-500 hover:text-red-400"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-white">
-                          <span className="font-bold">{program.name}</span>
-                          <span className="ml-2 text-gray-400">({program.duration}m)</span>
-                        </div>
-                        <div className="space-x-2">
-                          <button
-                            onClick={() => onStart(program)}
-                            className="p-1 text-green-500 hover:text-green-400"
-                          >
-                            <Play size={18} />
-                          </button>
-                          <button
-                            onClick={() => onNotify(program)}
-                            className="p-1 text-blue-500 hover:text-blue-400"
-                          >
-                            <Bell size={18} />
-                          </button>
-                          <button
-                            onClick={() => startEdit(program)}
-                            className="p-1 text-yellow-500 hover:text-yellow-400"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => onDelete(program.id)}
-                            className="p-1 text-red-500 hover:text-red-400"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              {isCurrent && (
+                                <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                              )}
+                              <span className={`text-white font-medium ${isCurrent ? 'text-green-400' : ''}`}>
+                                {program.name}
+                              </span>
+                              <span className="text-gray-400 text-sm">({program.duration}m)</span>
+                              {isCurrent && (
+                                <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                  Live
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => onStart(program)}
+                              className={`p-1 rounded transition-colors ${
+                                isCurrent ? 'bg-green-600 text-white' : 'text-green-500 hover:bg-green-600 hover:text-white'
+                              }`}
+                              title="Start Timer"
+                            >
+                              <Play size={18} />
+                            </button>
+                            <button
+                              onClick={() => onNotify(program)}
+                              className="p-1 text-blue-500 hover:bg-blue-600 hover:text-white rounded transition-colors"
+                              title="Notify Next"
+                            >
+                              <Bell size={18} />
+                            </button>
+                            <button
+                              onClick={() => startEdit(program)}
+                              className="p-1 text-yellow-500 hover:bg-yellow-600 hover:text-white rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => onDelete(program.id)}
+                              className="p-1 text-red-500 hover:bg-red-600 hover:text-white rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
