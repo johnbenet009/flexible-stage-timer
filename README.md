@@ -1,4 +1,4 @@
-# Stage Timer App v2.1.0
+# Stage Timer App v2.0.1
 
 <img width="1212" height="907" alt="image" src="https://github.com/user-attachments/assets/b1db343f-c72b-4a50-a04b-0186f81af7a9" />
 <img width="1216" height="908" alt="image" src="https://github.com/user-attachments/assets/9e4a162f-b5fd-4bd1-b3e1-da7711bb895e" />
