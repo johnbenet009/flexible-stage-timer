@@ -266,6 +266,7 @@ function createSecondWindow() {
                         `).join('')}
                     </div>
                     <div class="buttons">
+                        <button class="cancel-btn" onclick="closeAll()">Close All Displays</button>
                         <button class="cancel-btn" onclick="closeDialog()">Cancel</button>
                     </div>
                     <script>
@@ -274,6 +275,10 @@ function createSecondWindow() {
                             ipcRenderer.send('display-selected', index);
                         }
                         function closeDialog() {
+                            ipcRenderer.send('dialog-cancelled');
+                        }
+                        function closeAll() {
+                            ipcRenderer.send('close-all-displays');
                             ipcRenderer.send('dialog-cancelled');
                         }
                     </script>
@@ -993,6 +998,26 @@ function openTimerWindow(display) {
     });
 }
 
+// Close all secondary/overlay displays without quitting the app
+function closeAllDisplays() {
+    if (secondWindow && !secondWindow.isDestroyed()) {
+        secondWindow.close();
+    }
+    secondWindow = null;
+    secondWindowDisplayId = null;
+    timerWindows.forEach((win) => {
+        if (win && !win.isDestroyed()) {
+            win.close();
+        }
+    });
+    timerWindows.clear();
+    if (greenScreenWindow && !greenScreenWindow.isDestroyed()) {
+        greenScreenWindow.close();
+    }
+    greenScreenWindow = null;
+    overlayWindowDisplayId = null;
+}
+
 function setupMenu() {
     const template = [
         {
@@ -1024,21 +1049,9 @@ function setupMenu() {
                     }
                 },
                 {
-                    label: 'Close All Timer Displays',
+                    label: 'Close All Displays',
                     accelerator: 'CmdOrCtrl+W',
-                    click: () => {
-                        // Close single timer window
-                        if (secondWindow) {
-                            secondWindow.close();
-                        }
-                        // Close all multiple timer windows
-                        timerWindows.forEach((window) => {
-                            if (window && !window.isDestroyed()) {
-                                window.close();
-                            }
-                        });
-                        timerWindows.clear();
-                    }
+                    click: closeAllDisplays
                 },
                 { type: 'separator' },
                 {
@@ -1277,4 +1290,9 @@ ipcMain.on('window:close', () => {
 
 ipcMain.handle('window:is-maximized', () => {
     return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+// Close all displays (IPC)
+ipcMain.on('close-all-displays', () => {
+    closeAllDisplays();
 });

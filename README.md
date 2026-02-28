@@ -4,14 +4,43 @@
 
 A professional stage timing and broadcast graphics application built with React, TypeScript, and Electron. Designed for live events, houses of worship, and professional broadcast environments.
 
-## 📝 Recent Changelog (v2.1.0)
+## 📝 What’s New in v2.1.0
 
-### 📺 New Broadcast Overlay System
-- **Lower Thirds**: Professional animated lower-third graphics for live streams.
-- **Independent Control**: Separate fields for Program Name, Message Title, and Minister/Speaker.
-- **Canva-Inspired Themes**: Toggle between high-contrast Light and Dark themes.
-- **Tabbed Dashboard**: New "Overlay Control" tab for quick access to broadcast graphics without scrolling.
-- **Chroma Key Support**: Customizable background colors (Green, Blue, etc.) for easy OBS/VMix integration.
+### ▶️ Overlay: Program Info (formerly “Lower Third”)
+- Program Info overlay with title, subtitle and speaker lines
+- Accurate staging preview that matches the live output
+- Positioning fixes: horizontal X and overall scale behave consistently
+- Theme toggle (Dark/Light) with crisp typography
+- Image slot for logo/minister photo
+
+### 🎚️ Controls & UX
+- Touch‑friendly sliders with larger knobs across Overlay controls
+- Overall scale and font size sliders provide smoother control
+- Custom color picker for chroma key background (in addition to quick swatches)
+- Responsive widescreen layout that uses more space when maximized
+
+### 🖥️ Multi‑Screen Improvements
+- Target Display shows all secondary screens with status tags:
+  - “In‑use: Timer” when used by Timer Control
+  - “In‑use: Overlay” when broadcasting overlay
+  - “Available” for free screens
+- Display list refreshes when opening Overlay Control
+
+### 🧭 Navigation & Guides
+- Full‑page Guide with two sections: Timer Control Guide and Overlay Control Guide
+- Guide opens directly to the relevant section from each module
+
+
+> Tip: You can run Timer Control on one screen and Program Info on another. Use Target Display selectors to route each output independently.
+
+---
+
+## 📺 Broadcast Overlay System
+- **Program Info**: Professional lower‑third style overlay (title, subtitle, speaker)
+- **Independent Control**: Separate fields for Program Name, Message Title, and Minister/Speaker
+- **Themes**: High‑contrast Light and Dark
+- **Tabbed Dashboard**: “Overlay Control” provides a focused workspace
+- **Chroma Key Support**: Quick swatches + full color picker for OBS/vMix integration
 
 ### 🎭 Cinematic "Up Next" Experience
 - **Cinematic Animations**: New scale-in and gradient pulse animations for transition alerts.
@@ -19,7 +48,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **On-Screen Progress**: Added a countdown progress bar to notification overlays.
 
 ### ⚙️ System Improvements
-- **Tab-Based Navigation**: Reorganized the main dashboard into "Main Control" and "Overlay Control".
+- **Tab-Based Navigation**: Organized the main dashboard into "Timer Control" and "Overlay Control".
 - **Performance Protection**: Disabled background throttling in Electron to ensure frame-perfect timer accuracy.
 - **Persistent Routing**: Improved window loading logic using `HashRouter` for guaranteed secondary display stability.
 
@@ -268,6 +297,13 @@ wine "Stage Timer App Setup 2.1.0.exe"
 - **Splash Screen**: Customize startup display
 - **Multi-Screen**: Switch between available displays
 
+## 💬 Story: How This Was Built
+It began in my church—we needed a simple way to show a timer and manage services efficiently. Most options we found were paid, limited, or simply not tailored for church workflows. I asked: what if I build something churches can use for free, with the features we actually need?
+
+By the grace of God, this app came to life and has served us faithfully ever since. It continues to grow with real‑world feedback from church and live‑event use. I’m John O., and I keep this free and open source so anyone can fork, improve, and bless their community.
+
+If you build on this, please share your improvements! PRs are welcome.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please follow these guidelines:
@@ -331,7 +367,7 @@ This project is licensed under the [MIT License](LICENSE.txt).
 
 ## 👨‍💻 Author
 
-**John Benet** - [@johnbenet009](https://github.com/johnbenet009)
+**John Benet (John O.)** - [@johnbenet009](https://github.com/johnbenet009)
 
 ## 🙏 Acknowledgments
 
@@ -343,4 +379,4 @@ This project is licensed under the [MIT License](LICENSE.txt).
 
 ---
 
-**Ready for professional stage presentations!** 🎭✨ 
+**Free, open source, and ready for professional stage presentations. Fork it, improve it, and share it.** 🎭✨ 
