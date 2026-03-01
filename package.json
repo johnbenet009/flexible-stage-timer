@@ -34,7 +34,10 @@
      "icon": "public/icon.ico",
      "win": {
        "target": "nsis",
-       "icon": "public/icon.ico"
+       "icon": "public/icon.ico",
+       "publisherName": "Stage Timer (John O.)",
+       "certificateSubjectName": "Stage Timer (John O.)",
+       "artifactName": "${productName}-${version}-win.${ext}"
      },
      "linux": {
        "target": [

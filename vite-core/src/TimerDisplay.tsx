@@ -15,6 +15,14 @@ function TimerDisplay() {
     isComplete: false,
     programName: '',
   });
+  const [timerDeadline, setTimerDeadline] = useState<number | null>(() => {
+    const s = localStorage.getItem('timerDeadline');
+    return s ? Number(s) : null;
+  });
+  const deadlineRef = useRef<number | null>(null);
+  useEffect(() => {
+    deadlineRef.current = timerDeadline;
+  }, [timerDeadline]);
   const [extraTime, setExtraTime] = useState({
     minutes: 0,
     seconds: 0,
@@ -65,6 +73,7 @@ function TimerDisplay() {
       const storedShowClock = localStorage.getItem('showClock');
       const storedCurrentTime = localStorage.getItem('currentTime');
       const storedDisplaySizes = localStorage.getItem('displaySizes');
+      const storedDeadline = localStorage.getItem('timerDeadline');
 
       if (storedTimerState) setTimerState(JSON.parse(storedTimerState));
       if (storedExtraTime) setExtraTime(JSON.parse(storedExtraTime));
@@ -79,6 +88,7 @@ function TimerDisplay() {
         setProgramNameScale(sizes.programName || 100);
         setShowProgramName(sizes.showProgramName !== undefined ? sizes.showProgramName : true);
       }
+      if (storedDeadline) setTimerDeadline(Number(storedDeadline));
       
       const storedLogo = localStorage.getItem('churchLogo');
       if (storedLogo) {
@@ -106,6 +116,9 @@ function TimerDisplay() {
       switch (e.key) {
         case 'timerState':
           if (newValue) setTimerState(newValue);
+          break;
+        case 'timerDeadline':
+          setTimerDeadline(newValue ? Number(newValue) : null);
           break;
         case 'extraTime':
           if (newValue) setExtraTime(newValue);
@@ -165,6 +178,32 @@ function TimerDisplay() {
       return () => clearInterval(interval);
     }
   }, [showClock]);
+
+  // Deadline-based ticking to avoid background freezes
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    if (timerState.isRunning && !timerState.isPaused && deadlineRef.current) {
+      const tick = () => {
+        const now = Date.now();
+        const deadline = deadlineRef.current!;
+        const remainingMs = Math.max(0, deadline - now);
+        const remainingSec = Math.ceil(remainingMs / 1000);
+        const mins = Math.floor(remainingSec / 60);
+        const secs = remainingSec % 60;
+        setTimerState(prev => ({
+          ...prev,
+          minutes: mins,
+          seconds: secs,
+          isComplete: remainingSec <= 0 ? true : prev.isComplete,
+        }));
+      };
+      tick();
+      interval = setInterval(tick, 250);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerState.isRunning, timerState.isPaused, timerDeadline]);
 
   // Smart clock display logic - when timer is running
   useEffect(() => {

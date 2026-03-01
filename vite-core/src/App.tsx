@@ -44,6 +44,37 @@ function App() {
     };
   });
 
+  const [timerDeadline, setTimerDeadline] = useState<number | null>(() => {
+    const stored = localStorage.getItem('timerDeadline');
+    return stored ? Number(stored) : null;
+  });
+  const timerDeadlineRef = useRef<number | null>(null);
+  useEffect(() => {
+    timerDeadlineRef.current = timerDeadline;
+    if (timerDeadline === null) {
+      localStorage.removeItem('timerDeadline');
+    } else {
+      localStorage.setItem('timerDeadline', String(timerDeadline));
+    }
+    window.dispatchEvent(new Event('storage'));
+  }, [timerDeadline]);
+
+  const [lastRunDurationSec, setLastRunDurationSec] = useState<number>(() => {
+    const s = localStorage.getItem('lastRunDurationSec');
+    return s ? Number(s) : 0;
+  });
+  useEffect(() => {
+    localStorage.setItem('lastRunDurationSec', String(lastRunDurationSec || 0));
+  }, [lastRunDurationSec]);
+
+  const [overlayLastDurationSec, setOverlayLastDurationSec] = useState<number>(() => {
+    const s = localStorage.getItem('overlayLastDurationSec');
+    return s ? Number(s) : 0;
+  });
+  useEffect(() => {
+    localStorage.setItem('overlayLastDurationSec', String(overlayLastDurationSec || 0));
+  }, [overlayLastDurationSec]);
+
   const [extraTime, setExtraTime] = useState<ExtraTimeState>({
     minutes: 0,
     seconds: 0,
@@ -331,7 +362,13 @@ function App() {
   };
 
   const startGreenScreenTimer = () => {
-    setGreenScreenTimer(prev => ({ ...prev, isRunning: true, isPaused: false }));
+    const fromState = greenScreenTimer.minutes * 60 + greenScreenTimer.seconds;
+    const duration = fromState > 0 ? fromState : overlayLastDurationSec;
+    if (duration <= 0) return;
+    const minutes = Math.floor(duration / 60);
+    const seconds = duration % 60;
+    setOverlayLastDurationSec(duration);
+    setGreenScreenTimer({ minutes, seconds, isRunning: true, isPaused: false });
   };
 
   const pauseGreenScreenTimer = () => {
@@ -347,6 +384,17 @@ function App() {
       minutes: 0,
       seconds: 0,
       isRunning: false,
+      isPaused: false,
+    });
+  };
+
+  const restartGreenScreenTimer = () => {
+    const duration = overlayLastDurationSec || (greenScreenTimer.minutes * 60 + greenScreenTimer.seconds);
+    if (duration <= 0) return;
+    setGreenScreenTimer({
+      minutes: Math.floor(duration / 60),
+      seconds: duration % 60,
+      isRunning: true,
       isPaused: false,
     });
   };
@@ -589,33 +637,33 @@ function App() {
   }, [greenScreenTimer.isRunning, greenScreenTimer.isPaused]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (liveTimer.isRunning && !liveTimer.isPaused) {
-      interval = setInterval(() => {
-        setLiveTimer(prev => {
-          if (prev.seconds === 0 && prev.minutes === 0) {
-            return { ...prev, isRunning: false };
-          }
-
-          let newSeconds = prev.seconds - 1;
-          let newMinutes = prev.minutes;
-
-          if (newSeconds < 0) {
-            newSeconds = 59;
-            newMinutes--;
-          }
-
-          return {
-            ...prev,
-            minutes: newMinutes,
-            seconds: newSeconds,
-          };
-        });
-      }, 1000);
+    let interval: NodeJS.Timeout | undefined;
+    if (liveTimer.isRunning && !liveTimer.isPaused && timerDeadlineRef.current) {
+      const tick = () => {
+        const now = Date.now();
+        const deadline = timerDeadlineRef.current!;
+        const remainingMs = Math.max(0, deadline - now);
+        const remainingSec = Math.ceil(remainingMs / 1000);
+        const mins = Math.floor(remainingSec / 60);
+        const secs = remainingSec % 60;
+        setLiveTimer(prev => ({
+          ...prev,
+          minutes: mins,
+          seconds: secs,
+        }));
+        if (remainingSec <= 0) {
+          setIsTimerComplete(true);
+          setLiveTimer(prev => ({ ...prev, isRunning: false, isPaused: false, minutes: 0, seconds: 0 }));
+          setTimerDeadline(null);
+        }
+      };
+      tick();
+      interval = setInterval(tick, 250);
     }
-
-    return () => clearInterval(interval);
-  }, [liveTimer.isRunning, liveTimer.isPaused]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [liveTimer.isRunning, liveTimer.isPaused, timerDeadline]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -749,20 +797,35 @@ function App() {
   };
 
   const startLiveTimer = () => {
-    setLiveTimer({
-      ...setupTimer,
-      isRunning: true,
-      isPaused: false,
-    });
+    const currentDuration = setupTimer.minutes * 60 + setupTimer.seconds;
+    const durationSec = currentDuration > 0 ? currentDuration : lastRunDurationSec;
+    if (durationSec <= 0) return;
+    const minutes = Math.floor(durationSec / 60);
+    const seconds = durationSec % 60;
+    setLiveTimer({ minutes, seconds, isRunning: true, isPaused: false, isAttention: false, programName: liveTimer.programName });
+    setLastRunDurationSec(durationSec);
+    setTimerDeadline(Date.now() + durationSec * 1000);
     setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
   const pauseLiveTimer = () => {
-    setLiveTimer(prev => ({ ...prev, isPaused: true }));
+    // Capture remaining, clear deadline
+    setLiveTimer(prev => {
+      let remainingSec = prev.minutes * 60 + prev.seconds;
+      if (timerDeadlineRef.current) {
+        remainingSec = Math.max(0, Math.ceil((timerDeadlineRef.current - Date.now()) / 1000));
+      }
+      return { ...prev, isPaused: true, minutes: Math.floor(remainingSec / 60), seconds: remainingSec % 60 };
+    });
+    setTimerDeadline(null);
   };
 
   const resumeLiveTimer = () => {
     setLiveTimer(prev => ({ ...prev, isPaused: false }));
+    const remaining = liveTimer.minutes * 60 + liveTimer.seconds;
+    if (remaining > 0) {
+      setTimerDeadline(Date.now() + remaining * 1000);
+    }
   };
 
   const resetLiveTimer = () => {
@@ -774,7 +837,24 @@ function App() {
       isAttention: false,
       programName: undefined,
     });
+    setTimerDeadline(null);
     setIsTimerComplete(false);
+  };
+
+  const restartLiveTimer = () => {
+    const durationSec = lastRunDurationSec || (setupTimer.minutes * 60 + setupTimer.seconds);
+    if (durationSec <= 0) return;
+    setLiveTimer({
+      minutes: Math.floor(durationSec / 60),
+      seconds: durationSec % 60,
+      isRunning: true,
+      isPaused: false,
+      isAttention: false,
+      programName: liveTimer.programName,
+    });
+    setTimerDeadline(Date.now() + durationSec * 1000);
+    setIsTimerComplete(false);
+    setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
   const toggleAttention = () => {
@@ -813,6 +893,8 @@ function App() {
       programName: program.name,
     });
     setExtraTime(prev => ({ ...prev, isRunning: false }));
+    setLastRunDurationSec(program.duration * 60);
+    setTimerDeadline(Date.now() + program.duration * 60 * 1000);
     
     // Add to timer history
     const historyEntry = {
@@ -830,6 +912,9 @@ function App() {
         ...prev,
         minutes: Math.max(0, prev.minutes + minutes)
       }));
+      if (!liveTimer.isPaused && timerDeadlineRef.current) {
+        setTimerDeadline(timerDeadlineRef.current + minutes * 60 * 1000);
+      }
     }
   };
 
@@ -845,6 +930,9 @@ function App() {
           seconds: newSeconds
         };
       });
+      if (!liveTimer.isPaused && timerDeadlineRef.current) {
+        setTimerDeadline(timerDeadlineRef.current + seconds * 1000);
+      }
     }
   };
 
@@ -1287,6 +1375,13 @@ function App() {
                           Pause
                         </>
                       )}
+                    </button>
+                    <button
+                      onClick={restartLiveTimer}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+                    >
+                      <RotateCcw className="inline-block mr-2" size={18} />
+                      Restart
                     </button>
                     <button
                       onClick={resetLiveTimer}
@@ -1884,6 +1979,7 @@ function App() {
                               <button onClick={greenScreenTimer.isPaused ? resumeGreenScreenTimer : pauseGreenScreenTimer} className={`px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl ${greenScreenTimer.isPaused ? 'bg-green-600 hover:bg-green-500 shadow-green-900/20' : 'bg-yellow-600 hover:bg-yellow-500 shadow-yellow-900/20'} text-white`}>
                                 {greenScreenTimer.isPaused ? <Play size={20} /> : <Pause size={20} />} {greenScreenTimer.isPaused ? 'RESUME' : 'PAUSE'}
                               </button>
+                              <button onClick={restartGreenScreenTimer} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl shadow-blue-900/20"><RefreshCw size={20} /> RESTART</button>
                               <button onClick={resetGreenScreenTimer} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl shadow-red-900/20"><RotateCcw size={20} /> RESET</button>
                             </>
                           )}

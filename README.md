@@ -1,10 +1,13 @@
-# Stage Timer App v2.1.0
+# Stage Timer App v2.0.1
 
-<img width="1043" height="953" alt="image" src="https://github.com/user-attachments/assets/10d812ce-50c5-42cb-818b-e015ea149a70" />
+<img width="1212" height="907" alt="image" src="https://github.com/user-attachments/assets/b1db343f-c72b-4a50-a04b-0186f81af7a9" />
+<img width="1216" height="908" alt="image" src="https://github.com/user-attachments/assets/9e4a162f-b5fd-4bd1-b3e1-da7711bb895e" />
+<img width="1221" height="909" alt="image" src="https://github.com/user-attachments/assets/50d2f14d-7613-4108-946f-60347b767e1b" />
+
 
 A professional stage timing and broadcast graphics application built with React, TypeScript, and Electron. Designed for live events, houses of worship, and professional broadcast environments.
 
-## 📝 What’s New in v2.1.0
+## 📝 What’s New in v2.0.1
 
 ### ▶️ Overlay: Program Info (formerly “Lower Third”)
 - Program Info overlay with title, subtitle and speaker lines
@@ -18,6 +21,7 @@ A professional stage timing and broadcast graphics application built with React,
 - Overall scale and font size sliders provide smoother control
 - Custom color picker for chroma key background (in addition to quick swatches)
 - Responsive widescreen layout that uses more space when maximized
+<img width="1218" height="894" alt="image" src="https://github.com/user-attachments/assets/6e0ddd06-76e5-4619-9c52-f8c2f43de581" />
 
 ### 🖥️ Multi‑Screen Improvements
 - Target Display shows all secondary screens with status tags:
@@ -41,6 +45,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **Themes**: High‑contrast Light and Dark
 - **Tabbed Dashboard**: “Overlay Control” provides a focused workspace
 - **Chroma Key Support**: Quick swatches + full color picker for OBS/vMix integration
+![Uploading image.png…]()
 
 ### 🎭 Cinematic "Up Next" Experience
 - **Cinematic Animations**: New scale-in and gradient pulse animations for transition alerts.
@@ -61,7 +66,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **Duration display**: Shows exact minutes prominently
 - **Full screen coverage**: Maximum visual impact for stage presentations
 
-<img width="1058" height="955" alt="image" src="https://github.com/user-attachments/assets/d2777b9d-df06-4ca0-9203-1a25f7e4de54" />
+<img width="1920" height="1079" alt="image" src="https://github.com/user-attachments/assets/a4444d3d-746a-4d6c-ab60-d00bca3e8786" />
 
 ### ⏱️ Advanced Timer System
 - **Dual Timer Display**: Setup timer for preparation + Live timer with fullscreen
@@ -217,13 +222,13 @@ npx electron-builder --win nsis
 #### Build Output
 
 **Primary Distribution (Windows Build):**
-- **`dist/Stage Timer App Setup 2.1.0.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
+- **`dist/Stage Timer App Setup 2.0.1.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
 - **`dist/win-unpacked/`** - Clean app directory (no language packs)
 
 **Alternative Distribution (Linux Build):**
 - **`dist/linux-unpacked/`** - Clean app directory (no language packs)
-- **`dist/Stage Timer App-2.1.0.AppImage`** - AppImage for distribution (may have issues on Windows)
-- **`dist/stage-timer-app_2.1.0_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
+- **`dist/Stage Timer App-2.0.1.AppImage`** - AppImage for distribution (may have issues on Windows)
+- **`dist/stage-timer-app_2.0.1_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
 
 **Cleanup Scripts:**
 - **`build-clean.js`** - Windows cleanup script
@@ -243,7 +248,7 @@ npx electron-builder --win nsis
 ### Installation Instructions
 
 #### Windows Users
-1. Download `Stage Timer App Setup 2.1.0.exe`
+1. Download `Stage Timer App Setup 2.0.1.exe`
 2. Run the installer
 3. Launch from Start Menu or Desktop
 
@@ -254,7 +259,7 @@ sudo apt update
 sudo apt install wine
 
 # Download and run the Windows installer
-wine "Stage Timer App Setup 2.1.0.exe"
+wine "Stage Timer App Setup 2.0.1.exe"
 ```
 
 #### Alternative Linux Installation
@@ -274,7 +279,7 @@ chmod +x "linux-unpacked/Stage Timer App"
 brew install wine-stable
 
 # Run the Windows executable
-wine "Stage Timer App Setup 2.1.0.exe"
+wine "Stage Timer App Setup 2.0.1.exe"
 ```
 
 ## 📖 Usage Guide

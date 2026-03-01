@@ -10,6 +10,10 @@ let greenScreenWindow;
 let overlayWindowDisplayId = null;
 let timerWindows = new Map(); // Store multiple timer windows
 
+// Improve timer reliability in background
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
 // Single instance functionality
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -49,6 +53,7 @@ app.on('ready', () => {
             enableRemoteModule: false,
             webSecurity: true,
             cache: false,
+            backgroundThrottling: false,
             preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'public', 'icon.ico'),
@@ -935,6 +940,7 @@ function createTimerWindow(display, windowId) {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            backgroundThrottling: false,
             preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'public', 'icon.ico'),
