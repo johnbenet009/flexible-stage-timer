@@ -101,16 +101,27 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+  const [use12HourFormat, setUse12HourFormat] = useState(() => {
+    const saved = localStorage.getItem('use12HourFormat');
+    return saved ? JSON.parse(saved) : false;
+  });
 
+  // callback passed to DisplaySettings to keep parent state in sync
+  const handleTimeFormatChange = (use12: boolean) => {
+    setUse12HourFormat(use12);
+  };
+
+  // Always keep clock updated with user-selected time format
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+      // Use user-selected time format (12 or 24 hour)
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: use12HourFormat }));
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [use12HourFormat]);
   const [clockScale, setClockScale] = useState(100);
   const [programNameScale, setProgramNameScale] = useState(100);
   const [showProgramName, setShowProgramName] = useState(true);
@@ -208,9 +219,7 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const clockTimeoutRef = useRef<NodeJS.Timeout>();
-  const clockIntervalRef = useRef<NodeJS.Timeout>();
-  const clockCycleIntervalRef = useRef<NodeJS.Timeout>();
+  // Clock update refs removed - now using a single consistent effect for time updates
 
   // Case changer functions
   const handleCaseChange = () => {
@@ -307,6 +316,11 @@ function App() {
     localStorage.setItem('currentTime', JSON.stringify(currentTime));
     window.dispatchEvent(new Event('storage'));
   }, [showClock, currentTime]);
+
+  useEffect(() => {
+    localStorage.setItem('use12HourFormat', JSON.stringify(use12HourFormat));
+    window.dispatchEvent(new Event('storage'));
+  }, [use12HourFormat]);
 
   useEffect(() => {
     if (window.electronAPI?.getDisplays) {
@@ -488,6 +502,11 @@ function App() {
         setProgramNameScale(sizes.programName || 100);
         setShowProgramName(sizes.showProgramName !== undefined ? sizes.showProgramName : true);
       }
+
+      const savedFormat = localStorage.getItem('use12HourFormat');
+      if (savedFormat !== null) {
+        setUse12HourFormat(JSON.parse(savedFormat));
+      }
     };
 
     updateDisplaySettings();
@@ -517,21 +536,8 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (showClock) {
-      const updateTime = () => {
-        const now = new Date();
-        setCurrentTime(now.toLocaleTimeString());
-      };
-      
-      updateTime();
-      clockIntervalRef.current = setInterval(updateTime, 1000);
-    
-    return () => {
-      if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
-    };
-    }
-  }, [showClock]);
+  // REMOVED: Conflicting clock update effect that was causing blinking
+  // The main effect above handles time updates consistently
 
   // Smart clock display logic - when timer is running
   useEffect(() => {
@@ -553,15 +559,8 @@ function App() {
     }
   }, [liveTimer.isRunning, liveTimer.minutes, liveTimer.seconds, showClock]);
 
-  // Handle clock display when timer finishes
-  useEffect(() => {
-    if (liveTimer.isComplete && showClock) {
-      // If timer finished and clock is activated, switch to clock permanently
-      setShowClock(true);
-      if (clockCycleIntervalRef.current) clearInterval(clockCycleIntervalRef.current);
-      if (clockTimeoutRef.current) clearTimeout(clockTimeoutRef.current);
-    }
-  }, [liveTimer.isComplete, showClock]);
+  // Clock display automatically shows time when showClock is true
+  // with consistent 24-hour format from the main clock update effect
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2062,6 +2061,7 @@ function App() {
             onClose={() => setShowSettings(false)} 
             onBackgroundChange={handleBackgroundChange}
             onClearCache={clearCacheAndRefresh}
+            onTimeFormatChange={handleTimeFormatChange}
           />
       )}
 

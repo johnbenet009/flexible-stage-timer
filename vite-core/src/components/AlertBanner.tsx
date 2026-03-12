@@ -15,7 +15,8 @@ export function AlertBanner({ message, isFlashing, fullscreen = false }: AlertBa
       const savedSizes = localStorage.getItem('displaySizes');
       if (savedSizes) {
         const sizes = JSON.parse(savedSizes);
-        setScale(sizes.alert);
+        // Provide fallback value of 100 if alert scale is not defined
+        setScale(sizes.alert || 100);
         setSpeed(sizes.alertSpeed || 100);
       }
     };

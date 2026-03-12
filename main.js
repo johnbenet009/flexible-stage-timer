@@ -342,11 +342,13 @@ function createSecondWindow() {
 
 function showNoSecondaryScreenModal() {
     const modalWindow = new BrowserWindow({
-        width: 500,
-        height: 400,
+        width: 600,
+        height: 520,
+        minWidth: 400,
+        minHeight: 350,
         parent: mainWindow,
         modal: true,
-        resizable: false,
+        resizable: true,
         frame: false,
         webPreferences: {
             nodeIntegration: true,
@@ -378,31 +380,39 @@ function showNoSecondaryScreenModal() {
                 
                 .header {
                     background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
-                    padding: 20px;
+                    padding: 16px 20px;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     border-bottom: 2px solid #6b7280;
+                    flex-shrink: 0;
+                    gap: 10px;
                 }
                 
                 .title {
-                    font-size: 18px;
+                    font-size: 16px;
                     font-weight: 600;
                     color: #fbbf24;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 8px;
+                    flex: 1;
+                    min-width: 0;
                 }
                 
                 .close-btn {
                     background: none;
                     border: none;
                     color: #d1d5db;
-                    font-size: 24px;
+                    font-size: 22px;
                     cursor: pointer;
-                    padding: 5px;
+                    padding: 4px 8px;
                     border-radius: 4px;
                     transition: all 0.3s ease;
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
                 
                 .close-btn:hover {
@@ -412,64 +422,87 @@ function showNoSecondaryScreenModal() {
                 
                 .content {
                     flex: 1;
-                    padding: 30px;
+                    padding: 24px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     text-align: center;
-                    gap: 20px;
+                    gap: 16px;
+                    overflow-y: auto;
+                    min-height: 0;
                 }
                 
                 .icon {
-                    font-size: 64px;
+                    font-size: 56px;
                     color: #fbbf24;
-                    margin-bottom: 10px;
+                    margin-bottom: 8px;
+                    flex-shrink: 0;
                 }
                 
                 .message {
-                    font-size: 20px;
+                    font-size: 18px;
                     font-weight: 600;
                     color: #fbbf24;
-                    margin-bottom: 10px;
+                    margin-bottom: 8px;
+                    flex-shrink: 0;
                 }
                 
                 .description {
-                    font-size: 14px;
+                    font-size: 13px;
                     color: #d1d5db;
-                    line-height: 1.6;
-                    max-width: 400px;
+                    line-height: 1.5;
+                    max-width: 95%;
                 }
                 
                 .warning {
                     background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-                    padding: 15px;
+                    padding: 12px 16px;
                     border-radius: 8px;
                     border: 2px solid #fca5a5;
-                    margin: 20px 0;
-                    font-size: 13px;
+                    margin: 12px 0;
+                    font-size: 12px;
                     color: #ffffff;
                     font-weight: 500;
+                    line-height: 1.4;
+                    max-width: 95%;
                 }
                 
                 .buttons {
                     display: flex;
-                    gap: 15px;
-                    margin-top: 20px;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                    margin-top: 16px;
+                    justify-content: center;
+                    flex-shrink: 0;
                 }
                 
                 .btn {
-                    padding: 12px 24px;
+                    padding: 10px 16px;
                     border: none;
                     border-radius: 8px;
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 600;
                     cursor: pointer;
                     transition: all 0.3s ease;
                     display: flex;
                     align-items: center;
-                    gap: 8px;
-                    min-width: 180px;
                     justify-content: center;
+                    gap: 6px;
+                    white-space: nowrap;
+                    flex: 1;
+                    min-width: 120px;
+                    max-width: 140px;
+                }
+                
+                .btn-refresh {
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                    color: white;
+                }
+                
+                .btn-refresh:hover {
+                    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
                 }
                 
                 .btn-close {
@@ -497,6 +530,45 @@ function showNoSecondaryScreenModal() {
                 .btn-continue:focus {
                     outline: 2px solid #10b981;
                     outline-offset: 2px;
+                }
+                
+                /* Responsive design */
+                @media (max-width: 500px) {
+                    .header {
+                        padding: 12px 16px;
+                    }
+                    
+                    .title {
+                        font-size: 14px;
+                    }
+                    
+                    .close-btn {
+                        font-size: 20px;
+                    }
+                    
+                    .content {
+                        padding: 16px;
+                        gap: 12px;
+                    }
+                    
+                    .icon {
+                        font-size: 48px;
+                    }
+                    
+                    .message {
+                        font-size: 16px;
+                    }
+                    
+                    .description {
+                        font-size: 12px;
+                    }
+                    
+                    .btn {
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        min-width: 100px;
+                        max-width: 130px;
+                    }
                 }
                 
                 /* Custom Scrollbar */
@@ -536,7 +608,7 @@ function showNoSecondaryScreenModal() {
                     <span>⚠️</span>
                     <span>No Secondary Screen Detected</span>
                 </div>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <button class="close-btn" onclick="closeModal()" title="Close">&times;</button>
             </div>
             
             <div class="content">
@@ -553,13 +625,17 @@ function showNoSecondaryScreenModal() {
                 </div>
                 
                 <div class="buttons">
-                    <button class="btn btn-close" onclick="closeApp()">
-                        <span>🚪</span>
-                        <span>Close App</span>
+                    <button class="btn btn-refresh" onclick="refreshDisplays()" title="Check for displays">
+                        <span>🔄</span>
+                        <span>Refresh</span>
                     </button>
-                    <button class="btn btn-continue" onclick="continueSingleDisplay()">
+                    <button class="btn btn-close" onclick="closeApp()" title="Close application">
+                        <span>🚪</span>
+                        <span>Close</span>
+                    </button>
+                    <button class="btn btn-continue" onclick="continueSingleDisplay()" title="Continue with single display">
                         <span>▶️</span>
-                        <span>Continue with Single Display</span>
+                        <span>Continue</span>
                     </button>
                 </div>
             </div>
@@ -577,6 +653,10 @@ function showNoSecondaryScreenModal() {
                 
                 function continueSingleDisplay() {
                     ipcRenderer.send('continue-single-display');
+                }
+                
+                function refreshDisplays() {
+                    ipcRenderer.send('refresh-displays');
                 }
                 
                 // Close modal when clicking outside (on the body)
@@ -622,11 +702,45 @@ function showNoSecondaryScreenModal() {
         console.log('Continuing with single display - timer display not available');
     });
     
+    ipcMain.once('refresh-displays', () => {
+        // Check for displays again
+        const displaysList = screen.getAllDisplays();
+        const secondaryDisplaysList = displaysList.filter((display, index) => !display.internal && index > 0);
+        
+        if (secondaryDisplaysList.length > 0) {
+            // Secondary screens found - close modal and show advanced multi-screen modal
+            console.log(`Display refresh: Found ${secondaryDisplaysList.length} secondary display(s)`);
+            if (modalWindow && !modalWindow.isDestroyed()) {
+                modalWindow.close();
+            }
+            // Reopen with options
+            setTimeout(() => {
+                showAdvancedMultiScreenModal();
+            }, 500);
+        } else {
+            // Still no secondary screens - keep modal open and show message
+            console.log('Display refresh: No secondary displays found');
+            if (modalWindow && !modalWindow.isDestroyed()) {
+                modalWindow.webContents.executeJavaScript(`
+                    const msg = document.querySelector('.message');
+                    if (msg) {
+                        const originalText = msg.textContent;
+                        msg.textContent = '📭 Still No Displays Found';
+                        setTimeout(() => {
+                            msg.textContent = originalText;
+                        }, 3000);
+                    }
+                `);
+            }
+        }
+    });
+    
     // Clean up listeners when modal is closed
     modalWindow.on('closed', () => {
         ipcMain.removeAllListeners('modal-closed');
         ipcMain.removeAllListeners('close-app');
         ipcMain.removeAllListeners('continue-single-display');
+        ipcMain.removeAllListeners('refresh-displays');
     });
 }
 

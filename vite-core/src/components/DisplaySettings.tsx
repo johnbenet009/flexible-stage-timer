@@ -6,6 +6,7 @@ interface DisplaySettingsProps {
   onClose: () => void;
   onBackgroundChange: (type: string, source: string | null) => void;
   onClearCache?: () => void;
+  onTimeFormatChange?: (use12Hour: boolean) => void; // notify parent when user toggles 12/24 hour format
 }
 
 const DEFAULT_SIZES: DisplaySizeSettings = {
@@ -20,10 +21,21 @@ const DEFAULT_SIZES: DisplaySizeSettings = {
 
 const DEFAULT_OPACITY = 80;
 
-export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: DisplaySettingsProps) {
+export function DisplaySettings({ onClose, onBackgroundChange, onClearCache, onTimeFormatChange }: DisplaySettingsProps) {
   const [selectedOption, setSelectedOption] = useState<string>('default');
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+  const [use12HourFormat, setUse12HourFormat] = useState(() => {
+    const saved = localStorage.getItem('use12HourFormat');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // inform parent of current format on mount
+  useEffect(() => {
+    if (typeof onTimeFormatChange === 'function') {
+      onTimeFormatChange(use12HourFormat);
+    }
+  }, []);
   const [sizes, setSizes] = useState<DisplaySizeSettings>(() => {
     const savedSizes = localStorage.getItem('displaySizes');
     const parsedSizes = savedSizes ? JSON.parse(savedSizes) : {};
@@ -153,6 +165,16 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
 
   const adjustOpacity = (amount: number) => {
     setBackgroundOpacity(Math.max(10, Math.min(100, backgroundOpacity + amount)));
+  };
+
+  const toggleTimeFormat = () => {
+    const newFormat = !use12HourFormat;
+    setUse12HourFormat(newFormat);
+    localStorage.setItem('use12HourFormat', JSON.stringify(newFormat));
+    window.dispatchEvent(new Event('storage'));
+    if (typeof onTimeFormatChange === 'function') {
+      onTimeFormatChange(newFormat);
+    }
   };
 
   return (
@@ -519,6 +541,28 @@ export function DisplaySettings({ onClose, onBackgroundChange, onClearCache }: D
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Time Format Setting */}
+            <div className="bg-gradient-to-br from-gray-700 to-gray-800 p-4 rounded-lg border border-gray-600 shadow-lg">
+              <div className="flex justify-between items-center mb-3">
+                <div className="text-white text-sm font-medium">Clock Format</div>
+                <span className="text-xs text-gray-400">{use12HourFormat ? '12-Hour Format' : '24-Hour Format'}</span>
+              </div>
+              <button
+                onClick={toggleTimeFormat}
+                className={`w-full py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                  use12HourFormat
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                    : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white'
+                }`}
+                title="Toggle between 12-hour and 24-hour format"
+              >
+                {use12HourFormat ? '🕐 12-Hour (AM/PM)' : '⏰ 24-Hour Format'}
+              </button>
+              <p className="text-xs text-gray-400 mt-3 text-center">
+                Click to toggle between 12-hour (AM/PM) and 24-hour time format
+              </p>
             </div>
 
             {/* Action Buttons */}

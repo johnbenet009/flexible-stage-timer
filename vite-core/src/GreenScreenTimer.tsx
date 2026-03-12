@@ -37,14 +37,30 @@ function GreenScreenTimer() {
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [isSleeping, setIsSleeping] = useState(false);
 
+  // Always keep clock updated with user-selected time format
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+      // Read user preference from localStorage
+      const use12Hour = localStorage.getItem('use12HourFormat') === 'true';
+      // Use user-selected time format (12 or 24 hour)
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: use12Hour }));
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
+    
+    // Handle storage events to update time format when it changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use12HourFormat') {
+        updateTime();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -146,15 +162,8 @@ function GreenScreenTimer() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString());
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // REMOVED: Duplicate clock update effect that conflicts with the main effect above
+  // Time is now always updated consistently with 24-hour format
 
   if (!settings.show) {
     return (

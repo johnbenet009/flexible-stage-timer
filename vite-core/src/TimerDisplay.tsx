@@ -45,9 +45,7 @@ function TimerDisplay() {
     return (localStorage.getItem('textCase') as 'normal' | 'uppercase' | 'lowercase' | 'capitalize') || 'normal';
   });
 
-  const clockIntervalRef = useRef<NodeJS.Timeout>();
-  const clockTimeoutRef = useRef<NodeJS.Timeout>();
-  const clockCycleIntervalRef = useRef<NodeJS.Timeout>();
+  // Clock update refs removed - time updates are now handled by App.tsx
 
   // Text case processing function
   const getProcessedAlertMessage = (message: string) => {
@@ -164,20 +162,8 @@ function TimerDisplay() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Update clock
-  useEffect(() => {
-    if (showClock) {
-      const updateTime = () => {
-        const now = new Date();
-        setCurrentTime(now.toLocaleTimeString());
-      };
-      
-      updateTime();
-      const interval = setInterval(updateTime, 1000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [showClock]);
+  // REMOVED: Conflicting clock update effect
+  // The main App.tsx effect handles time updates with consistent 24-hour format
 
   // Deadline-based ticking to avoid background freezes
   useEffect(() => {
@@ -225,15 +211,8 @@ function TimerDisplay() {
     }
   }, [timerState.isRunning, timerState.minutes, timerState.seconds, showClock]);
 
-  // Handle clock display when timer finishes
-  useEffect(() => {
-    if (timerState.isComplete && showClock) {
-      // If timer finished and clock is activated, switch to clock permanently
-      setShowClock(true);
-      if (clockCycleIntervalRef.current) clearInterval(clockCycleIntervalRef.current);
-      if (clockTimeoutRef.current) clearTimeout(clockTimeoutRef.current);
-    }
-  }, [timerState.isComplete, showClock]);
+  // Clock display automatically shows time when showClock is true
+  // with consistent 24-hour format
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
