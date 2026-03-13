@@ -7,6 +7,8 @@ import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
 import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, Edit2, Check, X, User, Minus, Square } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
+import { BibleTab } from './components/BibleTab';
+import { SongsTab } from './components/SongsTab';
 import { NextProgramNotification } from './components/NextProgramNotification';
 import { DeleteConfirmation } from './components/DeleteConfirmation';
 import { CategoryManager } from './components/CategoryManager';
@@ -129,7 +131,20 @@ function App() {
   const [availableDisplays, setAvailableDisplays] = useState<any[]>([]);
   const [selectedGreenScreenDisplay, setSelectedGreenScreenDisplay] = useState<number | null>(null);
   const [isGreenScreenActive, setIsGreenScreenActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide'>('main');
+  const [selectedTheme, setSelectedTheme] = useState<string>(() => {
+    const saved = localStorage.getItem('projectionTheme');
+    return saved || 'dark';
+  });
+  const [selectedProjectDisplay, setSelectedProjectDisplay] = useState<number | null>(() => {
+    const saved = localStorage.getItem('projectDisplay');
+    return saved ? Number(saved) : null;
+  });
+
+  const [isDisplayPickerOpen, setIsDisplayPickerOpen] = useState(false);
+  const [pendingProjectAction, setPendingProjectAction] = useState<'bible' | 'bible-test' | 'timer' | 'overlay' | null>(null);
+  const [isBibleProjected, setIsBibleProjected] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs'>('main');
   const [guideSection, setGuideSection] = useState<'main' | 'overlay'>('main');
   const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>(() => {
     const savedSizes = localStorage.getItem('displaySizes');
@@ -323,12 +338,37 @@ function App() {
   }, [use12HourFormat]);
 
   useEffect(() => {
+    localStorage.setItem('projectionTheme', selectedTheme);
+    window.dispatchEvent(new Event('storage'));
+  }, [selectedTheme]);
+
+  useEffect(() => {
     if (window.electronAPI?.getDisplays) {
       window.electronAPI.getDisplays().then(setAvailableDisplays);
     }
   }, []);
+
+  // when displays are fetched, default the project display if none chosen yet
   useEffect(() => {
-    if (activeTab === 'overlay' && window.electronAPI?.getDisplays) {
+    if (availableDisplays.length === 0) return;
+
+    // If we previously saved a display and it is no longer available, reset it.
+    if (selectedProjectDisplay !== null) {
+      const isStillAvailable = availableDisplays.some(d => d.id === selectedProjectDisplay);
+      if (!isStillAvailable) {
+        setSelectedProjectDisplay(null);
+      }
+    }
+  }, [availableDisplays, selectedProjectDisplay]);
+
+  useEffect(() => {
+    if (selectedProjectDisplay !== null) {
+      localStorage.setItem('projectDisplay', String(selectedProjectDisplay));
+    }
+  }, [selectedProjectDisplay]);
+  useEffect(() => {
+    // refresh list whenever user goes to a tab that might project output
+    if ((activeTab === 'overlay' || activeTab === 'bible' || activeTab === 'songs') && window.electronAPI?.getDisplays) {
       window.electronAPI.getDisplays().then(setAvailableDisplays);
     }
   }, [activeTab]);
@@ -469,6 +509,55 @@ function App() {
     }
   };
 
+  const handleThemeChange = (themeId: string) => {
+    setSelectedTheme(themeId);
+  };
+
+  const openDisplayPicker = (action: 'bible' | 'timer' | 'overlay' | null = null) => {
+    setPendingProjectAction(action);
+    setIsDisplayPickerOpen(true);
+  };
+
+  const closeDisplayPicker = () => {
+    setPendingProjectAction(null);
+    setIsDisplayPickerOpen(false);
+  };
+
+  const selectProjectDisplay = (displayId: number) => {
+    setSelectedProjectDisplay(displayId);
+    closeDisplayPicker();
+
+    if (pendingProjectAction === 'bible') {
+      window.electronAPI?.openBibleProjection(displayId);
+      setIsBibleProjected(true);
+    } else if (pendingProjectAction === 'bible-test') {
+      window.electronAPI?.testDisplay(displayId);
+    }
+  };
+
+  const stopBibleProjection = () => {
+    window.electronAPI?.closeBibleProjection();
+    setIsBibleProjected(false);
+  };
+
+  const projectBible = () => {
+    // projection data is written by BibleTab effect
+    if (selectedProjectDisplay !== null) {
+      window.electronAPI?.openBibleProjection(selectedProjectDisplay);
+      setIsBibleProjected(true);
+    } else {
+      openDisplayPicker('bible');
+    }
+  };
+
+  const testBibleDisplay = () => {
+    if (selectedProjectDisplay !== null) {
+      window.electronAPI?.testDisplay(selectedProjectDisplay);
+    } else {
+      openDisplayPicker('bible-test');
+    }
+  };
+
   const applyOverlaySettings = () => {
     const newSettings = { ...stagedOverlaySettings, isLive: true };
     setOverlaySettings(newSettings);
@@ -507,6 +596,9 @@ function App() {
       if (savedFormat !== null) {
         setUse12HourFormat(JSON.parse(savedFormat));
       }
+
+      const savedTheme = localStorage.getItem('projectionTheme');
+      if (savedTheme) setSelectedTheme(savedTheme);
     };
 
     updateDisplaySettings();
@@ -1094,6 +1186,20 @@ function App() {
             <span>Overlay Control</span>
           </button>
           <button 
+            onClick={() => setActiveTab('bible')}
+            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'bible' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <FileText size={16} />
+            <span>Bible</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('songs')}
+            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'songs' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <FolderPlus size={16} />
+            <span>Songs</span>
+          </button>
+          <button 
             onClick={() => {
               setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main');
               setActiveTab('guide');
@@ -1136,7 +1242,8 @@ function App() {
         </div>
       </div>
 
-      <div className="flex-1 w-full p-2 sm:p-4 overflow-y-auto">
+      <div className={`flex-1 w-full p-2 sm:p-4 ${activeTab === 'bible' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+
         {activeTab === 'main' ? (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2049,6 +2156,22 @@ function App() {
               </div>
             </div>
           </div>
+        ) : activeTab === 'bible' ? (
+          <BibleTab
+            availableDisplays={availableDisplays}
+            selectedDisplay={selectedProjectDisplay}
+            onDisplayChange={setSelectedProjectDisplay}
+            project={projectBible}
+            testDisplay={testBibleDisplay}
+            isProjecting={isBibleProjected}
+            onCloseProjection={stopBibleProjection}
+            requestDisplaySelection={() => openDisplayPicker('bible')}
+          />
+        ) : activeTab === 'songs' ? (
+          <SongsTab
+            selectedTheme={selectedTheme}
+            onThemeChange={handleThemeChange}
+          />
         ) : (
           <div className="mx-auto w-full xl:max-w-[1600px] 2xl:max-w-[1900px]">
             <HowToGuide variant="page" initialSection={guideSection} />

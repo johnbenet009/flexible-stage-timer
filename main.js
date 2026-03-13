@@ -3,6 +3,7 @@ const path = require('path');
 const { readFileSync } = require('fs');
 const url = require('url');
 
+
 let mainWindow;
 let secondWindow;
 let secondWindowDisplayId = null;
@@ -86,10 +87,6 @@ app.on('ready', () => {
     // Setup menu
     setupMenu();
 
-    // Automatically attempt to create second window on startup
-    setTimeout(() => {
-        createSecondWindow();
-    }, 1000);
 
     mainWindow.on('closed', () => {
         app.quit();
@@ -1313,6 +1310,7 @@ ipcMain.handle('get-displays', () => {
     }));
 });
 
+
 ipcMain.on('open-green-screen-timer', (event, displayId) => {
     const displays = screen.getAllDisplays();
     const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
@@ -1354,6 +1352,158 @@ ipcMain.on('open-green-screen-timer', (event, displayId) => {
         greenScreenWindow = null;
         overlayWindowDisplayId = null;
     });
+});
+
+// Bible projection window support
+let bibleWindow = null;
+let bibleWindowDisplayId = null;
+ipcMain.on('open-bible-projection', (event, displayId) => {
+    const displays = screen.getAllDisplays();
+    const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+
+    if (bibleWindow) {
+        bibleWindow.close();
+    }
+
+    bibleWindow = new BrowserWindow({
+        x: targetDisplay.bounds.x,
+        y: targetDisplay.bounds.y,
+        width: targetDisplay.bounds.width,
+        height: targetDisplay.bounds.height,
+        fullscreen: true,
+        frame: false,
+        skipTaskbar: true,
+        title: 'Bible Projection',
+        backgroundColor: '#000000',
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js'),
+            backgroundThrottling: false
+        },
+        icon: path.join(__dirname, 'public', 'icon.ico'),
+    });
+
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    bibleWindow.loadURL(url.format({
+        pathname: indexPath,
+        protocol: 'file:',
+        slashes: true,
+        hash: '/bible-projection'
+    }));
+
+    bibleWindowDisplayId = targetDisplay.id;
+
+    bibleWindow.on('closed', () => {
+        bibleWindow = null;
+        bibleWindowDisplayId = null;
+    });
+});
+
+ipcMain.on('close-bible-projection', () => {
+    if (bibleWindow) {
+        bibleWindow.close();
+    }
+    bibleWindowDisplayId = null;
+});
+
+ipcMain.on('open-timer-display', (event, displayId) => {
+    const displays = screen.getAllDisplays();
+    const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+
+    if (secondWindow) {
+        secondWindow.close();
+    }
+
+    secondWindowDisplayId = targetDisplay.id;
+
+    secondWindow = new BrowserWindow({
+        x: targetDisplay.bounds.x,
+        y: targetDisplay.bounds.y,
+        width: targetDisplay.bounds.width,
+        height: targetDisplay.bounds.height,
+        fullscreen: true,
+        frame: false,
+        skipTaskbar: true,
+        title: 'Stage Display',
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            backgroundThrottling: false
+        },
+        icon: path.join(__dirname, 'public', 'icon.ico'),
+    });
+
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    secondWindow.loadURL(url.format({
+        pathname: indexPath,
+        protocol: 'file:',
+        slashes: true,
+        hash: '/timer'
+    }));
+
+    secondWindow.on('closed', () => {
+        secondWindow = null;
+        secondWindowDisplayId = null;
+    });
+});
+
+ipcMain.on('close-timer-display', () => {
+    if (secondWindow) {
+        secondWindow.close();
+    }
+    secondWindowDisplayId = null;
+});
+
+ipcMain.on('test-display', (event, displayId) => {
+    const displays = screen.getAllDisplays();
+    const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+
+    const testWindow = new BrowserWindow({
+        x: targetDisplay.bounds.x,
+        y: targetDisplay.bounds.y,
+        width: targetDisplay.bounds.width,
+        height: targetDisplay.bounds.height,
+        fullscreen: true,
+        frame: false,
+        skipTaskbar: true,
+        alwaysOnTop: true,
+        focusable: true,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+        },
+    });
+
+    const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Test Display</title>
+          <style>
+            body { margin:0; display:flex; align-items:center; justify-content:center; background:#000; color:#fff; font-family:system-ui, sans-serif; }
+            .box { text-align:center; }
+            .title { font-size: 4rem; font-weight: 700; margin-bottom: 1rem; }
+            .sub { font-size: 1.5rem; opacity: 0.8; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <div class="title">Bible Displays Here</div>
+            <div class="sub">(This is a test screen)</div>
+          </div>
+        </body>
+        </html>
+    `;
+
+    testWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+
+    setTimeout(() => {
+        if (!testWindow.isDestroyed()) {
+            testWindow.close();
+        }
+    }, 2000);
 });
 
 ipcMain.on('close-green-screen-timer', () => {

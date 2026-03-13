@@ -4,83 +4,90 @@
   "description": "A flexible stage timer application for presentations and events",
   "author": "Positive Developer",
   "main": "main.js",
-   "scripts": {
-     "start": "electron .",
-     "build": "cd vite-core && npm run build && cd .. && xcopy vite-core\\dist\\* public\\ /E /Y",
-     "build-app": "npm run build && electron-builder",
-     "build-clean": "npm run build && electron-builder --dir && node build-clean.js",
-     "build-installer": "npm run build && electron-builder --win nsis && node build-clean.js",
-     "build-linux": "npm run build && electron-builder --linux --config.linux.target=dir && node build-clean-linux.js",
-     "build-linux-clean": "npm run build && electron-builder --linux --dir && node build-clean-linux.js",
-     "build-linux-appimage": "npm run build && electron-builder --linux --config.linux.target=AppImage && node build-clean-linux.js",
-     "dev": "npm run build && npm start",
-     "dev-vite": "cd vite-core && npm run dev"
-   },
+  "scripts": {
+    "start": "electron .",
+    "build": "cd vite-core && npm run build && cd .. && xcopy vite-core\\dist\\* public\\ /E /Y",
+    "build-app": "npm run build && electron-builder",
+    "build-clean": "npm run build && electron-builder --dir && node build-clean.js",
+    "build-installer": "npm run build && electron-builder --win nsis && node build-clean.js",
+    "build-linux": "npm run build && electron-builder --linux --config.linux.target=dir && node build-clean-linux.js",
+    "build-linux-clean": "npm run build && electron-builder --linux --dir && node build-clean-linux.js",
+    "build-linux-appimage": "npm run build && electron-builder --linux --config.linux.target=AppImage && node build-clean-linux.js",
+    "dev": "npm run build && npm start",
+    "dev-vite": "cd vite-core && npm run dev"
+  },
   "devDependencies": {
     "electron": "^13.6.9",
     "electron-builder": "^24.13.1",
     "electron-packager": "^17.1.2"
   },
-   "build": {
-     "appId": "com.stage-timer.app",
-     "productName": "Stage Timer App",
-     "copyright": "Copyright © 2025 Positive Developer",
-     "asar": false,
-     "compression": "maximum",
-     "directories": {
-       "output": "dist",
-       "buildResources": "public"
-     },
-     "icon": "public/icon.ico",
-     "win": {
-       "target": "nsis",
-       "icon": "public/icon.ico",
-       "publisherName": "Stage Timer (John O.)",
-       "certificateSubjectName": "Stage Timer (John O.)",
-       "artifactName": "${productName}-${version}-win.${ext}"
-     },
-     "linux": {
-       "target": [
-         {
-           "target": "AppImage",
-           "arch": ["x64"]
-         },
-         {
-           "target": "deb",
-           "arch": ["x64"]
-         }
-       ],
-       "icon": "public/icon.png",
-       "category": "Utility",
-       "desktop": {
-         "Name": "Stage Timer App",
-         "Comment": "A flexible stage timer application for presentations and events",
-         "Categories": "Utility;"
-       },
-       "artifactName": "${productName}-${version}-linux.${ext}"
-     },
-     "files": [
-       "main.js",
-       "preload.js",
-       "public/**/*",
-       "!public/bg.jpg",
-       "!**/node_modules/**",
-       "!**/*.map",
-       "!vite-core/src/**",
-       "!vite-core/node_modules/**",
-       "!vite-core/dist/**"
-     ],
-     "nsis": {
-       "oneClick": false,
-       "perMachine": false,
-       "allowElevation": true,
-       "allowToChangeInstallationDirectory": true,
-       "deleteAppDataOnUninstall": true,
-       "createDesktopShortcut": true,
-       "createStartMenuShortcut": true,
-       "shortcutName": "Stage Timer",
-       "installerIcon": "public/icon.ico",
-       "uninstallerIcon": "public/icon.ico"
-     }
-   }
+  "build": {
+    "appId": "com.stage-timer.app",
+    "productName": "Stage Timer App",
+    "copyright": "Copyright © 2025 Positive Developer",
+    "asar": false,
+    "compression": "maximum",
+    "directories": {
+      "output": "dist",
+      "buildResources": "public"
+    },
+    "icon": "public/icon.ico",
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico",
+      "publisherName": "Stage Timer (John O.)",
+      "certificateSubjectName": "Stage Timer (John O.)",
+      "artifactName": "${productName}-${version}-win.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.png",
+      "category": "Utility",
+      "desktop": {
+        "Name": "Stage Timer App",
+        "Comment": "A flexible stage timer application for presentations and events",
+        "Categories": "Utility;"
+      },
+      "artifactName": "${productName}-${version}-linux.${ext}"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "public/**/*",
+      "!public/bg.jpg",
+      "!**/node_modules/**",
+      "!**/*.map",
+      "!vite-core/src/**",
+      "!vite-core/node_modules/**",
+      "!vite-core/dist/**"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Stage Timer",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico"
+    }
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2"
+  }
 }

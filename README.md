@@ -43,7 +43,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **Program Info**: Professional lower‑third style overlay (title, subtitle, speaker)
 - **Independent Control**: Separate fields for Program Name, Message Title, and Minister/Speaker
 - **Themes**: High‑contrast Light and Dark
-- **Tabbed Dashboard**: “Overlay Control” provides a focused workspace
+- **Tabbed Dashboard**: “Overlay Control”, **Bible**, and **Songs** provide focussed workspaces for overlay settings, scripture lookup/projector control, and upcoming song lyrics management
 - **Chroma Key Support**: Quick swatches + full color picker for OBS/vMix integration
 ![Uploading image.png…]()
 
@@ -53,7 +53,7 @@ A professional stage timing and broadcast graphics application built with React,
 - **On-Screen Progress**: Added a countdown progress bar to notification overlays.
 
 ### ⚙️ System Improvements
-- **Tab-Based Navigation**: Organized the main dashboard into "Timer Control" and "Overlay Control".
+- **Tab-Based Navigation**: Organized the main dashboard into "Timer Control", "Overlay Control", **Bible**, and **Songs** tabs.  The Bible screen provides verse lookup and multi‑display projection; the Songs tab is a placeholder for future lyrics support.
 - **Performance Protection**: Disabled background throttling in Electron to ensure frame-perfect timer accuracy.
 - **Persistent Routing**: Improved window loading logic using `HashRouter` for guaranteed secondary display stability.
 
