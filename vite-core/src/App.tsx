@@ -5,7 +5,7 @@ import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, Bell, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, Edit2, Check, X, User, Minus, Square } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { BibleTab } from './components/BibleTab';
 import { SongsTab } from './components/SongsTab';
@@ -15,8 +15,8 @@ import { CategoryManager } from './components/CategoryManager';
 import { ExportImportManager } from './components/ExportImportManager';
 import { HowToGuide } from './components/HowToGuide';
 import { AddProgramModal } from './components/AddProgramModal';
-import TimerDisplay from './TimerDisplay';
-import GreenScreenTimer from './GreenScreenTimer';
+import { TranscribeTab } from './components/TranscribeTab';
+import { AutoRunBanner } from './components/AutoRunBanner';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -28,12 +28,30 @@ function App() {
     isAttention: false,
   });
 
-  const [liveTimer, setLiveTimer] = useState<TimerState>({
-    minutes: 0,
-    seconds: 0,
-    isRunning: false,
-    isPaused: false,
-    isAttention: false,
+  const [liveTimer, setLiveTimer] = useState<TimerState>(() => {
+    const saved = localStorage.getItem('timerState');
+    if (saved) {
+      const restored: TimerState = JSON.parse(saved);
+      if (restored.isRunning && !restored.isPaused) {
+        const deadline = Number(localStorage.getItem('timerDeadline'));
+        if (!deadline) return { ...restored, isRunning: false };
+        const secondsRemaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        return {
+          ...restored,
+          minutes: Math.floor(secondsRemaining / 60),
+          seconds: secondsRemaining % 60,
+          isRunning: secondsRemaining > 0,
+        };
+      }
+      return restored;
+    }
+    return {
+      minutes: 0,
+      seconds: 0,
+      isRunning: false,
+      isPaused: false,
+      isAttention: false,
+    };
   });
 
   const [greenScreenTimer, setGreenScreenTimer] = useState<GreenScreenTimerState>(() => {
@@ -48,7 +66,8 @@ function App() {
 
   const [timerDeadline, setTimerDeadline] = useState<number | null>(() => {
     const stored = localStorage.getItem('timerDeadline');
-    return stored ? Number(stored) : null;
+    const deadline = stored ? Number(stored) : null;
+    return deadline && deadline > Date.now() ? deadline : null;
   });
   const timerDeadlineRef = useRef<number | null>(null);
   useEffect(() => {
@@ -128,7 +147,7 @@ function App() {
   const [programNameScale, setProgramNameScale] = useState(100);
   const [showProgramName, setShowProgramName] = useState(true);
   const [showNextProgram, setShowNextProgram] = useState<Program | null>(null);
-  const [availableDisplays, setAvailableDisplays] = useState<any[]>([]);
+  const [availableDisplays, setAvailableDisplays] = useState<Array<{ id: number; label: string; isPrimary: boolean; isUsedByMainTimer: boolean; isUsedByOverlay: boolean }>>([]);
   const [selectedGreenScreenDisplay, setSelectedGreenScreenDisplay] = useState<number | null>(null);
   const [isGreenScreenActive, setIsGreenScreenActive] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<string>(() => {
@@ -140,11 +159,9 @@ function App() {
     return saved ? Number(saved) : null;
   });
 
-  const [isDisplayPickerOpen, setIsDisplayPickerOpen] = useState(false);
-  const [pendingProjectAction, setPendingProjectAction] = useState<'bible' | 'bible-test' | 'timer' | 'overlay' | null>(null);
   const [isBibleProjected, setIsBibleProjected] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs' | 'transcribe'>('main');
   const [guideSection, setGuideSection] = useState<'main' | 'overlay'>('main');
   const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>(() => {
     const savedSizes = localStorage.getItem('displaySizes');
@@ -152,8 +169,8 @@ function App() {
     const overlay = parsed.overlay || {};
     return {
       timer: overlay.timer || parsed.greenScreenTimer || 100,
-      x: overlay.x !== undefined ? overlay.x : (parsed.greenScreenX !== undefined ? parsed.greenScreenX : 50),
-      y: overlay.y !== undefined ? overlay.y : (parsed.greenScreenY !== undefined ? parsed.greenScreenY : 92),
+      x: Math.min(85, Math.max(15, overlay.x ?? parsed.greenScreenX ?? 50)),
+      y: Math.min(88, Math.max(12, overlay.y ?? parsed.greenScreenY ?? 88)),
       bgColor: overlay.bgColor || parsed.greenScreenBgColor || '#00ff00',
       mode: overlay.mode || parsed.greenScreenMode || 'timer',
       show: overlay.show !== undefined ? overlay.show : (parsed.showGreenScreen !== undefined ? parsed.showGreenScreen : true),
@@ -167,7 +184,7 @@ function App() {
       lowerThirdDateSize: overlay.lowerThirdDateSize || 20,
       lowerThirdFont: overlay.lowerThirdFont || 'JetBrains Mono',
       lowerThirdDisplaySeconds: overlay.lowerThirdDisplaySeconds || 10,
-      lowerThirdSleepSeconds: overlay.lowerThirdSleepSeconds || 5,
+      lowerThirdSleepSeconds: overlay.lowerThirdSleepSeconds ?? 5,
       timerFontSize: overlay.timerFontSize || 10,
       clockFontSize: overlay.clockFontSize || 10,
       isLive: overlay.isLive !== undefined ? overlay.isLive : false,
@@ -180,8 +197,8 @@ function App() {
     const overlay = parsed.overlay || {};
     return {
       timer: overlay.timer || parsed.greenScreenTimer || 100,
-      x: overlay.x !== undefined ? overlay.x : (parsed.greenScreenX !== undefined ? parsed.greenScreenX : 50),
-      y: overlay.y !== undefined ? overlay.y : (parsed.greenScreenY !== undefined ? parsed.greenScreenY : 92),
+      x: Math.min(85, Math.max(15, overlay.x ?? parsed.greenScreenX ?? 50)),
+      y: Math.min(88, Math.max(12, overlay.y ?? parsed.greenScreenY ?? 88)),
       bgColor: overlay.bgColor || parsed.greenScreenBgColor || '#00ff00',
       mode: overlay.mode || parsed.greenScreenMode || 'timer',
       show: overlay.show !== undefined ? overlay.show : (parsed.showGreenScreen !== undefined ? parsed.showGreenScreen : true),
@@ -195,7 +212,7 @@ function App() {
       lowerThirdDateSize: overlay.lowerThirdDateSize || 20,
       lowerThirdFont: overlay.lowerThirdFont || 'JetBrains Mono',
       lowerThirdDisplaySeconds: overlay.lowerThirdDisplaySeconds || 10,
-      lowerThirdSleepSeconds: overlay.lowerThirdSleepSeconds || 5,
+      lowerThirdSleepSeconds: overlay.lowerThirdSleepSeconds ?? 5,
       timerFontSize: overlay.timerFontSize || 10,
       clockFontSize: overlay.clockFontSize || 10,
       isLive: overlay.isLive !== undefined ? overlay.isLive : false,
@@ -203,10 +220,9 @@ function App() {
   });
 
   const [isTimerComplete, setIsTimerComplete] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory] = useState<string>('');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showExportImportManager, setShowExportImportManager] = useState(false);
-  const [showHowToGuide, setShowHowToGuide] = useState(false);
   const [showAddProgramModal, setShowAddProgramModal] = useState(false);
   const [background, setBackground] = useState<{ type: string; source: string | null }>(() => {
     const savedBackground = localStorage.getItem('background');
@@ -233,6 +249,23 @@ function App() {
     const saved = localStorage.getItem('timerHistory');
     return saved ? JSON.parse(saved) : [];
   });
+  const [autoRun, setAutoRun] = useState(() => localStorage.getItem('autoTimerEnabled') === 'true');
+  const [autoQueueCategoryId, setAutoQueueCategoryId] = useState(() => localStorage.getItem('autoTimerCategoryId') || '');
+  const [autoQueueIds, setAutoQueueIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('autoTimerQueue');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [autoQueueIndex, setAutoQueueIndex] = useState(() => Number(localStorage.getItem('autoTimerQueueIndex') || 0));
+  const [autoTransition, setAutoTransition] = useState<{ programId: string; programName: string; deadline: number } | null>(() => {
+    const saved = localStorage.getItem('autoTimerTransition');
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return null;
+    }
+  });
+  const startProgramRef = useRef<(program: Program, fromQueue?: boolean) => void>(() => undefined);
 
   // Clock update refs removed - now using a single consistent effect for time updates
 
@@ -274,6 +307,20 @@ function App() {
   useEffect(() => {
     localStorage.setItem('categories', JSON.stringify(categories));
   }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('autoTimerEnabled', String(autoRun));
+    localStorage.setItem('autoTimerCategoryId', autoQueueCategoryId);
+    localStorage.setItem('autoTimerQueue', JSON.stringify(autoQueueIds));
+    localStorage.setItem('autoTimerQueueIndex', String(autoQueueIndex));
+    localStorage.setItem('autoTimerTransition', JSON.stringify(autoTransition));
+    localStorage.setItem('autoTimerDisplay', JSON.stringify({
+      enabled: autoRun,
+      nextProgramName: autoTransition?.programName ?? '',
+      deadline: autoTransition?.deadline ?? null,
+    }));
+    window.dispatchEvent(new Event('storage'));
+  }, [autoRun, autoQueueCategoryId, autoQueueIds, autoQueueIndex, autoTransition]);
 
   useEffect(() => {
     localStorage.setItem('timerState', JSON.stringify({
@@ -377,25 +424,6 @@ function App() {
     localStorage.setItem('greenScreenTimerState', JSON.stringify(greenScreenTimer));
   }, [greenScreenTimer]);
 
-  useEffect(() => {
-    if (greenScreenTimer.isRunning && !greenScreenTimer.isPaused) {
-      const interval = setInterval(() => {
-        setGreenScreenTimer(prev => {
-          if (prev.minutes === 0 && prev.seconds === 0) {
-            return { ...prev, isRunning: false };
-          }
-          const totalSeconds = prev.minutes * 60 + prev.seconds - 1;
-          return {
-            ...prev,
-            minutes: Math.floor(totalSeconds / 60),
-            seconds: totalSeconds % 60,
-          };
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [greenScreenTimer.isRunning, greenScreenTimer.isPaused]);
-
   const handleGreenScreenTimeAdjust = (minutes: number) => {
     setGreenScreenTimer(prev => ({
       ...prev,
@@ -463,28 +491,11 @@ function App() {
     }
   };
 
-  const updateOverlaySetting = (key: string, value: any) => {
-    const newSettings = { ...overlaySettings, [key]: value };
-    setOverlaySettings(newSettings);
-    setStagedOverlaySettings(newSettings);
-    
-    const savedSizes = localStorage.getItem('displaySizes');
-    const sizes = savedSizes ? JSON.parse(savedSizes) : {};
-    
-    const updatedSizes = {
-      ...sizes,
-      overlay: newSettings
-    };
-    
-    localStorage.setItem('displaySizes', JSON.stringify(updatedSizes));
-    window.dispatchEvent(new Event('storage'));
-  };
-
   const updateStagedOverlaySetting = <K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) => {
     setStagedOverlaySettings(prev => ({ ...prev, [key]: value }));
     
     // Live update for positioning and scale if broadcast is active
-    const liveKeys: (keyof OverlaySettings)[] = ['x', 'y', 'timer', 'timerFontSize', 'clockFontSize', 'lowerThirdTitleSize', 'lowerThirdSubtitleSize', 'lowerThirdDateSize'];
+    const liveKeys: (keyof OverlaySettings)[] = ['x', 'y', 'timer', 'timerFontSize', 'clockFontSize', 'lowerThirdTitleSize', 'lowerThirdSubtitleSize', 'lowerThirdDateSize', 'show'];
     if (liveKeys.includes(key)) {
       const newLiveSettings = { ...overlaySettings, [key]: value };
       setOverlaySettings(newLiveSettings);
@@ -513,48 +524,37 @@ function App() {
     setSelectedTheme(themeId);
   };
 
-  const openDisplayPicker = (action: 'bible' | 'timer' | 'overlay' | null = null) => {
-    setPendingProjectAction(action);
-    setIsDisplayPickerOpen(true);
-  };
-
-  const closeDisplayPicker = () => {
-    setPendingProjectAction(null);
-    setIsDisplayPickerOpen(false);
-  };
-
-  const selectProjectDisplay = (displayId: number) => {
-    setSelectedProjectDisplay(displayId);
-    closeDisplayPicker();
-
-    if (pendingProjectAction === 'bible') {
-      window.electronAPI?.openBibleProjection(displayId);
-      setIsBibleProjected(true);
-    } else if (pendingProjectAction === 'bible-test') {
-      window.electronAPI?.testDisplay(displayId);
-    }
-  };
-
   const stopBibleProjection = () => {
     window.electronAPI?.closeBibleProjection();
+    localStorage.setItem('activeProjection', 'none');
     setIsBibleProjected(false);
   };
 
   const projectBible = () => {
     // projection data is written by BibleTab effect
     if (selectedProjectDisplay !== null) {
+      localStorage.setItem('activeProjection', 'bible');
       window.electronAPI?.openBibleProjection(selectedProjectDisplay);
       setIsBibleProjected(true);
-    } else {
-      openDisplayPicker('bible');
     }
+  };
+
+  const projectSongSlide = (title: string, body: string) => {
+    updateSongProjection(title, body);
+    if (selectedProjectDisplay !== null) {
+      localStorage.setItem('activeProjection', 'songs');
+      window.electronAPI?.openBibleProjection(selectedProjectDisplay);
+      setIsBibleProjected(true);
+    }
+  };
+
+  const updateSongProjection = (title: string, body: string) => {
+    localStorage.setItem('songProjectionData', JSON.stringify({ title, body, theme: selectedTheme }));
   };
 
   const testBibleDisplay = () => {
     if (selectedProjectDisplay !== null) {
       window.electronAPI?.testDisplay(selectedProjectDisplay);
-    } else {
-      openDisplayPicker('bible-test');
     }
   };
 
@@ -655,43 +655,6 @@ function App() {
   // with consistent 24-hour format from the main clock update effect
 
   // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      // Only handle shortcuts when not typing in input fields
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      switch (event.key.toLowerCase()) {
-        case ' ': // Spacebar - Start/Pause timer
-          event.preventDefault();
-          if (!liveTimer.isRunning) {
-            startLiveTimer();
-          } else {
-            liveTimer.isPaused ? resumeLiveTimer() : pauseLiveTimer();
-          }
-          break;
-        case 's': // S - Stop timer
-          if (event.ctrlKey || event.metaKey) return; // Don't interfere with Ctrl+S
-          resetLiveTimer();
-          break;
-        case 'r': // R - Reset timer
-          if (event.ctrlKey || event.metaKey) return; // Don't interfere with Ctrl+R
-          resetLiveTimer();
-          break;
-        case 'a': // A - Toggle attention
-          toggleAttention();
-          break;
-        case 'c': // C - Show clock
-          setShowClock(true);
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [liveTimer.isRunning, liveTimer.isPaused]);
-
   useEffect(() => {
     if (liveTimer.isRunning && liveTimer.minutes === 0 && liveTimer.seconds === 0) {
       setIsTimerComplete(true);
@@ -848,19 +811,6 @@ function App() {
     });
   };
 
-  const handleLiveSecondsAdjust = (seconds: number) => {
-    setLiveTimer(prev => {
-      const totalSeconds = prev.minutes * 60 + prev.seconds + seconds;
-      if (totalSeconds < 0) return { ...prev, minutes: 0, seconds: 0 };
-      return {
-        ...prev,
-        minutes: Math.floor(totalSeconds / 60),
-        seconds: totalSeconds % 60,
-      };
-    });
-  };
-
-
   const addProgram = (programData: Omit<Program, 'id'>) => {
     const newProgram: Program = {
         id: Date.now().toString(),
@@ -930,6 +880,7 @@ function App() {
     });
     setTimerDeadline(null);
     setIsTimerComplete(false);
+    if (autoRun) stopAutoRun();
   };
 
   const restartLiveTimer = () => {
@@ -957,6 +908,40 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (event.key.toLowerCase()) {
+        case ' ':
+          event.preventDefault();
+          if (!liveTimer.isRunning) startLiveTimer();
+          else if (liveTimer.isPaused) resumeLiveTimer();
+          else pauseLiveTimer();
+          break;
+        case 's':
+          if (event.ctrlKey || event.metaKey) return;
+          resetLiveTimer();
+          break;
+        case 'r':
+          if (event.ctrlKey || event.metaKey) return;
+          resetLiveTimer();
+          break;
+        case 'a':
+          toggleAttention();
+          break;
+        case 'c':
+          setShowClock(true);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [liveTimer.isRunning, liveTimer.isPaused, pauseLiveTimer, resetLiveTimer, resumeLiveTimer, startLiveTimer, toggleAttention]);
+
   const startExtraTime = () => {
     if (!liveTimer.isRunning || (liveTimer.minutes === 0 && liveTimer.seconds === 0)) {
       setExtraTime(prev => ({ ...prev, isRunning: true, isPaused: false }));
@@ -974,7 +959,7 @@ function App() {
     setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
-  const startProgram = (program: Program) => {
+  const startProgram = (program: Program, fromQueue = false) => {
     setLiveTimer({
       minutes: program.duration,
       seconds: 0,
@@ -984,6 +969,11 @@ function App() {
       programName: program.name,
     });
     setExtraTime(prev => ({ ...prev, isRunning: false }));
+    setIsTimerComplete(false);
+    setAutoTransition(null);
+    const queuedIndex = autoQueueIds.indexOf(program.id);
+    if (queuedIndex >= 0 && (fromQueue || autoRun)) setAutoQueueIndex(queuedIndex);
+    else if (autoRun && !fromQueue) stopAutoRun();
     setLastRunDurationSec(program.duration * 60);
     setTimerDeadline(Date.now() + program.duration * 60 * 1000);
     
@@ -996,6 +986,117 @@ function App() {
     };
     setTimerHistory(prev => [historyEntry, ...prev]);
   };
+
+  startProgramRef.current = startProgram;
+
+  const getOrderedAutoPrograms = (categoryId: string) => programs.filter(program => program.categoryId === categoryId);
+
+  const startAutoRun = (categoryId: string) => {
+    const queue = getOrderedAutoPrograms(categoryId);
+    if (queue.length === 0) return;
+    const ids = queue.map(program => program.id);
+    setAutoQueueCategoryId(categoryId);
+    setAutoQueueIds(ids);
+    setAutoQueueIndex(0);
+    setAutoRun(true);
+    setAutoTransition(null);
+    startProgram(queue[0], true);
+  };
+
+  const stopAutoRun = () => {
+    setAutoRun(false);
+    setAutoQueueCategoryId('');
+    setAutoTransition(null);
+    setAutoQueueIds([]);
+    setAutoQueueIndex(0);
+  };
+
+  const startQueuedNextProgram = () => {
+    if (!autoTransition) return;
+    const nextProgram = programs.find(program => program.id === autoTransition.programId);
+    if (!nextProgram) {
+      stopAutoRun();
+      return;
+    }
+    setAutoQueueIndex(autoQueueIds.indexOf(nextProgram.id));
+    startProgramRef.current(nextProgram, true);
+  };
+
+  const reorderProgram = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    setPrograms(previous => {
+      const source = previous.find(program => program.id === sourceId);
+      const target = previous.find(program => program.id === targetId);
+      if (!source || !target || source.categoryId !== target.categoryId) return previous;
+
+      const categoryPrograms = previous.filter(program => program.categoryId === source.categoryId);
+      const remaining = categoryPrograms.filter(program => program.id !== sourceId);
+      const targetIndex = remaining.findIndex(program => program.id === targetId);
+      remaining.splice(targetIndex, 0, source);
+
+      let categoryIndex = 0;
+      return previous.map(program => program.categoryId === source.categoryId
+        ? remaining[categoryIndex++]
+        : program
+      );
+    });
+  };
+
+  const reorderCategory = (sourceId: string, targetId: string) => {
+    setCategories(previous => {
+      const sourceIndex = previous.findIndex(category => category.id === sourceId);
+      const targetIndex = previous.findIndex(category => category.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return previous;
+      const reordered = [...previous];
+      const [category] = reordered.splice(sourceIndex, 1);
+      reordered.splice(targetIndex, 0, category);
+      return reordered;
+    });
+  };
+
+  useEffect(() => {
+    if (!isTimerComplete || !autoRun || autoTransition) return;
+    const nextProgram = autoQueueCategoryId && programs.find(program => program.id === autoQueueIds[autoQueueIndex + 1]);
+    if (nextProgram) {
+      setAutoTransition({
+        programId: nextProgram.id,
+        programName: nextProgram.name,
+        deadline: Date.now() + 30_000,
+      });
+    } else {
+      setAutoRun(false);
+      setAutoQueueCategoryId('');
+      setAutoQueueIds([]);
+      setAutoQueueIndex(0);
+    }
+  }, [isTimerComplete, autoRun, autoTransition, programs, autoQueueIds, autoQueueIndex, autoQueueCategoryId]);
+
+  useEffect(() => {
+    if (!autoRun || !autoTransition) return;
+    const remainingMs = autoTransition.deadline - Date.now();
+    if (remainingMs > 0) {
+      const timeout = setTimeout(() => {
+        const nextProgram = programs.find(program => program.id === autoTransition.programId);
+        if (nextProgram) {
+          const nextIndex = autoQueueIds.indexOf(nextProgram.id);
+          setAutoQueueIndex(nextIndex);
+          startProgramRef.current(nextProgram, true);
+        } else {
+          stopAutoRun();
+        }
+      }, remainingMs);
+      return () => clearTimeout(timeout);
+    }
+
+    const nextProgram = programs.find(program => program.id === autoTransition.programId);
+    if (nextProgram) {
+      const nextIndex = autoQueueIds.indexOf(nextProgram.id);
+      setAutoQueueIndex(nextIndex);
+      startProgramRef.current(nextProgram, true);
+    } else {
+      stopAutoRun();
+    }
+  }, [autoRun, autoTransition, autoQueueIds, programs]);
 
   const addTimeToLiveTimer = (minutes: number) => {
     if (liveTimer.isRunning) {
@@ -1050,6 +1151,8 @@ function App() {
       programName: historyEntry.programName,
     });
     setExtraTime(prev => ({ ...prev, isRunning: false }));
+    setLastRunDurationSec(historyEntry.duration * 60);
+    setTimerDeadline(Date.now() + historyEntry.duration * 60 * 1000);
     
     // Add new entry to history
     const newHistoryEntry = {
@@ -1063,15 +1166,6 @@ function App() {
 
   const clearTimerHistory = () => {
     setTimerHistory([]);
-  };
-
-  const clearCache = async () => {
-    if (window.electronAPI?.clearCache) {
-      await window.electronAPI.clearCache();
-    } else {
-      // Fallback for development
-      window.location.reload();
-    }
   };
 
   const handleImportPrograms = (importedPrograms: Program[]) => {
@@ -1162,56 +1256,56 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Top Navigation Bar */}
-      <div className="sticky top-0 z-50 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 px-6 py-3 flex items-center justify-between shadow-md select-none" style={{ WebkitAppRegion: 'drag' as any }}>
-        <div className="flex items-center space-x-3" style={{ WebkitAppRegion: 'no-drag' as any }}>
+      <div className="sticky top-0 z-50 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 px-2 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 shadow-md select-none" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
+        <div className="flex items-center space-x-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
           <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
             <span className="text-lg">⏱️</span>
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight">Stage Timer <span className="text-xs text-blue-400 font-normal">v2.1.0</span></h1>
         </div>
         
-        <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700" style={{ WebkitAppRegion: 'no-drag' as any }}>
+        <div className="flex min-w-0 max-w-full flex-[1_1_420px] flex-wrap justify-center bg-gray-900 rounded-lg p-1 border border-gray-700" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
           <button 
             onClick={() => setActiveTab('main')}
-            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'main' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'main' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
             <Layout size={16} />
-            <span>Timer Control</span>
+            <span>Timer</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('transcribe')}
+            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'transcribe' ? 'bg-red-700 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <Mic size={16} />
+            <span>Transcribe</span>
           </button>
           <button 
             onClick={() => setActiveTab('overlay')}
-            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'overlay' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'overlay' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
             <Monitor size={16} />
-            <span>Overlay Control</span>
+            <span>Overlay</span>
           </button>
           <button 
-            onClick={() => setActiveTab('bible')}
-            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'bible' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => setActiveTab(activeTab === 'songs' ? 'bible' : 'songs')}
+            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'bible' || activeTab === 'songs' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
             <FileText size={16} />
-            <span>Bible</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('songs')}
-            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'songs' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            <FolderPlus size={16} />
-            <span>Songs</span>
+            <span>Bible/Songs</span>
           </button>
           <button 
             onClick={() => {
               setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main');
               setActiveTab('guide');
             }}
-            className={`px-6 py-1.5 rounded-md text-sm font-bold transition-all flex items-center space-x-2 ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
             <HelpCircle size={16} />
             <span>Guide</span>
           </button>
         </div>
 
-        <div className="flex items-center space-x-4" style={{ WebkitAppRegion: 'no-drag' as any }}>
+        <div className="flex items-center space-x-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
           <div className="text-right hidden md:block">
             <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">System Clock</div>
             <div className="text-sm text-blue-400 font-mono font-bold">{currentTime}</div>
@@ -1351,6 +1445,14 @@ function App() {
 
           {/* Live Preview Section */}
           <div className="space-y-4">
+            {autoRun && autoTransition && (
+              <AutoRunBanner
+                programName={autoTransition.programName}
+                categoryName={categories.find(category => category.id === autoQueueCategoryId)?.name || 'Program queue'}
+                deadline={autoTransition.deadline}
+                onStartNow={startQueuedNextProgram}
+              />
+            )}
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
               <h2 className="text-xl sm:text-2xl font-bold text-white">Live</h2>
               <div className="flex flex-wrap gap-1 justify-center sm:justify-end">
@@ -1651,7 +1753,7 @@ function App() {
           <div className="lg:col-span-2 bg-gray-800 p-4 rounded">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl text-white">Order of Program</h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
               <button
                   onClick={() => setShowAddProgramModal(true)}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-500 flex items-center space-x-2 transition-colors"
@@ -1687,6 +1789,11 @@ function App() {
                 }, 5000);
               }}
               onEdit={handleProgramEdit}
+              onReorder={reorderProgram}
+              onReorderCategory={reorderCategory}
+              onStartAutoRun={startAutoRun}
+              onStopAutoRun={stopAutoRun}
+              autoRunCategoryId={autoQueueCategoryId}
               currentProgramName={liveTimer.programName}
               isRunning={liveTimer.isRunning}
             />
@@ -1846,6 +1953,18 @@ function App() {
                       ))}
                     </div>
                   </div>
+                  <label className="flex items-center justify-between gap-4 border-t border-gray-800 pt-4 text-sm font-semibold text-gray-300">
+                    <span>Overlay output</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={stagedOverlaySettings.show}
+                      onClick={() => updateStagedOverlaySetting('show', !stagedOverlaySettings.show)}
+                      className={`relative h-7 w-12 rounded-full transition-colors ${stagedOverlaySettings.show ? 'bg-green-600' : 'bg-gray-700'}`}
+                    >
+                      <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${stagedOverlaySettings.show ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </label>
                 </div>
 
                 {/* Preview Window (Simulated) */}
@@ -1861,8 +1980,8 @@ function App() {
                       <div 
                         className="absolute transform transition-all"
                         style={{ 
-                          left: `${stagedOverlaySettings.x}%`,
-                          top: `${stagedOverlaySettings.y}%`,
+                          left: `${Math.min(85, Math.max(15, stagedOverlaySettings.x))}%`,
+                          top: `${Math.min(85, Math.max(15, stagedOverlaySettings.y))}%`,
                           transform: `translate(-50%, -50%) scale(${(stagedOverlaySettings.timer / 100) * 0.35})`,
                           transformOrigin: 'center center'
                         }}
@@ -1935,11 +2054,11 @@ function App() {
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
                         {/* Text Fields Column (7 cols) */}
                         <div className="md:col-span-7 space-y-6">
-                          {[
+                          {([
                             { label: 'Program Name', key: 'lowerThirdTitle', sizeKey: 'lowerThirdTitleSize', placeholder: 'e.g. SUNDAY SERVICE' },
                             { label: 'Message Title', key: 'lowerThirdSubtitle', sizeKey: 'lowerThirdSubtitleSize', placeholder: 'e.g. FAITH OF THE FAITHFUL', isLarge: true },
                             { label: 'Minister/Speaker', key: 'lowerThirdDate', sizeKey: 'lowerThirdDateSize', placeholder: 'e.g. PASTOR JOHN DOE' }
-                          ].map((field) => (
+                          ] as const).map((field) => (
                             <div key={field.key} className="space-y-2">
                               <div className="flex justify-between items-end">
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">{field.label}</label>
@@ -1948,7 +2067,7 @@ function App() {
                                   <input 
                                     type="number" 
                                     value={stagedOverlaySettings[field.sizeKey as keyof OverlaySettings] as number}
-                                    onChange={(e) => updateStagedOverlaySetting(field.sizeKey as any, parseInt(e.target.value))}
+                                    onChange={(e) => updateStagedOverlaySetting(field.sizeKey, parseInt(e.target.value))}
                                     className="w-14 bg-gray-800 text-blue-400 border border-gray-700 rounded-lg px-2 py-1 text-xs font-black focus:ring-1 focus:ring-blue-500 outline-none text-center"
                                   />
                                 </div>
@@ -1956,20 +2075,19 @@ function App() {
                               <input 
                                 type="text"
                                 value={stagedOverlaySettings[field.key as keyof OverlaySettings] as string}
-                                onChange={(e) => updateStagedOverlaySetting(field.key as any, e.target.value)}
+                                onChange={(e) => updateStagedOverlaySetting(field.key, e.target.value)}
                                 placeholder={field.placeholder}
                                 className={`w-full bg-gray-800/50 text-white px-5 py-4 rounded-2xl border border-gray-700 focus:ring-2 focus:ring-blue-500 outline-none font-bold transition-all ${field.isLarge ? 'text-lg font-black' : ''}`}
                               />
                             </div>
                           ))}
-
                           {/* Position & Scale Sliders */}
                           <div className="pt-8 space-y-6 border-t border-gray-800/50">
-                            {[
+                            {([
                               { label: 'Horizontal Position (X)', key: 'x', min: 0, max: 100, unit: '%' },
                               { label: 'Vertical Position (Y)', key: 'y', min: 0, max: 100, unit: '%' },
                               { label: 'Overall Display Scale', key: 'timer', min: 10, max: 200, unit: '%' }
-                            ].map((slider) => (
+                            ] as const).map((slider) => (
                               <div key={slider.key} className="space-y-3">
                                 <div className="flex justify-between items-center">
                                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{slider.label}</label>
@@ -1980,7 +2098,7 @@ function App() {
                                   min={slider.min} 
                                   max={slider.max} 
                                   value={stagedOverlaySettings[slider.key as keyof OverlaySettings] as number} 
-                                  onChange={(e) => updateStagedOverlaySetting(slider.key as any, parseInt(e.target.value))} 
+                                  onChange={(e) => updateStagedOverlaySetting(slider.key, parseInt(e.target.value))}
                                   className="range-knob" 
                                 />
                               </div>
@@ -2052,32 +2170,39 @@ function App() {
                     </div>
                   ) : (
                   <div className="bg-gray-900/80 p-8 rounded-2xl border border-gray-700 space-y-8">
-                    <div 
-                      className="flex flex-col items-center justify-center py-10 rounded-3xl border border-gray-800 shadow-inner relative overflow-hidden"
+                    <div
+                      className="rounded-3xl border border-gray-800 p-6 shadow-inner"
                       style={{ backgroundColor: stagedOverlaySettings.bgColor }}
                     >
-                      <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                      <div className="text-xs font-black text-white/60 uppercase tracking-[0.3em] mb-4 relative z-10">Live Output Preview</div>
-                      <div 
-                        className={`font-mono font-black text-white tracking-tighter drop-shadow-[0_0_30px_rgba(0,0,0,0.5)] relative z-10 ${stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.isRunning && !greenScreenTimer.isPaused ? 'animate-flash-zoom' : ''}`}
-                        style={{ 
-                          fontSize: `${(stagedOverlaySettings.mode === 'timer' ? stagedOverlaySettings.timerFontSize : stagedOverlaySettings.clockFontSize) * (stagedOverlaySettings.timer / 100)}px`,
-                          position: 'absolute',
-                          left: `${stagedOverlaySettings.x}%`,
-                          top: `${stagedOverlaySettings.y}%`,
-                          transform: 'translate(-50%, -50%)',
-                          display: stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.seconds === 0 && greenScreenTimer.isRunning ? 'none' : 'block',
-                          animationDelay: '0s'
-                        }}
+                      <div className="text-xs font-black text-white/60 uppercase tracking-[0.3em] mb-4 text-center">Live Output Preview</div>
+                      <div
+                        className="aspect-video w-full max-w-4xl mx-auto rounded-xl border border-white/10 relative overflow-hidden [container-type:size]"
+                        style={{ backgroundColor: stagedOverlaySettings.bgColor }}
                       >
-                        {stagedOverlaySettings.mode === 'timer' 
-                          ? `${String(greenScreenTimer.minutes).padStart(2, '0')}:${String(greenScreenTimer.seconds).padStart(2, '0')}`
-                          : currentTime
-                        }
+                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        <div
+                          className={`font-mono font-black text-white tracking-tighter drop-shadow-[0_0_30px_rgba(0,0,0,0.5)] ${stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.isRunning && !greenScreenTimer.isPaused ? 'animate-flash-zoom' : ''}`}
+                          style={{
+                            fontSize: `min(${(stagedOverlaySettings.mode === 'timer' ? stagedOverlaySettings.timerFontSize : stagedOverlaySettings.clockFontSize) * (stagedOverlaySettings.timer / 100)}cqw, ${stagedOverlaySettings.mode === 'timer' ? 16 : 9}cqw, ${stagedOverlaySettings.mode === 'timer' ? 20 : 12}cqh)`,
+                            position: 'absolute',
+                            left: `${Math.min(68, Math.max(32, stagedOverlaySettings.x))}%`,
+                            top: `${Math.min(88, Math.max(12, stagedOverlaySettings.y))}%`,
+                            transform: 'translate(-50%, -50%)',
+                            whiteSpace: 'nowrap',
+                            lineHeight: 1,
+                            display: stagedOverlaySettings.mode === 'timer' && greenScreenTimer.minutes === 0 && greenScreenTimer.seconds === 0 && greenScreenTimer.isRunning ? 'none' : 'block',
+                            animationDelay: '0s'
+                          }}
+                        >
+                          {stagedOverlaySettings.mode === 'timer'
+                            ? `${String(greenScreenTimer.minutes).padStart(2, '0')}:${String(greenScreenTimer.seconds).padStart(2, '0')}`
+                            : currentTime
+                          }
+                        </div>
                       </div>
                       
                       {stagedOverlaySettings.mode === 'timer' && (
-                        <div className="mt-8 flex gap-4">
+                        <div className="mt-6 flex flex-wrap justify-center gap-4">
                           {!greenScreenTimer.isRunning ? (
                             <button onClick={startGreenScreenTimer} className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl flex items-center gap-3 font-black transition-all shadow-xl shadow-green-900/20"><Play size={20} /> START</button>
                           ) : (
@@ -2118,15 +2243,15 @@ function App() {
                       <div className="space-y-3">
                         <label className="text-xs font-black text-gray-500 uppercase tracking-widest block">Horizontal Position (X)</label>
                         <div className="flex items-center gap-4">
-                          <input type="range" min="0" max="100" value={stagedOverlaySettings.x} onChange={(e) => updateStagedOverlaySetting('x', parseInt(e.target.value))} className="range-knob" />
-                          <span className="text-xs font-mono font-black text-blue-400 w-10">{stagedOverlaySettings.x}%</span>
+                          <input type="range" min={stagedOverlaySettings.mode === 'lowerThird' ? 15 : 32} max={stagedOverlaySettings.mode === 'lowerThird' ? 85 : 68} value={Math.min(stagedOverlaySettings.mode === 'lowerThird' ? 85 : 68, Math.max(stagedOverlaySettings.mode === 'lowerThird' ? 15 : 32, stagedOverlaySettings.x))} onChange={(e) => updateStagedOverlaySetting('x', parseInt(e.target.value))} className="range-knob" />
+                          <span className="text-xs font-mono font-black text-blue-400 w-10">{Math.min(stagedOverlaySettings.mode === 'lowerThird' ? 85 : 68, Math.max(stagedOverlaySettings.mode === 'lowerThird' ? 15 : 32, stagedOverlaySettings.x))}%</span>
                         </div>
                       </div>
                       <div className="space-y-3">
                         <label className="text-xs font-black text-gray-500 uppercase tracking-widest block">Vertical Position (Y)</label>
                         <div className="flex items-center gap-4">
-                          <input type="range" min="0" max="100" value={stagedOverlaySettings.y} onChange={(e) => updateStagedOverlaySetting('y', parseInt(e.target.value))} className="range-knob" />
-                          <span className="text-xs font-mono font-black text-blue-400 w-10">{stagedOverlaySettings.y}%</span>
+                          <input type="range" min={stagedOverlaySettings.mode === 'lowerThird' ? 15 : 12} max={stagedOverlaySettings.mode === 'lowerThird' ? 85 : 88} value={Math.min(stagedOverlaySettings.mode === 'lowerThird' ? 85 : 88, Math.max(stagedOverlaySettings.mode === 'lowerThird' ? 15 : 12, stagedOverlaySettings.y))} onChange={(e) => updateStagedOverlaySetting('y', parseInt(e.target.value))} className="range-knob" />
+                          <span className="text-xs font-mono font-black text-blue-400 w-10">{Math.min(stagedOverlaySettings.mode === 'lowerThird' ? 85 : 88, Math.max(stagedOverlaySettings.mode === 'lowerThird' ? 15 : 12, stagedOverlaySettings.y))}%</span>
                         </div>
                       </div>
                     </div>
@@ -2163,15 +2288,23 @@ function App() {
             onDisplayChange={setSelectedProjectDisplay}
             project={projectBible}
             testDisplay={testBibleDisplay}
-            isProjecting={isBibleProjected}
+            isProjecting={isBibleProjected && localStorage.getItem('activeProjection') === 'bible'}
             onCloseProjection={stopBibleProjection}
-            requestDisplaySelection={() => openDisplayPicker('bible')}
           />
         ) : activeTab === 'songs' ? (
           <SongsTab
             selectedTheme={selectedTheme}
             onThemeChange={handleThemeChange}
+            availableDisplays={availableDisplays}
+            selectedDisplay={selectedProjectDisplay}
+            onDisplayChange={setSelectedProjectDisplay}
+            isProjecting={isBibleProjected && localStorage.getItem('activeProjection') === 'songs'}
+            onProject={projectSongSlide}
+            onUpdateSlide={updateSongProjection}
+            onCloseProjection={stopBibleProjection}
           />
+        ) : activeTab === 'transcribe' ? (
+          <TranscribeTab />
         ) : (
           <div className="mx-auto w-full xl:max-w-[1600px] 2xl:max-w-[1900px]">
             <HowToGuide variant="page" initialSection={guideSection} />

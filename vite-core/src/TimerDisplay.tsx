@@ -3,7 +3,6 @@ import { Timer } from './components/Timer';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { AlertBanner } from './components/AlertBanner';
 import { NextProgramNotification } from './components/NextProgramNotification';
-import { Clock } from 'lucide-react';
 
 function TimerDisplay() {
   const [timerState, setTimerState] = useState({
@@ -33,7 +32,16 @@ function TimerDisplay() {
     isFlashing: false,
     show: false,
   });
-  const [nextProgram, setNextProgram] = useState<any>(null);
+  const [nextProgram, setNextProgram] = useState<string | { name: string; duration: number } | null>(null);
+  const [autoTimerDisplay, setAutoTimerDisplay] = useState<{ enabled: boolean; nextProgramName: string; deadline: number | null }>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('autoTimerDisplay') || '{"enabled":false,"nextProgramName":"","deadline":null}');
+    } catch {
+      return { enabled: false, nextProgramName: '', deadline: null };
+    }
+  });
+  const [currentTimestamp, setCurrentTimestamp] = useState(Date.now());
+  const [handoffFadeUntil, setHandoffFadeUntil] = useState<number | null>(null);
   const [background, setBackground] = useState({ type: 'default', source: null });
   const [showClock, setShowClock] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
@@ -72,6 +80,7 @@ function TimerDisplay() {
       const storedCurrentTime = localStorage.getItem('currentTime');
       const storedDisplaySizes = localStorage.getItem('displaySizes');
       const storedDeadline = localStorage.getItem('timerDeadline');
+      const storedAutoTimerDisplay = localStorage.getItem('autoTimerDisplay');
 
       if (storedTimerState) setTimerState(JSON.parse(storedTimerState));
       if (storedExtraTime) setExtraTime(JSON.parse(storedExtraTime));
@@ -87,6 +96,7 @@ function TimerDisplay() {
         setShowProgramName(sizes.showProgramName !== undefined ? sizes.showProgramName : true);
       }
       if (storedDeadline) setTimerDeadline(Number(storedDeadline));
+      if (storedAutoTimerDisplay) setAutoTimerDisplay(JSON.parse(storedAutoTimerDisplay));
       
       const storedLogo = localStorage.getItem('churchLogo');
       if (storedLogo) {
@@ -106,7 +116,7 @@ function TimerDisplay() {
       let newValue;
       try {
         newValue = e.newValue ? JSON.parse(e.newValue) : null;
-      } catch (err) {
+      } catch {
         // If it's not JSON, use the raw value (for strings like churchLogo if they are not JSON)
         newValue = e.newValue;
       }
@@ -117,6 +127,14 @@ function TimerDisplay() {
           break;
         case 'timerDeadline':
           setTimerDeadline(newValue ? Number(newValue) : null);
+          break;
+        case 'autoTimerDisplay':
+          if (newValue) {
+            if (autoTimerDisplay.deadline && !newValue.deadline && newValue.enabled) {
+              setHandoffFadeUntil(Date.now() + 900);
+            }
+            setAutoTimerDisplay(newValue);
+          }
           break;
         case 'extraTime':
           if (newValue) setExtraTime(newValue);
@@ -160,7 +178,19 @@ function TimerDisplay() {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [autoTimerDisplay.deadline]);
+
+  useEffect(() => {
+    if ((!autoTimerDisplay.enabled || !autoTimerDisplay.deadline) && !handoffFadeUntil) return;
+    const interval = setInterval(() => setCurrentTimestamp(Date.now()), 250);
+    const fadeTimeout = handoffFadeUntil
+      ? setTimeout(() => setHandoffFadeUntil(null), Math.max(0, handoffFadeUntil - Date.now()))
+      : null;
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout) clearTimeout(fadeTimeout);
+    };
+  }, [autoTimerDisplay.enabled, autoTimerDisplay.deadline, handoffFadeUntil]);
 
   // REMOVED: Conflicting clock update effect
   // The main App.tsx effect handles time updates with consistent 24-hour format
@@ -216,7 +246,22 @@ function TimerDisplay() {
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
-      {!extraTime.isRunning ? (
+      {(autoTimerDisplay.enabled && autoTimerDisplay.deadline && currentTimestamp < autoTimerDisplay.deadline + 900) || (handoffFadeUntil !== null && currentTimestamp < handoffFadeUntil) ? (
+        <div className={`fixed inset-0 z-40 flex flex-col items-center justify-center overflow-hidden bg-black px-6 pb-28 pt-12 text-center text-white sm:px-10 ${handoffFadeUntil ? 'animate-handoff-out' : 'animate-handoff-in'}`}>
+          <div className="w-full max-w-[94vw] animate-next-program-enter">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-amber-300 sm:text-xl">Next Program</p>
+            <h1 className="mt-6 break-words font-black leading-[0.92] text-white" style={{ fontSize: 'clamp(5rem, 14vw, 12rem)' }}>{autoTimerDisplay.nextProgramName}</h1>
+            <p className="mt-7 text-xl font-semibold text-white/80 sm:text-3xl">{currentTimestamp >= (autoTimerDisplay.deadline || 0) ? 'Starting now' : 'Starts in'}</p>
+            <p className="mt-1 font-black tabular-nums text-amber-300" style={{ fontSize: 'clamp(3rem, 7vw, 6rem)' }}>
+              {Math.max(0, Math.ceil(((autoTimerDisplay.deadline || currentTimestamp) - currentTimestamp) / 1000))} <span className="text-xl font-bold text-white/60 sm:text-3xl">seconds</span>
+            </p>
+          </div>
+          <div className="absolute inset-x-0 bottom-6 flex flex-col items-center justify-center gap-1 text-white/60 sm:bottom-8 sm:flex-row sm:gap-3">
+            <span className="text-xs font-bold uppercase tracking-widest sm:text-sm">Previous program ended</span>
+            <span className="font-mono text-3xl font-black text-white/80 sm:text-5xl">00:00</span>
+          </div>
+        </div>
+      ) : !extraTime.isRunning ? (
         <>
           <Timer
             minutes={timerState.minutes}
@@ -242,11 +287,12 @@ function TimerDisplay() {
             </div>
           )}
           {showClock && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-20">
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-20 [container-type:size]">
               <span 
                 className="font-bold text-white"
                 style={{
-                  fontSize: `${8 * clockScale / 100}vw`,
+                  fontSize: `min(${Math.min(8 * clockScale / 100, 96 / Math.max(1, currentTime.length * 0.62))}cqw, 32cqh)`,
+                  whiteSpace: 'nowrap',
                   fontFamily: 'Arial, sans-serif',
                   textShadow: '4px 4px 8px rgba(0,0,0,0.8)',
                   letterSpacing: '0.05em'
@@ -276,7 +322,7 @@ function TimerDisplay() {
           duration={typeof nextProgram === 'object' ? nextProgram.duration : 0}
         />
       )}
-      
+
       {(alertState.show || alertState.isFlashing) && (
         <div className="absolute bottom-0 left-0 right-0 z-50">
           <AlertBanner 

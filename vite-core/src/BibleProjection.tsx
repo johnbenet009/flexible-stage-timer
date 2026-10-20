@@ -6,6 +6,12 @@ interface ProjectionData {
   theme: string;
 }
 
+interface SongProjectionData {
+  title: string;
+  body: string;
+  theme: string;
+}
+
 const themes: { [key: string]: { backgroundColor: string; textColor: string } } = {
   light: { backgroundColor: '#ffffff', textColor: '#000000' },
   dark: { backgroundColor: '#000000', textColor: '#ffffff' },
@@ -41,16 +47,35 @@ const categoryColors = {
 
 export default function BibleProjection() {
   const [data, setData] = useState<ProjectionData | null>(null);
+  const [song, setSong] = useState<SongProjectionData | null>(null);
+  const [projectionType, setProjectionType] = useState(() => localStorage.getItem('activeProjection') || 'bible');
 
   useEffect(() => {
-    const stored = localStorage.getItem('bibleProjectionData');
-    if (stored) {
+    const loadProjection = (stored: string | null) => {
+      if (!stored) return;
       try {
         setData(JSON.parse(stored));
-      } catch (e) {
+      } catch {
         console.error('invalid projection data');
       }
-    }
+    };
+    loadProjection(localStorage.getItem('bibleProjectionData'));
+    const loadSong = (stored: string | null) => {
+      if (!stored) return;
+      try {
+        setSong(JSON.parse(stored));
+      } catch {
+        console.error('invalid song projection data');
+      }
+    };
+    loadSong(localStorage.getItem('songProjectionData'));
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'bibleProjectionData') loadProjection(event.newValue);
+      if (event.key === 'songProjectionData') loadSong(event.newValue);
+      if (event.key === 'activeProjection' && event.newValue) setProjectionType(event.newValue);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   useEffect(() => {
@@ -65,6 +90,16 @@ export default function BibleProjection() {
   }, []);
 
   const theme = themes[data?.theme || 'dark'] || themes.dark;
+
+  if (projectionType === 'songs' && song) {
+    const songTheme = themes[song.theme] || themes.dark;
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-10 py-12 text-center" style={{ backgroundColor: songTheme.backgroundColor, color: songTheme.textColor }}>
+        {song.title && <h1 className="text-[3.5vh] font-semibold opacity-75">{song.title}</h1>}
+        <p className="max-w-[88vw] whitespace-pre-line text-[7vh] font-bold leading-tight">{song.body}</p>
+      </div>
+    );
+  }
 
   if (!data) {
     return (

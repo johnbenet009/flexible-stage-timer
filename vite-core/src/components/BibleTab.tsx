@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-type Verse = { book: number; book_name: string; chapter: number; verse: number; text: string };
+export type Verse = { book: number; book_name: string; chapter: number; verse: number; text: string };
 type BibleBook = { id: number; name: string };
 
 interface BibleTabProps {
@@ -11,24 +11,7 @@ interface BibleTabProps {
   testDisplay?: () => void;
   isProjecting?: boolean;
   onCloseProjection?: () => void;
-  requestDisplaySelection?: () => void;
 }
-
-const bookNames = [
-  null,
-  'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
-  'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 'Nehemiah', 'Esther',
-  'Job', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Song of Solomon',
-  'Isaiah', 'Jeremiah', 'Lamentations', 'Ezekiel', 'Daniel',
-  'Hosea', 'Joel', 'Amos', 'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi',
-  'Matthew', 'Mark', 'Luke', 'John',
-  'Acts',
-  'Romans', '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy', 'Titus', 'Philemon',
-  'Hebrews', 'James', '1 Peter', '2 Peter', '1 John', '2 John', '3 John', 'Jude',
-  'Revelation'
-] as const;
-
-const getBookName = (id: number) => (bookNames[id] ?? `Book ${id}`);
 
 const bookColors = [
   'bg-rose-600',
@@ -124,7 +107,6 @@ export const BibleTab: React.FC<BibleTabProps> = ({
   testDisplay,
   isProjecting,
   onCloseProjection,
-  requestDisplaySelection,
 }) => {
   const [allVerses, setAllVerses] = useState<Verse[]>([]);
   const [books, setBooks] = useState<BibleBook[]>([]);
@@ -134,26 +116,43 @@ export const BibleTab: React.FC<BibleTabProps> = ({
 
   useEffect(() => {
     const loadJson = async () => {
-      try {
-        const resp = await fetch('kjv.json');
-        const data = await resp.json();
-        const verses: Verse[] = Array.isArray(data) ? data : data?.verses ?? [];
+      const dataPaths = ['kjv.json', 'vite-core/public/kjv.json'];
+      let verses: Verse[] | null = null;
 
-        setAllVerses(verses);
-
-        const booksMap = new Map<number, string>();
-        verses.forEach(v => {
-          if (!booksMap.has(v.book)) booksMap.set(v.book, v.book_name);
-        });
-
-        const sortedBooks = Array.from(booksMap.entries())
-          .sort((a, b) => a[0] - b[0])
-          .map(([id, name]) => ({ id, name }));
-
-        setBooks(sortedBooks);
-      } catch (err) {
-        console.error('Failed to load bible JSON', err);
+      for (const path of dataPaths) {
+        try {
+          const response = await fetch(path);
+          if (!response.ok) continue;
+          const text = await response.text();
+          if (text.trimStart().startsWith('<')) continue;
+          const data = JSON.parse(text);
+          const candidate: Verse[] = Array.isArray(data) ? data : data?.verses ?? [];
+          if (candidate.length > 0) {
+            verses = candidate;
+            break;
+          }
+        } catch {
+          continue;
+        }
       }
+
+      if (!verses) {
+        console.error('Failed to load Bible data from available asset paths.');
+        return;
+      }
+
+      setAllVerses(verses);
+
+      const booksMap = new Map<number, string>();
+      verses.forEach(v => {
+        if (!booksMap.has(v.book)) booksMap.set(v.book, v.book_name);
+      });
+
+      const sortedBooks = Array.from(booksMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([id, name]) => ({ id, name }));
+
+      setBooks(sortedBooks);
     };
 
     loadJson();
@@ -268,9 +267,6 @@ export const BibleTab: React.FC<BibleTabProps> = ({
     localStorage.setItem('bibleProjectionData', JSON.stringify({ verses: results, theme: projectionTheme }));
   }, [results, projectionTheme]);
 
-  const translations = ['KJV', 'NIV', 'NVT'];
-  const [translation, setTranslation] = useState(translations[0]);
-
   const selectBook = (book: BibleBook) => {
     setSelectedBookId(book.id);
     setSelectedBookName(book.name);
@@ -285,15 +281,10 @@ export const BibleTab: React.FC<BibleTabProps> = ({
     }, 0);
   };
 
-  const selectVerse = (verse: Verse) => {
+  const selectVerse = useCallback((verse: Verse) => {
     setActiveVerse(verse.verse);
     setResults([verse]);
-    if (selectedDisplay !== null) {
-      project();
-    } else if (requestDisplaySelection) {
-      requestDisplaySelection();
-    }
-  };
+  }, []);
 
   const navigateChapter = useCallback(
     (direction: 'prev' | 'next') => {
@@ -344,9 +335,8 @@ export const BibleTab: React.FC<BibleTabProps> = ({
       }
 
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-        // Allow arrow navigation even while typing in the filter input
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(active)) {
-          e.preventDefault();
+          return;
         }
 
         if (e.key === 'ArrowLeft') {
@@ -390,6 +380,18 @@ export const BibleTab: React.FC<BibleTabProps> = ({
           </select>
         </div>
 
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <span>Translation</span>
+          <span className="rounded bg-gray-800 px-3 py-2 font-semibold text-white">KJV</span>
+        </label>
+        <input
+          type="search"
+          value={searchString}
+          onChange={e => setSearchString(e.target.value)}
+          placeholder="Filter books"
+          aria-label="Filter Bible books"
+          className="min-w-40 flex-1 bg-gray-800 px-3 py-2 text-white placeholder:text-gray-500"
+        />
         {isProjecting && onCloseProjection ? (
           <button
             onClick={onCloseProjection}
@@ -400,23 +402,16 @@ export const BibleTab: React.FC<BibleTabProps> = ({
         ) : (
           <button
             onClick={project}
-            disabled={results.length === 0}
+            disabled={results.length === 0 || selectedDisplay === null}
             className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
           >
             Project
           </button>
         )}
-        {selectedDisplay === null && requestDisplaySelection ? (
-          <button
-            onClick={requestDisplaySelection}
-            className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-600"
-          >
-            Choose Screen
-          </button>
-        ) : null}
         {testDisplay ? (
           <button
             onClick={testDisplay}
+            disabled={selectedDisplay === null}
             className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500"
           >
             Test Display
@@ -424,11 +419,11 @@ export const BibleTab: React.FC<BibleTabProps> = ({
         ) : null}
       </div>
 
-      <div ref={containerRef} className="flex flex-1 overflow-hidden min-h-0">
+      <div ref={containerRef} className="flex flex-1 flex-col overflow-hidden min-h-0 md:flex-row">
         {/* Left: preview (verse text) */}
         <div
-          style={{ width: `${leftWidthPercent}%` }}
-          className="flex flex-col border-r border-gray-700/60 bg-gray-900 min-h-0"
+          style={{ '--left-width': `${leftWidthPercent}%` } as React.CSSProperties}
+          className="flex min-h-[30%] w-full flex-col border-b border-gray-700/60 bg-gray-900 md:min-h-0 md:w-[var(--left-width)] md:border-b-0 md:border-r"
         >
           <div className="p-3 border-b border-gray-700/60">
             <div className="text-xs text-gray-400">Preview</div>
@@ -460,16 +455,16 @@ export const BibleTab: React.FC<BibleTabProps> = ({
 
         {/* Resize handler */}
         <div
-          className="w-2 cursor-col-resize bg-gray-800/60 hover:bg-gray-700"
+          className="hidden w-2 cursor-col-resize bg-gray-800/60 hover:bg-gray-700 md:block"
           onMouseDown={startDragging}
           onDoubleClick={() => setLeftWidthPercent(33)}
           title="Drag to resize panels"
         />
 
         {/* Right: Book grid + chapter/verse selectors */}
-        <div className="flex-1 flex flex-col bg-gray-900 min-h-0 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-900">
           <div ref={bookListRef} className="flex-none overflow-y-auto p-2">
-            <div className="grid grid-cols-10 gap-1">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-1">
               {filteredBooks.map(book => (
                 <button
                   key={book.id}
@@ -484,6 +479,7 @@ export const BibleTab: React.FC<BibleTabProps> = ({
                   <div className="text-[10px] opacity-80 mt-1 text-center">{book.name}</div>
                 </button>
               ))}
+              {filteredBooks.length === 0 && <p className="col-span-full p-4 text-center text-sm text-gray-400">No books match that search.</p>}
             </div>
           </div>
 

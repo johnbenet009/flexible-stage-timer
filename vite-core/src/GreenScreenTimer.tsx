@@ -15,7 +15,7 @@ function GreenScreenTimer() {
   const [settings, setSettings] = useState<OverlaySettings>({
     timer: 100,
     x: 50,
-    y: 92,
+    y: 88,
     bgColor: '#00ff00',
     mode: 'timer',
     show: true,
@@ -70,38 +70,26 @@ function GreenScreenTimer() {
       return;
     }
 
-    const displayMs = settings.lowerThirdDisplaySeconds * 1000;
+    const displayMs = Math.max(1, settings.lowerThirdDisplaySeconds) * 1000;
     const sleepMs = settings.lowerThirdSleepSeconds * 1000;
+    let timeout: ReturnType<typeof setTimeout>;
 
-    const cycle = async () => {
-      // Wait for display time
-      await new Promise(resolve => setTimeout(resolve, displayMs));
-      
-      // Start animate out
-      setIsAnimatingOut(true);
-      await new Promise(resolve => setTimeout(resolve, 600)); // Match animation duration
-      
-      // Set sleeping
-      setIsSleeping(true);
-      setIsAnimatingOut(false);
-      
-      // Wait for sleep time
-      await new Promise(resolve => setTimeout(resolve, sleepMs));
-      
-      // Show again
-      setIsSleeping(false);
+    const scheduleNextDisplay = () => {
+      timeout = setTimeout(() => {
+        setIsAnimatingOut(true);
+        timeout = setTimeout(() => {
+          setIsSleeping(true);
+          setIsAnimatingOut(false);
+          timeout = setTimeout(() => {
+            setIsSleeping(false);
+            scheduleNextDisplay();
+          }, sleepMs);
+        }, 600);
+      }, displayMs);
     };
 
-    const interval = setInterval(() => {
-      if (!isSleeping && !isAnimatingOut) {
-        cycle();
-      }
-    }, (settings.lowerThirdDisplaySeconds + settings.lowerThirdSleepSeconds) * 1000);
-
-    // Initial run
-    cycle();
-
-    return () => clearInterval(interval);
+    scheduleNextDisplay();
+    return () => clearTimeout(timeout);
   }, [settings.mode, settings.lowerThirdDisplaySeconds, settings.lowerThirdSleepSeconds]);
 
   useEffect(() => {
@@ -136,7 +124,7 @@ function GreenScreenTimer() {
         let newValue;
         try {
           newValue = e.newValue ? JSON.parse(e.newValue) : null;
-        } catch (err) {
+        } catch {
           newValue = e.newValue;
         }
         
@@ -167,9 +155,7 @@ function GreenScreenTimer() {
 
   if (!settings.show) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white font-bold">
-        Broadcast Overlay Hidden (Check Settings)
-      </div>
+      <div className="fixed inset-0" style={{ backgroundColor: settings.bgColor }} />
     );
   }
 
@@ -203,8 +189,8 @@ function GreenScreenTimer() {
         <div 
           className={`absolute transition-all duration-700 ease-out ${isAnimatingOut ? 'animate-slide-out-bottom' : 'animate-slide-in-bottom'}`}
           style={{ 
-            left: `${settings.x}%`,
-            top: `${settings.y}%`,
+            left: `${Math.min(85, Math.max(15, settings.x))}%`,
+            top: `${Math.min(85, Math.max(15, settings.y))}%`,
             transform: `translate(-50%, -50%) scale(${settings.timer / 100})`,
             transformOrigin: 'center center'
           }}
@@ -249,10 +235,11 @@ function GreenScreenTimer() {
         <div 
           className={`absolute transition-all duration-500 ease-out ${settings.mode === 'timer' && timerState.minutes === 0 && timerState.isRunning && !timerState.isPaused ? 'animate-flash-zoom' : ''}`}
           style={{
-            left: `${settings.x}%`,
-            top: `${settings.y}%`,
+            left: `${Math.min(68, Math.max(32, settings.x))}%`,
+            top: `${Math.min(88, Math.max(12, settings.y))}%`,
             transform: 'translate(-50%, -50%)',
-            fontSize: `${(settings.mode === 'timer' ? settings.timerFontSize : settings.clockFontSize) * settings.timer / 100}vw`,
+            fontSize: `min(${(settings.mode === 'timer' ? settings.timerFontSize : settings.clockFontSize) * settings.timer / 100}vw, ${settings.mode === 'timer' ? 16 : 9}vw, ${settings.mode === 'timer' ? 20 : 12}vh)`,
+            maxWidth: '96vw',
             fontWeight: 800,
             color: 'white',
             textShadow: '0 0 20px rgba(0,0,0,0.5), 0 0 40px rgba(0,0,0,0.3)',

@@ -51,15 +51,18 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
   }, []);
 
   useEffect(() => {
+    let stream: MediaStream | null = null;
     if (background?.type === 'webcam') {
       const startWebcam = async () => {
         try {
           const constraints = {
             video: background.source ? { deviceId: { exact: background.source } } : true
           };
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
+          } else {
+            stream.getTracks().forEach(track => track.stop());
           }
         } catch (err) {
           console.error('Error accessing webcam:', err);
@@ -68,7 +71,6 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
       startWebcam();
 
       return () => {
-        const stream = videoRef.current?.srcObject as MediaStream;
         stream?.getTracks().forEach(track => track.stop());
       };
     }
@@ -100,12 +102,11 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
   const getFontSize = () => {
     const baseSize = fullscreen ? 25 : 6; // Reduced from 8 for better preview fit
     const scaledSize = (baseSize * scale) / 100;
-    return fullscreen ? `${scaledSize}vw` : `${scaledSize}rem`;
+    return fullscreen ? `min(${scaledSize}vw, 30vw, 50vh)` : `${scaledSize}rem`;
   };
 
   // Calculate timer color states
   const totalSeconds = minutes * 60 + seconds;
-  const isLastMinute = totalSeconds <= 60 && totalSeconds > 0 && isRunning;
   const isWarningTime = totalSeconds <= 120 && totalSeconds > 60 && isRunning; // 2 minutes to 1 minute
   const isCriticalTime = totalSeconds <= 60 && totalSeconds > 0 && isRunning; // Below 1 minute
   const isFlashTime = totalSeconds <= 120 && totalSeconds > 60 && isRunning; // Flash at 2 minutes and below
@@ -164,6 +165,8 @@ export function Timer({ minutes, seconds, isAttention, isComplete, background, f
           `}
           style={{ 
             fontSize: getFontSize(),
+            maxWidth: '96vw',
+            whiteSpace: 'nowrap',
             color: getTimerColor(),
             textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
           }}

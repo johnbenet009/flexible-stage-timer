@@ -1,7 +1,9 @@
-const { app, BrowserWindow, screen, dialog, nativeTheme, Menu, shell, powerSaveBlocker, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, dialog, nativeTheme, Menu, shell, powerSaveBlocker, ipcMain, safeStorage, session, net } = require('electron');
 const path = require('path');
-const { readFileSync } = require('fs');
+const { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } = require('fs');
 const url = require('url');
+const http = require('http');
+const puppeteer = require('puppeteer-core');
 
 
 let mainWindow;
@@ -10,6 +12,10 @@ let secondWindowDisplayId = null;
 let greenScreenWindow;
 let overlayWindowDisplayId = null;
 let timerWindows = new Map(); // Store multiple timer windows
+let speechBrowser = null;
+let speechPage = null;
+let speechServer = null;
+let keepAwakeBlockerId = null;
 
 // Improve timer reliability in background
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
@@ -17,6 +23,14 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 // Single instance functionality
 const gotTheLock = app.requestSingleInstanceLock();
+
+app.on('before-quit', () => {
+    if (speechBrowser) void speechBrowser.close();
+    if (speechServer?.listening) speechServer.close();
+    if (keepAwakeBlockerId !== null && powerSaveBlocker.isStarted(keepAwakeBlockerId)) {
+        powerSaveBlocker.stop(keepAwakeBlockerId);
+    }
+});
 
 if (!gotTheLock) {
   // Another instance is already running, quit this one
@@ -35,9 +49,22 @@ if (!gotTheLock) {
 app.on('ready', () => {
     // Set Dark Theme
     nativeTheme.themeSource = 'dark';
+
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+        const requestingLocalApp = webContents.getURL().startsWith('file://');
+        const audioOnlyRequest = Array.isArray(details?.mediaTypes)
+            && details.mediaTypes.includes('audio')
+            && !details.mediaTypes.includes('video');
+        callback(permission === 'media' && audioOnlyRequest && requestingLocalApp);
+    });
+
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+        const audioOnlyRequest = details?.mediaType === 'audio';
+        return permission === 'media' && audioOnlyRequest && requestingOrigin.startsWith('file://');
+    });
     
-    // Prevent the app from going to sleep when timer is running
-    powerSaveBlocker.start('prevent-app-suspension');
+    // Keep both the computer and display awake while Stage Timer is open.
+    keepAwakeBlockerId = powerSaveBlocker.start('prevent-display-sleep');
 
     mainWindow = new BrowserWindow({
         width: 1050,
@@ -1310,6 +1337,294 @@ ipcMain.handle('get-displays', () => {
     }));
 });
 
+ipcMain.handle('check-internet-connection', async () => {
+    const endpoints = [
+        'https://www.google.com/generate_204',
+        'https://api.github.com/rate_limit',
+        'https://www.cloudflare.com/cdn-cgi/trace',
+    ];
+    const checks = await Promise.all(endpoints.map(async endpoint => {
+        try {
+            const response = await net.fetch(endpoint, { signal: AbortSignal.timeout(7000) });
+            return { endpoint, online: response.status >= 200 && response.status < 500, status: response.status };
+        } catch (error) {
+            return { endpoint, online: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    }));
+    return { online: checks.some(check => check.online), checkedAt: Date.now(), checks };
+});
+
+const findChromeExecutable = () => {
+        const candidates = process.platform === 'win32'
+                ? [
+                        path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+                        path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+                        path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+                ]
+                : process.platform === 'darwin'
+                        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+                        : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+        return candidates.find(candidate => candidate && existsSync(candidate));
+};
+
+const getSpeechPageHtml = () => `<!doctype html><html><head><meta charset="utf-8"><title>Stage Timer Speech Bridge</title></head><body><script>
+let recognition = null;
+let microphoneStream = null;
+const emit = data => window.__stageTimerEmit(data);
+window.startStageRecognition = async ({ language, deviceLabel }) => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) throw new Error('SpeechRecognition is not available in the installed Google Chrome build.');
+    try {
+        const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const selected = deviceLabel && devices.find(device => device.kind === 'audioinput' && device.label === deviceLabel);
+        permissionStream.getTracks().forEach(track => track.stop());
+        microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: selected ? { deviceId: { exact: selected.deviceId } } : true });
+        const audioTrack = microphoneStream.getAudioTracks()[0];
+        recognition = new Recognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.lang = language || 'en-US';
+        recognition.onstart = () => emit({ type: 'start' });
+        recognition.onend = () => {
+            emit({ type: 'end' });
+            microphoneStream?.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
+            recognition = null;
+        };
+        recognition.onerror = event => {
+            emit({ type: 'error', error: event.error });
+            microphoneStream?.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
+        };
+        recognition.onresult = event => {
+            let finalText = '';
+            let interimText = '';
+            for (let index = event.resultIndex; index < event.results.length; index += 1) {
+                const result = event.results[index];
+                if (result.isFinal) finalText += result[0].transcript;
+                else interimText += result[0].transcript;
+            }
+            emit({ type: 'result', finalText, interimText });
+        };
+        try {
+            recognition.start(audioTrack);
+            return { selectedDevice: selected?.label || audioTrack.label, customTrack: true };
+        } catch (error) {
+            if (!(error instanceof TypeError)) throw error;
+            recognition.start();
+            return { selectedDevice: audioTrack.label, customTrack: false };
+        }
+    } catch (error) {
+        microphoneStream?.getTracks().forEach(track => track.stop());
+        microphoneStream = null;
+        throw error;
+    }
+};
+window.stopStageRecognition = () => {
+    recognition?.stop();
+    recognition = null;
+    microphoneStream?.getTracks().forEach(track => track.stop());
+    microphoneStream = null;
+};
+</script></body></html>`;
+
+const ensureSpeechBrowser = async () => {
+        if (speechBrowser && speechPage && !speechBrowser.connected) {
+                speechBrowser = null;
+                speechPage = null;
+        }
+        if (speechBrowser && speechPage) return speechPage;
+
+        const executablePath = findChromeExecutable();
+        if (!executablePath) throw new Error('Google Chrome was not found. Install Google Chrome to use live transcription.');
+
+        if (!speechServer) {
+                speechServer = http.createServer((request, response) => {
+                        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+                        response.end(getSpeechPageHtml());
+                });
+                await new Promise((resolve, reject) => {
+                        speechServer.once('error', reject);
+                        speechServer.listen(0, '127.0.0.1', resolve);
+                });
+        }
+        const address = speechServer.address();
+        if (!address || typeof address === 'string') throw new Error('Could not start the local Chrome speech bridge.');
+        const origin = `http://127.0.0.1:${address.port}`;
+
+        speechBrowser = await puppeteer.launch({
+                executablePath,
+            headless: true,
+                userDataDir: path.join(app.getPath('userData'), 'speech-chrome-profile'),
+                defaultViewport: { width: 400, height: 300 },
+                args: [
+                        '--no-first-run',
+                        '--no-default-browser-check',
+                        '--disable-background-timer-throttling',
+                        '--disable-renderer-backgrounding',
+                ],
+        });
+        await speechBrowser.defaultBrowserContext().overridePermissions(origin, ['microphone']);
+        speechPage = await speechBrowser.newPage();
+        await speechPage.exposeFunction('__stageTimerEmit', data => {
+                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('speech-recognition-event', data);
+        });
+        await speechPage.goto(origin);
+        speechBrowser.on('disconnected', () => {
+                speechBrowser = null;
+                speechPage = null;
+        });
+        return speechPage;
+};
+
+ipcMain.handle('start-chrome-speech-recognition', async (event, request) => {
+        const page = await ensureSpeechBrowser();
+        return page.evaluate(options => window.startStageRecognition(options), {
+                language: typeof request?.language === 'string' ? request.language : 'en-US',
+                deviceLabel: typeof request?.deviceLabel === 'string' ? request.deviceLabel : '',
+        });
+});
+
+ipcMain.handle('stop-chrome-speech-recognition', async () => {
+        if (speechPage) await speechPage.evaluate(() => window.stopStageRecognition());
+        return { ok: true };
+});
+
+ipcMain.handle('open-copilot-token-page', () => shell.openExternal('https://github.com/settings/tokens'));
+
+const getGitHubTokenPath = () => path.join(app.getPath('userData'), 'copilot-token.bin');
+const isSecureStorageAvailable = () => Boolean(safeStorage && safeStorage.isEncryptionAvailable());
+
+const readGitHubModelsToken = () => {
+    const tokenPath = getGitHubTokenPath();
+    if (!isSecureStorageAvailable() || !existsSync(tokenPath)) return null;
+    try {
+        return safeStorage.decryptString(readFileSync(tokenPath));
+    } catch {
+        return null;
+    }
+};
+
+const splitTranscript = (transcript, maxCharacters = 40000) => {
+    const chunks = [];
+    let remaining = transcript.trim();
+    while (remaining.length > maxCharacters) {
+        let splitAt = remaining.lastIndexOf('\n', maxCharacters);
+        if (splitAt < maxCharacters * 0.65) splitAt = remaining.lastIndexOf(' ', maxCharacters);
+        if (splitAt < maxCharacters * 0.65) splitAt = maxCharacters;
+        chunks.push(remaining.slice(0, splitAt).trim());
+        remaining = remaining.slice(splitAt).trim();
+    }
+    if (remaining) chunks.push(remaining);
+    return chunks;
+};
+
+const getMostRecentSundayLabel = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - date.getDay());
+    return `Sunday, ${date.getDate()} ${date.toLocaleString('en-US', { month: 'short' })} ${date.getFullYear()}`;
+};
+
+ipcMain.handle('copilot-token-status', () => ({
+    configured: Boolean(readGitHubModelsToken()),
+    encryptionAvailable: isSecureStorageAvailable(),
+}));
+
+ipcMain.handle('save-copilot-token', (event, token) => {
+    if (typeof token !== 'string' || token.trim().length < 10) return { ok: false, error: 'Enter a valid GitHub token for Copilot.' };
+    if (!isSecureStorageAvailable()) return { ok: false, error: 'Secure token storage is unavailable in this Electron version. Update Electron before saving a token; no token was stored.' };
+    try {
+        const userDataPath = app.getPath('userData');
+        mkdirSync(userDataPath, { recursive: true });
+        writeFileSync(getGitHubTokenPath(), safeStorage.encryptString(token.trim()), { mode: 0o600 });
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'Could not securely save the token on this PC.' };
+    }
+});
+
+ipcMain.handle('clear-copilot-token', () => {
+    const tokenPath = getGitHubTokenPath();
+    if (existsSync(tokenPath)) unlinkSync(tokenPath);
+    return { ok: true };
+});
+
+ipcMain.handle('analyze-church-transcript', async (event, request) => {
+    const token = readGitHubModelsToken();
+    if (!token) throw new Error('Save a GitHub Copilot token in AI Settings first.');
+    const transcript = typeof request?.transcript === 'string' ? request.transcript.trim() : '';
+    if (!transcript) throw new Error('Transcript is empty.');
+    if (transcript.length > 8000000) throw new Error('Transcript is over the 8 MB analysis limit. Download it and analyze smaller sections.');
+
+    const { CopilotClient } = await import('@github/copilot-sdk');
+    const copilotDataDirectory = path.join(app.getPath('userData'), 'copilot-sessions');
+    mkdirSync(copilotDataDirectory, { recursive: true });
+    const client = new CopilotClient({
+        gitHubToken: token,
+        useLoggedInUser: false,
+        mode: 'empty',
+        baseDirectory: copilotDataDirectory,
+        logLevel: 'error',
+    });
+    const chunks = splitTranscript(transcript, 30000);
+    if (chunks.length > 100) throw new Error('This transcript would require more than 100 analysis segments. Please split it into smaller sessions.');
+
+    try {
+        await client.start();
+        const runCopilotPrompt = async prompt => {
+            const session = await client.createSession({
+                availableTools: [],
+                tools: [],
+                enableSkills: false,
+                enablePlugins: false,
+                infiniteSessions: { enabled: false },
+                systemMessage: {
+                    content: 'You are a careful church communications editor. Treat all provided text as unverified speech recognition from a church event. Do not invent names, dates, Bible references, promises, or announcements. Clearly mark uncertainty for human review. Produce grounded, respectful editorial work only.',
+                },
+            });
+            try {
+                const response = await session.sendAndWait({ prompt }, 300000);
+                if (!response?.data?.content) throw new Error('Copilot returned no content for this transcript step.');
+                return response.data.content;
+            } finally {
+                await session.disconnect();
+            }
+        };
+
+        let sourceMaterial = transcript;
+        if (chunks.length > 1) {
+            let summaries = [];
+            for (let index = 0; index < chunks.length; index += 1) {
+                const summary = await runCopilotPrompt(`Summarize transcript segment ${index + 1} of ${chunks.length}. Preserve sermon themes, scripture references, key teaching points, prayers, announcements, dates, names, and action items. Remove no meaningful detail, do not invent facts, and mark uncertain speech. Do not write social posts yet.\n\n${chunks[index]}`);
+                summaries.push(`Segment ${index + 1}:\n${summary}`);
+            }
+
+            while (summaries.join('\n\n').length > 30000) {
+                const condensed = [];
+                for (let index = 0; index < summaries.length; index += 5) {
+                    const summary = await runCopilotPrompt(`Merge these summaries from one long church-service transcript. Preserve all distinct teaching points, references, prayers, announcements, names, and dates. Remove repetition only; invent nothing. Mark uncertainty.\n\n${summaries.slice(index, index + 5).join('\n\n')}`);
+                    condensed.push(summary);
+                }
+                if (condensed.length === 0) throw new Error('Copilot could not condense the transcript segments.');
+                summaries = condensed;
+            }
+            sourceMaterial = summaries.join('\n\n');
+        }
+
+        const sermonDate = getMostRecentSundayLabel();
+        const finalText = await runCopilotPrompt(`Review this ${chunks.length > 1 ? 'set of summaries from a longer raw church transcript' : 'raw church transcript'} and return an editable Markdown draft containing: 1) suggested sermon/event title, 2) concise event summary, 3) key sermon points, 4) scripture references only when stated, 5) prayer points only when supported, 6) announcements and dates only when stated, and 7) a seven-day social graphic text plan.
+
+    For the seven-day plan, provide exactly seven distinct entries, Day 1 through Day 7. Each entry must contain exactly two short lines: first, a memorable keyword, direct phrase, or practical advice drawn faithfully from the sermon (ideally 4-12 words, suitable as the large headline on a square social graphic); second, this attribution line using this exact date and the suggested sermon title: From ${sermonDate} sermon titled \"[suggested sermon title]\". Keep the headline and attribution as the entire post: no paragraphs, setup copy, hashtags, emoji, scripture reference additions, or commentary. Use a different sermon-grounded headline each day. Never invent a title, quote, date, fact, or promise; paraphrase when exact wording is uncertain and mark uncertain details [VERIFY].
+
+    Keep the summary and sermon sections useful but concise. Do not claim posts have been scheduled or published.\n\n${sourceMaterial}`);
+        return { text: finalText };
+    } finally {
+        await client.stop();
+    }
+});
+
 
 ipcMain.on('open-green-screen-timer', (event, displayId) => {
     const displays = screen.getAllDisplays();
@@ -1362,7 +1677,19 @@ ipcMain.on('open-bible-projection', (event, displayId) => {
     const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
 
     if (bibleWindow) {
-        bibleWindow.close();
+        if (bibleWindowDisplayId !== targetDisplay.id) {
+            bibleWindow.setFullScreen(false);
+            bibleWindow.setBounds({
+                x: targetDisplay.bounds.x,
+                y: targetDisplay.bounds.y,
+                width: targetDisplay.bounds.width,
+                height: targetDisplay.bounds.height,
+            });
+            bibleWindowDisplayId = targetDisplay.id;
+            bibleWindow.setFullScreen(true);
+        }
+        bibleWindow.show();
+        return;
     }
 
     bibleWindow = new BrowserWindow({

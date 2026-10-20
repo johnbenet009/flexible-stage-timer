@@ -88,6 +88,34 @@
   animation: flashZoom 1s infinite ease-in-out;
 }
 
+@keyframes autoHandoffIn {
+  0% { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes autoHandoffOut {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
+.animate-handoff-in {
+  animation: autoHandoffIn 650ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-handoff-out {
+  animation: autoHandoffOut 850ms ease-in both;
+}
+
+@keyframes nextProgramEnter {
+  0% { opacity: 0; transform: translateY(28px) scale(0.94); }
+  70% { opacity: 1; transform: translateY(-3px) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-next-program-enter {
+  animation: nextProgramEnter 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 .animate-slide-in-bottom {
   animation: slideInFromBottom 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

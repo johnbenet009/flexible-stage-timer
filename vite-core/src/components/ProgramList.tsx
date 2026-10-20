@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Category } from '../types';
-import { Trash2, Play, Bell, Edit2, Check, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Play, Bell, Edit2, Check, X, ChevronDown, ChevronRight, GripVertical, Square } from 'lucide-react';
 
 interface ProgramListProps {
   programs: Program[];
@@ -9,6 +9,11 @@ interface ProgramListProps {
   onStart: (program: Program) => void;
   onNotify: (program: Program) => void;
   onEdit: (program: Program) => void;
+  onReorder: (sourceId: string, targetId: string) => void;
+  onReorderCategory: (sourceId: string, targetId: string) => void;
+  onStartAutoRun: (categoryId: string) => void;
+  onStopAutoRun: () => void;
+  autoRunCategoryId?: string;
   currentProgramName?: string;
   isRunning?: boolean;
 }
@@ -20,6 +25,11 @@ export function ProgramList({
   onStart, 
   onNotify, 
   onEdit,
+  onReorder,
+  onReorderCategory,
+  onStartAutoRun,
+  onStopAutoRun,
+  autoRunCategoryId,
   currentProgramName,
   isRunning = false
 }: ProgramListProps) {
@@ -59,13 +69,35 @@ export function ProgramList({
   return (
     <div className="max-h-[400px] overflow-y-auto space-y-2 custom-scrollbar">
       {categories.map(category => (
-        <div key={category.id} className="bg-gray-700 rounded overflow-hidden">
-          <button
-            onClick={() => toggleCategory(category.id)}
-            className="w-full flex items-center justify-between p-3 text-white hover:bg-gray-600"
-          >
-            <div className="flex items-center justify-between w-full">
-              <span className="font-bold">{category.name}</span>
+        <div
+          key={category.id}
+          draggable
+          title="Drag category to reorder the run queue"
+          onDragStart={event => {
+            event.dataTransfer.setData('application/x-stage-timer-category', category.id);
+            event.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragOver={event => {
+            if (event.dataTransfer.types.includes('application/x-stage-timer-category')) event.preventDefault();
+          }}
+          onDrop={event => {
+            const sourceId = event.dataTransfer.getData('application/x-stage-timer-category');
+            if (!sourceId) return;
+            event.preventDefault();
+            onReorderCategory(sourceId, category.id);
+          }}
+          className="bg-gray-700 rounded overflow-hidden"
+        >
+          <div className="flex items-center gap-2 p-2">
+            <button
+              onClick={() => toggleCategory(category.id)}
+              className="flex min-w-0 flex-1 items-center justify-between p-2 text-left text-white hover:bg-gray-600"
+              title="Expand or collapse category"
+            >
+              <span className="flex min-w-0 items-center gap-2 font-bold">
+                <GripVertical size={16} className="text-gray-400" aria-label="Drag to reorder category" />
+                <span className="truncate">{category.name}</span>
+              </span>
               <div className="flex items-center space-x-2">
                 <span className="bg-gray-700 text-gray-300 text-xs px-3 py-1 rounded-md font-medium border border-gray-600">
                   {getProgramCount(category.id)} {getProgramCount(category.id) === 1 ? 'program' : 'programs'}
@@ -76,8 +108,18 @@ export function ProgramList({
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 )}
               </div>
-            </div>
-          </button>
+            </button>
+            <button
+              type="button"
+              onClick={() => autoRunCategoryId === category.id ? onStopAutoRun() : onStartAutoRun(category.id)}
+              disabled={autoRunCategoryId !== category.id && getProgramCount(category.id) === 0}
+              className={`flex shrink-0 items-center gap-2 px-3 py-2 text-xs font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${autoRunCategoryId === category.id ? 'bg-red-700 hover:bg-red-600' : 'bg-amber-600 hover:bg-amber-500'}`}
+              title={autoRunCategoryId === category.id ? `Stop ${category.name} auto-run` : `Start ${category.name} queue`}
+            >
+              {autoRunCategoryId === category.id ? <Square size={13} /> : <Play size={14} />}
+              <span>{autoRunCategoryId === category.id ? 'Stop Auto-run' : 'Start Auto-run'}</span>
+            </button>
+          </div>
           
           {expandedCategories.includes(category.id) && (
             <div className="p-2 space-y-2">
@@ -88,6 +130,18 @@ export function ProgramList({
                   return (
                     <div 
                       key={program.id} 
+                      draggable={editingId !== program.id}
+                      title="Drag program to reorder the run queue"
+                      onDragStart={event => {
+                        event.stopPropagation();
+                        event.dataTransfer.setData('text/plain', program.id);
+                      }}
+                      onDragOver={event => event.preventDefault()}
+                      onDrop={event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onReorder(event.dataTransfer.getData('text/plain'), program.id);
+                      }}
                       className={`flex items-center justify-between p-2 rounded transition-all ${
                         isCurrent ? 'bg-green-900/40 border border-green-500/50' : 'bg-gray-800'
                       }`}
@@ -134,6 +188,7 @@ export function ProgramList({
                         <>
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
+                              <GripVertical size={16} className="shrink-0 cursor-grab text-gray-500" aria-label="Drag to reorder" />
                               {isCurrent && (
                                 <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                               )}

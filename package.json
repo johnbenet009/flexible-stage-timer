@@ -17,7 +17,7 @@
     "dev-vite": "cd vite-core && npm run dev"
   },
   "devDependencies": {
-    "electron": "^13.6.9",
+    "electron": "^44.9.0",
     "electron-builder": "^24.13.1",
     "electron-packager": "^17.1.2"
   },
@@ -68,7 +68,6 @@
       "preload.js",
       "public/**/*",
       "!public/bg.jpg",
-      "!**/node_modules/**",
       "!**/*.map",
       "!vite-core/src/**",
       "!vite-core/node_modules/**",
@@ -88,6 +87,8 @@
     }
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2"
+    "@github/copilot-sdk": "^1.0.22",
+    "better-sqlite3": "^12.6.2",
+    "puppeteer-core": "^25.14.0"
   }
 }

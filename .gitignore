@@ -4,3 +4,4 @@ dist/
 vite-core/node_modules/
 vite-core/dist/
 npm-debug.log
+/keep_save.md
