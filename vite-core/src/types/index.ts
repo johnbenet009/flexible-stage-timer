@@ -3,6 +3,7 @@ export interface Program {
   name: string;
   duration: number;
   categoryId: string;
+  notes?: string;
 }
 
 export interface Category {
@@ -57,6 +58,8 @@ export interface OverlaySettings {
   timerFontSize: number;
   clockFontSize: number;
   isLive: boolean;
+  announcementTickerText?: string;
+  showAnnouncementTicker?: boolean;
 }
 
 export interface DisplaySizeSettings {

@@ -36,12 +36,14 @@ export function ProgramList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDuration, setEditDuration] = useState(0);
+  const [editNotes, setEditNotes] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
   const startEdit = (program: Program) => {
     setEditingId(program.id);
     setEditName(program.name);
     setEditDuration(program.duration);
+    setEditNotes(program.notes || '');
   };
 
   const saveEdit = (id: string, categoryId: string) => {
@@ -49,7 +51,8 @@ export function ProgramList({
       id,
       name: editName,
       duration: editDuration,
-      categoryId
+      categoryId,
+      notes: editNotes.trim() || undefined
     });
     setEditingId(null);
   };
@@ -114,10 +117,10 @@ export function ProgramList({
               onClick={() => autoRunCategoryId === category.id ? onStopAutoRun() : onStartAutoRun(category.id)}
               disabled={autoRunCategoryId !== category.id && getProgramCount(category.id) === 0}
               className={`flex shrink-0 items-center gap-2 px-3 py-2 text-xs font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${autoRunCategoryId === category.id ? 'bg-red-700 hover:bg-red-600' : 'bg-amber-600 hover:bg-amber-500'}`}
-              title={autoRunCategoryId === category.id ? `Stop ${category.name} auto-run` : `Start ${category.name} queue`}
+              title={autoRunCategoryId === category.id ? `Stop ${category.name} autopilot` : `Start ${category.name} autopilot`}
             >
               {autoRunCategoryId === category.id ? <Square size={13} /> : <Play size={14} />}
-              <span>{autoRunCategoryId === category.id ? 'Stop Auto-run' : 'Start Auto-run'}</span>
+              <span>{autoRunCategoryId === category.id ? 'Stop Autopilot' : 'Start Autopilot'}</span>
             </button>
           </div>
           
@@ -147,63 +150,87 @@ export function ProgramList({
                       }`}
                     >
                       {editingId === program.id ? (
-                        <div className="flex-1 flex items-center space-x-2">
+                        <div className="flex-1 flex flex-col space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="flex-1 bg-gray-700 text-white px-2 py-1 rounded text-sm"
+                              placeholder="Program name"
+                            />
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => setEditDuration(Math.max(0, editDuration - 1))}
+                                className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 text-xs"
+                              >
+                                -1
+                              </button>
+                              <span className="text-white w-12 text-center text-sm">{editDuration}m</span>
+                              <button
+                                onClick={() => setEditDuration(editDuration + 1)}
+                                className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-500 text-xs"
+                              >
+                                +1
+                              </button>
+                            </div>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => saveEdit(program.id, program.categoryId)}
+                                className="p-1 bg-green-600 text-white rounded hover:bg-green-500"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="p-1 bg-gray-600 text-white rounded hover:bg-gray-500"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
                           <input
                             type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="flex-1 bg-gray-700 text-white px-2 py-1 rounded"
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            className="bg-gray-700 text-white px-2 py-1 rounded text-xs text-amber-200"
+                            placeholder="Cue notes (optional)"
                           />
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setEditDuration(Math.max(0, editDuration - 1))}
-                              className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500"
-                            >
-                              -1
-                            </button>
-                            <span className="text-white w-12 text-center">{editDuration}m</span>
-                            <button
-                              onClick={() => setEditDuration(editDuration + 1)}
-                              className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-500"
-                            >
-                              +1
-                            </button>
-                          </div>
-                          <div className="flex space-x-1">
-                            <button
-                              onClick={() => saveEdit(program.id, program.categoryId)}
-                              className="p-1 bg-green-600 text-white rounded hover:bg-green-500"
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              onClick={() => setEditingId(null)}
-                              className="p-1 bg-gray-600 text-white rounded hover:bg-gray-500"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
                         </div>
                       ) : (
                         <>
                           <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <GripVertical size={16} className="shrink-0 cursor-grab text-gray-500" aria-label="Drag to reorder" />
-                              {isCurrent && (
-                                <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                              )}
-                              <span className={`text-white font-medium ${isCurrent ? 'text-green-400' : ''}`}>
-                                {program.name}
-                              </span>
-                              <span className="text-gray-400 text-sm">({program.duration}m)</span>
-                              {isCurrent && (
-                                <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                  Live
+                            <div className="flex flex-col">
+                              <div className="flex items-center space-x-2">
+                                <GripVertical size={16} className="shrink-0 cursor-grab text-gray-500" aria-label="Drag to reorder" />
+                                {isCurrent && (
+                                  <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                                )}
+                                <span className={`text-white font-medium ${isCurrent ? 'text-green-400' : ''}`}>
+                                  {program.name}
+                                </span>
+                                <span className="text-gray-400 text-sm">({program.duration}m)</span>
+                                {isCurrent && (
+                                  <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                    Live
+                                  </span>
+                                )}
+                              </div>
+                              {program.notes && (
+                                <span className="text-xs text-amber-300/80 italic ml-6 truncate max-w-md mt-0.5">
+                                  📝 {program.notes}
                                 </span>
                               )}
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => onStartAutoRun(category.id, program.id)}
+                              className="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-bold flex items-center gap-1 transition-colors"
+                              title="Start Autopilot from this program (Pilot)"
+                            >
+                              <Play size={12} /> Pilot
+                            </button>
                             <button
                               onClick={() => onStart(program)}
                               className={`p-1 rounded transition-colors ${

@@ -264,6 +264,24 @@ function GreenScreenTimer() {
           </div>
         </div>
       )}
+
+      {settings.showAnnouncementTicker && settings.announcementTickerText && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black/85 border-t-2 border-blue-600 overflow-hidden py-2.5 px-4 z-40">
+          <style>{`
+            @keyframes marquee {
+              0% { transform: translateX(100%); }
+              100% { transform: translateX(-100%); }
+            }
+            .animate-marquee {
+              display: inline-block;
+              animation: marquee 28s linear infinite;
+            }
+          `}</style>
+          <div className="whitespace-nowrap animate-marquee font-bold text-white text-xl tracking-wide">
+            {settings.announcementTickerText}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

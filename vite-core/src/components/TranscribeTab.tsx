@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Activity, AlertTriangle, Check, HelpCircle, Copy, Download, Loader2, Mic, Settings2, Sparkles, Square, Volume2, X, Wifi, WifiOff, ImagePlus, Archive, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Activity, AlertTriangle, Check, HelpCircle, Copy, Download, Loader2, Mic, Settings2, Sparkles, Square, Volume2, X, Wifi, WifiOff, ImagePlus, Archive, Eye, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import JSZip from 'jszip';
 
 type AnalysisResponse = { text: string };
@@ -186,7 +186,7 @@ export const TranscribeTab: React.FC = () => {
   const [showSetup, setShowSetup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [internetStatus, setInternetStatus] = useState<'unchecked' | 'checking' | 'online' | 'offline'>('unchecked');
-  const [showInternetGate, setShowInternetGate] = useState(true);
+  const [showInternetGate, setShowInternetGate] = useState(false);
   const [token, setToken] = useState('');
   const [tokenConfigured, setTokenConfigured] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -205,6 +205,7 @@ export const TranscribeTab: React.FC = () => {
   const [analysisError, setAnalysisError] = useState('');
   const [secureStorageAvailable, setSecureStorageAvailable] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [searchQuery, setSearchQuery] = useState('');
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const socialGraphicsRef = useRef<HTMLElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -247,6 +248,10 @@ export const TranscribeTab: React.FC = () => {
   }, [meterGain]);
 
   useEffect(() => {
+    void checkInternet();
+  }, []);
+
+  useEffect(() => {
     void window.electronAPI?.getCopilotTokenStatus?.()
       .then(result => {
         setTokenConfigured(result.configured);
@@ -274,11 +279,17 @@ export const TranscribeTab: React.FC = () => {
             : `Google Chrome speech recognition error: ${event.error || 'unknown error'}`);
         stopMeter();
       } else if (event.type === 'result') {
-        if (event.finalText?.trim()) {
-          const finalText = event.finalText.trim();
-          setTranscript(current => `${current}${current && !/\\s$/.test(current) ? ' ' : ''}${finalText}`);
+        const finalText = event.finalText?.trim() || '';
+        const interimText = event.interimText?.trim() || '';
+        if (finalText) {
+          setTranscript(current => {
+            const separator = current && !/\s$/.test(current) && !/^[.,?!;:]/.test(finalText) ? ' ' : '';
+            return `${current}${separator}${finalText}`;
+          });
+          setInterim('');
+        } else if (interimText) {
+          setInterim(interimText);
         }
-        setInterim(event.interimText || '');
       }
     });
     return () => {
@@ -658,6 +669,21 @@ export const TranscribeTab: React.FC = () => {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6" aria-label="Transcription output">
+          <div className="mb-4 flex items-center gap-2 border border-gray-700 bg-gray-900/80 px-3 py-2 rounded-lg shrink-0">
+            <Search size={15} className="text-gray-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search transcript for keywords, topics or scriptures..."
+              className="w-full bg-transparent text-xs text-white outline-none placeholder:text-gray-500 font-medium"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-white shrink-0" title="Clear search">
+                <X size={14} />
+              </button>
+            )}
+          </div>
           <textarea
             value={transcript}
             onChange={event => setTranscript(event.target.value)}

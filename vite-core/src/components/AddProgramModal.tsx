@@ -14,6 +14,7 @@ export function AddProgramModal({ isOpen, onClose, onSave, categories, initialCa
   const [programName, setProgramName] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
   const [duration, setDuration] = useState(5);
+  const [notes, setNotes] = useState('');
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [savedProgramName, setSavedProgramName] = useState('');
   const [savedCategoryName, setSavedCategoryName] = useState('');
@@ -31,7 +32,8 @@ export function AddProgramModal({ isOpen, onClose, onSave, categories, initialCa
       onSave({
         name: programName.trim(),
         duration,
-        categoryId: selectedCategory
+        categoryId: selectedCategory,
+        notes: notes.trim() || undefined
       });
       
       // Store saved program info for notification
@@ -41,6 +43,7 @@ export function AddProgramModal({ isOpen, onClose, onSave, categories, initialCa
       // Reset form but keep modal open
       setProgramName('');
       setDuration(5);
+      setNotes('');
       setSelectedCategory(initialCategory || '');
       
       // Show success notification
@@ -114,6 +117,17 @@ export function AddProgramModal({ isOpen, onClose, onSave, categories, initialCa
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Program Notes / Cue Notes */}
+          <div>
+            <label className="block text-white font-medium mb-2">Program Notes / Cue Notes (Optional)</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Enter stage cues or notes for this program..."
+              className="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none resize-none h-20 text-sm"
+            />
           </div>
 
           {/* Duration */}

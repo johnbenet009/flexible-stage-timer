@@ -7,8 +7,7 @@ import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
 import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
-import { BibleTab } from './components/BibleTab';
-import { SongsTab } from './components/SongsTab';
+import { BibleSongsTab, Verse } from './components/BibleSongsTab';
 import { NextProgramNotification } from './components/NextProgramNotification';
 import { DeleteConfirmation } from './components/DeleteConfirmation';
 import { CategoryManager } from './components/CategoryManager';
@@ -301,11 +300,33 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (window.electronAPI?.dbGetAll) {
+      window.electronAPI.dbGetAll().then((data: Record<string, any>) => {
+        if (data && typeof data === 'object') {
+          if (data.programs && Array.isArray(data.programs)) setPrograms(data.programs);
+          if (data.categories && Array.isArray(data.categories)) setCategories(data.categories);
+          if (data.timerHistory && Array.isArray(data.timerHistory)) setTimerHistory(data.timerHistory);
+          if (data.projectionTheme) setSelectedTheme(data.projectionTheme);
+          if (data.projectDisplay !== undefined) setSelectedProjectDisplay(data.projectDisplay);
+          if (data.use12HourFormat !== undefined) setUse12HourFormat(data.use12HourFormat);
+          if (data.textCase) setTextCase(data.textCase);
+          if (data.autoTimerEnabled !== undefined) setAutoRun(data.autoTimerEnabled);
+          if (data.autoTimerCategoryId) setAutoQueueCategoryId(data.autoTimerCategoryId);
+          if (data.autoTimerQueue) setAutoQueueIds(data.autoTimerQueue);
+          if (data.autoTimerQueueIndex !== undefined) setAutoQueueIndex(data.autoTimerQueueIndex);
+        }
+      }).catch(err => console.error('Failed to load from SQLite DB:', err));
+    }
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('programs', JSON.stringify(programs));
+    window.electronAPI?.dbSet?.('programs', programs);
   }, [programs]);
 
   useEffect(() => {
     localStorage.setItem('categories', JSON.stringify(categories));
+    window.electronAPI?.dbSet?.('categories', categories);
   }, [categories]);
 
   useEffect(() => {
@@ -374,10 +395,11 @@ function App() {
   }, [showNextProgram]);
 
   useEffect(() => {
-    localStorage.setItem('showClock', JSON.stringify(showClock));
-    localStorage.setItem('currentTime', JSON.stringify(currentTime));
-    window.dispatchEvent(new Event('storage'));
-  }, [showClock, currentTime]);
+    if (selectedProjectDisplay !== null) {
+      localStorage.setItem('projectDisplay', String(selectedProjectDisplay));
+      window.electronAPI?.saveSelectedDisplay?.(selectedProjectDisplay);
+    }
+  }, [selectedProjectDisplay]);
 
   useEffect(() => {
     localStorage.setItem('use12HourFormat', JSON.stringify(use12HourFormat));
@@ -534,6 +556,15 @@ function App() {
     // projection data is written by BibleTab effect
     if (selectedProjectDisplay !== null) {
       localStorage.setItem('activeProjection', 'bible');
+      window.electronAPI?.openBibleProjection(selectedProjectDisplay);
+      setIsBibleProjected(true);
+    }
+  };
+
+  const projectBibleVerses = (verses: Verse[]) => {
+    if (selectedProjectDisplay !== null && verses.length > 0) {
+      localStorage.setItem('activeProjection', 'bible');
+      localStorage.setItem('bibleProjectionData', JSON.stringify({ verses, theme: selectedTheme }));
       window.electronAPI?.openBibleProjection(selectedProjectDisplay);
       setIsBibleProjected(true);
     }
@@ -991,16 +1022,20 @@ function App() {
 
   const getOrderedAutoPrograms = (categoryId: string) => programs.filter(program => program.categoryId === categoryId);
 
-  const startAutoRun = (categoryId: string) => {
+  const startAutoRun = (categoryId: string, startProgramId?: string) => {
     const queue = getOrderedAutoPrograms(categoryId);
     if (queue.length === 0) return;
+    const startIndex = startProgramId ? queue.findIndex(program => program.id === startProgramId) : 0;
+    const effectiveIndex = startIndex >= 0 ? startIndex : 0;
+    const activeQueue = queue.slice(effectiveIndex);
+    if (activeQueue.length === 0) return;
     const ids = queue.map(program => program.id);
     setAutoQueueCategoryId(categoryId);
     setAutoQueueIds(ids);
-    setAutoQueueIndex(0);
+    setAutoQueueIndex(effectiveIndex);
     setAutoRun(true);
     setAutoTransition(null);
-    startProgram(queue[0], true);
+    startProgram(activeQueue[0], true);
   };
 
   const stopAutoRun = () => {
@@ -1337,6 +1372,9 @@ function App() {
       </div>
 
       <div className={`flex-1 w-full p-2 sm:p-4 ${activeTab === 'bible' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <div className={activeTab === 'transcribe' ? 'block h-full' : 'hidden'}>
+          <TranscribeTab />
+        </div>
 
         {activeTab === 'main' ? (
           <>
@@ -1548,6 +1586,14 @@ function App() {
                     isFlashing={isAlertFlashing}
                     fullscreen={false}
                   />
+                </div>
+              )}
+              {autoRun && (
+                <div className="absolute bottom-3 left-0 right-0 text-center z-20 pointer-events-none">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider text-amber-300 bg-amber-950/70 border border-amber-500/30 backdrop-blur-md shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    Autopilot active
+                  </span>
                 </div>
               )}
             </div>
@@ -1965,6 +2011,33 @@ function App() {
                       <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${stagedOverlaySettings.show ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
                   </label>
+
+                  <div className="border-t border-gray-800 pt-6 space-y-4">
+                    <label className="flex items-center justify-between gap-4 text-sm font-semibold text-gray-300">
+                      <span>Announcement Ticker</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={stagedOverlaySettings.showAnnouncementTicker}
+                        onClick={() => updateStagedOverlaySetting('showAnnouncementTicker', !stagedOverlaySettings.showAnnouncementTicker)}
+                        className={`relative h-7 w-12 rounded-full transition-colors ${stagedOverlaySettings.showAnnouncementTicker ? 'bg-green-600' : 'bg-gray-700'}`}
+                      >
+                        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${stagedOverlaySettings.showAnnouncementTicker ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </label>
+                    {stagedOverlaySettings.showAnnouncementTicker && (
+                      <div>
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Ticker Text (Announcements)</label>
+                        <input
+                          type="text"
+                          value={stagedOverlaySettings.announcementTickerText || ''}
+                          onChange={(e) => updateStagedOverlaySetting('announcementTickerText', e.target.value)}
+                          placeholder="e.g. Welcome to Sunday Service! • Youth meeting at 5 PM"
+                          className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Preview Window (Simulated) */}
@@ -2281,35 +2354,25 @@ function App() {
               </div>
             </div>
           </div>
-        ) : activeTab === 'bible' ? (
-          <BibleTab
+        ) : activeTab === 'bible' || activeTab === 'songs' ? (
+          <BibleSongsTab
             availableDisplays={availableDisplays}
             selectedDisplay={selectedProjectDisplay}
             onDisplayChange={setSelectedProjectDisplay}
-            project={projectBible}
+            projectBible={projectBibleVerses}
             testDisplay={testBibleDisplay}
-            isProjecting={isBibleProjected && localStorage.getItem('activeProjection') === 'bible'}
+            isProjecting={isBibleProjected}
             onCloseProjection={stopBibleProjection}
-          />
-        ) : activeTab === 'songs' ? (
-          <SongsTab
             selectedTheme={selectedTheme}
             onThemeChange={handleThemeChange}
-            availableDisplays={availableDisplays}
-            selectedDisplay={selectedProjectDisplay}
-            onDisplayChange={setSelectedProjectDisplay}
-            isProjecting={isBibleProjected && localStorage.getItem('activeProjection') === 'songs'}
-            onProject={projectSongSlide}
-            onUpdateSlide={updateSongProjection}
-            onCloseProjection={stopBibleProjection}
+            onProjectSong={projectSongSlide}
+            onUpdateSongSlide={updateSongProjection}
           />
-        ) : activeTab === 'transcribe' ? (
-          <TranscribeTab />
-        ) : (
+        ) : activeTab === 'guide' ? (
           <div className="mx-auto w-full xl:max-w-[1600px] 2xl:max-w-[1900px]">
             <HowToGuide variant="page" initialSection={guideSection} />
           </div>
-        )}
+        ) : null}
       </div>
 
       {showSettings && (

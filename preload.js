@@ -29,5 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveCopilotToken: (token) => ipcRenderer.invoke('save-copilot-token', token),
     clearCopilotToken: () => ipcRenderer.invoke('clear-copilot-token'),
     analyzeChurchTranscript: (request) => ipcRenderer.invoke('analyze-church-transcript', request),
-
+    saveSelectedDisplay: (displayId) => ipcRenderer.send('save-selected-display', displayId),
+    dbGet: (key) => ipcRenderer.invoke('db-get', key),
+    dbSet: (key, value) => ipcRenderer.invoke('db-set', key, value),
+    dbGetAll: () => ipcRenderer.invoke('db-get-all'),
 });

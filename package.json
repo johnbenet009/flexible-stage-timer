@@ -19,7 +19,8 @@
   "devDependencies": {
     "electron": "^44.9.0",
     "electron-builder": "^24.13.1",
-    "electron-packager": "^17.1.2"
+    "electron-packager": "^17.1.2",
+    "node-abi": "^4.40.0"
   },
   "build": {
     "appId": "com.stage-timer.app",
@@ -35,8 +36,6 @@
     "win": {
       "target": "nsis",
       "icon": "public/icon.ico",
-      "publisherName": "Stage Timer (John O.)",
-      "certificateSubjectName": "Stage Timer (John O.)",
       "artifactName": "${productName}-${version}-win.${ext}"
     },
     "linux": {
@@ -88,7 +87,8 @@
   },
   "dependencies": {
     "@github/copilot-sdk": "^1.0.22",
-    "better-sqlite3": "^12.6.2",
+    "app-builder-bin": "^4.0.0",
+    "better-sqlite3": "^13.0.3",
     "puppeteer-core": "^25.14.0"
   }
 }

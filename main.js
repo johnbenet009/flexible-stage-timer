@@ -4,7 +4,109 @@ const { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } = requi
 const url = require('url');
 const http = require('http');
 const puppeteer = require('puppeteer-core');
+const Database = require('better-sqlite3');
 
+let db;
+app.whenReady().then(() => {
+    try {
+        const userDataPath = app.getPath('userData');
+        mkdirSync(userDataPath, { recursive: true });
+        const dbPath = path.join(userDataPath, 'stage-timer-data.sqlite');
+        db = new Database(dbPath);
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        `);
+    } catch (err) {
+        console.error('Failed to open SQLite database:', err);
+    }
+});
+
+ipcMain.handle('db-get', (event, key) => {
+    try {
+        if (!db) return null;
+        const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+        const row = stmt.get(key);
+        return row ? row.value : null;
+    } catch (err) {
+        console.error('db-get error:', err);
+        return null;
+    }
+});
+
+ipcMain.handle('db-set', (event, key, value) => {
+    try {
+        if (!db) return { ok: false };
+        const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+        stmt.run(key, typeof value === 'string' ? value : JSON.stringify(value));
+        return { ok: true };
+    } catch (err) {
+        console.error('db-set error:', err);
+        return { ok: false, error: err.message };
+    }
+});
+
+ipcMain.handle('db-get-all', () => {
+    try {
+        if (!db) return {};
+        const stmt = db.prepare('SELECT key, value FROM settings');
+        const rows = stmt.all();
+        const result = {};
+        for (const row of rows) {
+            try {
+                result[row.key] = JSON.parse(row.value);
+            } catch {
+                result[row.key] = row.value;
+            }
+        }
+        return result;
+    } catch (err) {
+        console.error('db-get-all error:', err);
+        return {};
+    }
+});
+
+
+const getDisplayConfigPath = () => path.join(app.getPath('userData'), 'display-config.json');
+
+const readLastSelectedDisplay = () => {
+    try {
+        const filePath = getDisplayConfigPath();
+        if (existsSync(filePath)) {
+            const data = JSON.parse(readFileSync(filePath, 'utf8'));
+            return data.displayId ?? null;
+        }
+    } catch {}
+    return null;
+};
+
+const saveLastSelectedDisplay = (displayId) => {
+    try {
+        const filePath = getDisplayConfigPath();
+        mkdirSync(path.dirname(filePath), { recursive: true });
+        writeFileSync(filePath, JSON.stringify({ displayId }), 'utf8');
+    } catch {}
+};
+
+function checkForStartupDisplay() {
+    const displays = screen.getAllDisplays();
+    const secondaryDisplays = displays.filter((display, index) => !display.internal && index > 0);
+    if (secondaryDisplays.length === 0) {
+        showNoSecondaryScreenModal();
+        return;
+    }
+    const lastDisplayId = readLastSelectedDisplay();
+    if (lastDisplayId !== null) {
+        const targetDisplay = secondaryDisplays.find(d => d.id === lastDisplayId);
+        if (targetDisplay) {
+            openTimerWindow(targetDisplay);
+            return;
+        }
+    }
+    showAdvancedMultiScreenModal();
+}
 
 let mainWindow;
 let secondWindow;
@@ -93,6 +195,10 @@ app.on('ready', () => {
     mainWindow.webContents.session.clearCache().then(() => {
         const indexPath = path.join(__dirname, 'public', 'index.html');
         mainWindow.loadFile(indexPath);
+    });
+
+    mainWindow.webContents.once('did-finish-load', () => {
+        checkForStartupDisplay();
     });
 
     // Customize scrollbar
@@ -1110,6 +1216,7 @@ function openTimerWindow(display) {
     }
 
     secondWindowDisplayId = display.id;
+    saveLastSelectedDisplay(display.id);
 
     secondWindow = new BrowserWindow({
         x: display.bounds.x,
@@ -1141,6 +1248,10 @@ function openTimerWindow(display) {
         secondWindow = null;
     });
 }
+
+ipcMain.on('save-selected-display', (event, displayId) => {
+    saveLastSelectedDisplay(displayId);
+});
 
 // Close all secondary/overlay displays without quitting the app
 function closeAllDisplays() {
@@ -1370,8 +1481,10 @@ const findChromeExecutable = () => {
 const getSpeechPageHtml = () => `<!doctype html><html><head><meta charset="utf-8"><title>Stage Timer Speech Bridge</title></head><body><script>
 let recognition = null;
 let microphoneStream = null;
+let shouldListen = false;
 const emit = data => window.__stageTimerEmit(data);
 window.startStageRecognition = async ({ language, deviceLabel }) => {
+    shouldListen = true;
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) throw new Error('SpeechRecognition is not available in the installed Google Chrome build.');
     try {
@@ -1389,11 +1502,21 @@ window.startStageRecognition = async ({ language, deviceLabel }) => {
         recognition.onstart = () => emit({ type: 'start' });
         recognition.onend = () => {
             emit({ type: 'end' });
+            if (shouldListen) {
+                try {
+                    recognition.start();
+                    emit({ type: 'start' });
+                    return;
+                } catch (error) {}
+            }
             microphoneStream?.getTracks().forEach(track => track.stop());
             microphoneStream = null;
             recognition = null;
         };
         recognition.onerror = event => {
+            if (event.error === 'no-speech' && shouldListen) {
+                return;
+            }
             emit({ type: 'error', error: event.error });
             microphoneStream?.getTracks().forEach(track => track.stop());
             microphoneStream = null;
@@ -1423,6 +1546,7 @@ window.startStageRecognition = async ({ language, deviceLabel }) => {
     }
 };
 window.stopStageRecognition = () => {
+    shouldListen = false;
     recognition?.stop();
     recognition = null;
     microphoneStream?.getTracks().forEach(track => track.stop());
