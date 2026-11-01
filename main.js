@@ -90,9 +90,13 @@ const saveLastSelectedDisplay = (displayId) => {
     } catch {}
 };
 
+const getSecondaryDisplays = () => {
+    const primaryDisplayId = screen.getPrimaryDisplay().id;
+    return screen.getAllDisplays().filter(display => display.id !== primaryDisplayId);
+};
+
 function checkForStartupDisplay() {
-    const displays = screen.getAllDisplays();
-    const secondaryDisplays = displays.filter((display, index) => !display.internal && index > 0);
+    const secondaryDisplays = getSecondaryDisplays();
     if (secondaryDisplays.length === 0) {
         showNoSecondaryScreenModal();
         return;
@@ -173,7 +177,7 @@ app.on('ready', () => {
         height: 900,
         minWidth: 1050,
         minHeight: 600,
-        title: 'Stage Timer - v2.1.0',
+        title: `Stage Timer - v${app.getVersion()}`,
         backgroundColor: '#111827',
         darkTheme: true,
         frame: false,
@@ -198,7 +202,7 @@ app.on('ready', () => {
     });
 
     mainWindow.webContents.once('did-finish-load', () => {
-        checkForStartupDisplay();
+        setTimeout(checkForStartupDisplay, 750);
     });
 
     // Customize scrollbar
@@ -242,7 +246,7 @@ function createMainWindow() {
     mainWindow = new BrowserWindow({
         width: 1050,
         height: 900,
-        title: 'Stage Timer - v2.0.1',
+        title: `Stage Timer - v${app.getVersion()}`,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -262,7 +266,7 @@ function createSecondWindow() {
 
     if (displays.length > 1) {
         // Filter out primary display and create options for secondary displays only
-        const secondaryDisplays = displays.filter((display, index) => !display.internal && index > 0);
+        const secondaryDisplays = getSecondaryDisplays();
         
         if (secondaryDisplays.length > 0) {
             const options = secondaryDisplays.map((display, index) => `Secondary Display ${index + 1}: ${display.bounds.width}x${display.bounds.height}`);
@@ -832,41 +836,36 @@ function showNoSecondaryScreenModal() {
         console.log('Continuing with single display - timer display not available');
     });
     
-    ipcMain.once('refresh-displays', () => {
-        // Check for displays again
-        const displaysList = screen.getAllDisplays();
-        const secondaryDisplaysList = displaysList.filter((display, index) => !display.internal && index > 0);
-        
-        if (secondaryDisplaysList.length > 0) {
-            // Secondary screens found - close modal and show advanced multi-screen modal
-            console.log(`Display refresh: Found ${secondaryDisplaysList.length} secondary display(s)`);
-            if (modalWindow && !modalWindow.isDestroyed()) {
+    let displayRefreshTimer;
+    const refreshDisplays = () => {
+        clearTimeout(displayRefreshTimer);
+        displayRefreshTimer = setTimeout(() => {
+            if (!modalWindow || modalWindow.isDestroyed()) return;
+
+            const secondaryDisplays = getSecondaryDisplays();
+            if (secondaryDisplays.length > 0) {
+                console.log(`Display refresh: Found ${secondaryDisplays.length} secondary display(s)`);
                 modalWindow.close();
+                setTimeout(showAdvancedMultiScreenModal, 250);
+                return;
             }
-            // Reopen with options
-            setTimeout(() => {
-                showAdvancedMultiScreenModal();
-            }, 500);
-        } else {
-            // Still no secondary screens - keep modal open and show message
+
             console.log('Display refresh: No secondary displays found');
-            if (modalWindow && !modalWindow.isDestroyed()) {
-                modalWindow.webContents.executeJavaScript(`
-                    const msg = document.querySelector('.message');
-                    if (msg) {
-                        const originalText = msg.textContent;
-                        msg.textContent = '📭 Still No Displays Found';
-                        setTimeout(() => {
-                            msg.textContent = originalText;
-                        }, 3000);
-                    }
-                `);
-            }
-        }
-    });
+            modalWindow.webContents.executeJavaScript(`
+                const msg = document.querySelector('.message');
+                if (msg) msg.textContent = 'No additional display detected. In Windows Display Settings, choose Extend these displays, then refresh.';
+            `);
+        }, 500);
+    };
+    const onDisplayAdded = () => refreshDisplays();
+    ipcMain.on('refresh-displays', refreshDisplays);
+    screen.on('display-added', onDisplayAdded);
     
     // Clean up listeners when modal is closed
     modalWindow.on('closed', () => {
+        clearTimeout(displayRefreshTimer);
+        ipcMain.removeListener('refresh-displays', refreshDisplays);
+        screen.removeListener('display-added', onDisplayAdded);
         ipcMain.removeAllListeners('modal-closed');
         ipcMain.removeAllListeners('close-app');
         ipcMain.removeAllListeners('continue-single-display');
@@ -876,8 +875,7 @@ function showNoSecondaryScreenModal() {
 
 // Display Options Functions
 function showAdvancedMultiScreenModal() {
-    const displays = screen.getAllDisplays();
-    const secondaryDisplays = displays.filter((display, index) => !display.internal && index > 0);
+    const secondaryDisplays = getSecondaryDisplays();
     
     if (secondaryDisplays.length === 0) {
         showNoSecondaryScreenModal();
@@ -1417,7 +1415,7 @@ function setupMenu() {
                         dialog.showMessageBox(mainWindow, {
                             type: 'info',
                             title: 'About Stage Timer',
-                            message: 'Stage Timer App v2.0.0',
+                            message: `Stage Timer App v${app.getVersion()}`,
                             detail: 'A flexible timer application for stage management.'
                         });
                     }

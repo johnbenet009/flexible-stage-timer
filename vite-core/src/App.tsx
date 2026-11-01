@@ -1296,7 +1296,7 @@ function App() {
           <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
             <span className="text-lg">⏱️</span>
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Stage Timer <span className="text-xs text-blue-400 font-normal">v2.1.0</span></h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">Stage Timer <span className="text-xs text-blue-400 font-normal">v2.2.0</span></h1>
         </div>
         
         <div className="flex min-w-0 max-w-full flex-[1_1_420px] flex-wrap justify-center bg-gray-900 rounded-lg p-1 border border-gray-700" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>

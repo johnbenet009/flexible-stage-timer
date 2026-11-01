@@ -1,4 +1,4 @@
-# Stage Timer App v2.0.1
+# Stage Timer App v2.2.0
 
 <img width="1212" height="907" alt="image" src="https://github.com/user-attachments/assets/b1db343f-c72b-4a50-a04b-0186f81af7a9" />
 <img width="1216" height="908" alt="image" src="https://github.com/user-attachments/assets/9e4a162f-b5fd-4bd1-b3e1-da7711bb895e" />
@@ -222,13 +222,13 @@ npx electron-builder --win nsis
 #### Build Output
 
 **Primary Distribution (Windows Build):**
-- **`dist/Stage Timer App Setup 2.0.1.exe`** - NSIS installer (83.4 MB) - **Recommended for all platforms**
+- **`dist/Stage Timer App-2.2.0-win.exe`** - NSIS installer - **Recommended for Windows**
 - **`dist/win-unpacked/`** - Clean app directory (no language packs)
 
 **Alternative Distribution (Linux Build):**
 - **`dist/linux-unpacked/`** - Clean app directory (no language packs)
-- **`dist/Stage Timer App-2.0.1.AppImage`** - AppImage for distribution (may have issues on Windows)
-- **`dist/stage-timer-app_2.0.1_amd64.deb`** - DEB package for Debian/Ubuntu (may have issues on Windows)
+- **`dist/Stage Timer App-2.2.0-linux.AppImage`** - AppImage for distribution
+- **`dist/stage-timer-app_2.2.0_amd64.deb`** - DEB package for Debian/Ubuntu
 
 **Cleanup Scripts:**
 - **`build-clean.js`** - Windows cleanup script
@@ -248,7 +248,7 @@ npx electron-builder --win nsis
 ### Installation Instructions
 
 #### Windows Users
-1. Download `Stage Timer App Setup 2.0.1.exe`
+1. Download `Stage Timer App-2.2.0-win.exe`
 2. Run the installer
 3. Launch from Start Menu or Desktop
 
@@ -259,7 +259,7 @@ sudo apt update
 sudo apt install wine
 
 # Download and run the Windows installer
-wine "Stage Timer App Setup 2.0.1.exe"
+wine "Stage Timer App-2.2.0-win.exe"
 ```
 
 #### Alternative Linux Installation
@@ -279,7 +279,7 @@ chmod +x "linux-unpacked/Stage Timer App"
 brew install wine-stable
 
 # Run the Windows executable
-wine "Stage Timer App Setup 2.0.1.exe"
+wine "Stage Timer App-2.2.0-win.exe"
 ```
 
 ## 📖 Usage Guide
