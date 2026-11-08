@@ -47,17 +47,6 @@ These workspaces are being developed toward a more complete presentation and pro
 
 There is no release timeline yet. The README will be updated as these areas become ready for regular use.
 
-## Screenshots
-
-The current dashboard screenshot is included above. Additional current screenshots can be added at these paths:
-
-- `docs/screenshots/remote-selection.png` - remote selection page on a phone or tablet.
-- `docs/screenshots/timer-display.png` - stage-facing timer or cooldown screen.
-- `docs/screenshots/overlay-work-in-progress.png` - Overlay workspace, clearly labeled as in progress.
-- `docs/screenshots/bible-lyrics-work-in-progress.png` - Bible / Lyrics workspace, clearly labeled as in progress.
-
-After adding an image, reference it here with Markdown, for example: `![Remote selection](docs/screenshots/remote-selection.png)`. Please avoid screenshots containing private network details, access PINs, personal data, or copyrighted lyrics that you do not have permission to publish.
-
 ## Installation and Development
 
 ### Requirements
