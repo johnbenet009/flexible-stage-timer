@@ -9,6 +9,7 @@ import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, Fil
 import { DisplaySettings } from './components/DisplaySettings';
 import { BibleSongsTab, Verse } from './components/BibleSongsTab';
 import { NextProgramNotification } from './components/NextProgramNotification';
+import { AutoRunDisplay } from './components/AutoRunDisplay';
 import { DeleteConfirmation } from './components/DeleteConfirmation';
 import { CategoryManager } from './components/CategoryManager';
 import { ExportImportManager } from './components/ExportImportManager';
@@ -1731,14 +1732,21 @@ function App() {
                   </span>
                 </div>
               )}
+              {autoRun && autoTransition && (
+                <AutoRunDisplay
+                  programName={autoTransition.programName}
+                  deadline={autoTransition.deadline}
+                  compact
+                />
+              )}
             </div>
             
 
               
               {/* Autopilot control strip */}
               {autoRun && (
-                <div className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-gray-900 to-gray-900 p-3 shadow-lg">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-gray-900 to-gray-900 p-2 shadow-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-amber-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
@@ -1753,7 +1761,7 @@ function App() {
                             })()}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-800/80 px-2 py-1" title="Cooldown countdown before the next program starts automatically">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1">Cooldown</span>
                         <button
@@ -1770,9 +1778,9 @@ function App() {
                         onClick={skipToNextProgram}
                         disabled={!liveTimer.isRunning && !extraTime.isRunning && !autoTransition}
                         title="End the current program now and start the next-program cooldown (N)"
-                        className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-black tracking-wide text-gray-950 shadow-lg shadow-amber-900/40 transition-all hover:bg-amber-400 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-black tracking-wide text-white shadow-md shadow-blue-900/30 transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        <SkipForward size={16} />
+                        <SkipForward size={14} />
                         NEXT PROG
                       </button>
                     </div>

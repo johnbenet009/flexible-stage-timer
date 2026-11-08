@@ -54,13 +54,14 @@ export const RemoteAccessModal: React.FC<RemoteAccessModalProps> = ({ onClose, o
   }, []);
 
   const baseUrl = status?.urls?.[selectedInterface]?.url || '';
+  const remoteHomeUrl = baseUrl ? `${baseUrl.replace(/\/+$/, '')}/#/remote` : '';
 
   useEffect(() => {
-    if (!baseUrl) { setQrDataUrl(''); return; }
-    QRCode.toDataURL(baseUrl, { width: 232, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } })
+    if (!remoteHomeUrl) { setQrDataUrl(''); return; }
+    QRCode.toDataURL(remoteHomeUrl, { width: 232, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } })
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(''));
-  }, [baseUrl]);
+  }, [remoteHomeUrl]);
 
   const toggleServer = async () => {
     setBusy(true);
@@ -152,9 +153,9 @@ export const RemoteAccessModal: React.FC<RemoteAccessModalProps> = ({ onClose, o
               <div className="mt-5 grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
                 <div className="mx-auto flex flex-col items-center gap-2">
                   <div className="rounded-2xl bg-white p-3 shadow-xl shadow-emerald-950/30">
-                    {qrDataUrl ? <img src={qrDataUrl} alt={`QR code for ${baseUrl}`} className="h-56 w-56" /> : <div className="flex h-56 w-56 items-center justify-center text-gray-400"><Loader2 className="animate-spin" /></div>}
+                    {qrDataUrl ? <img src={qrDataUrl} alt="QR code for the remote selection screen" className="h-56 w-56" /> : <div className="flex h-56 w-56 items-center justify-center text-gray-400"><Loader2 className="animate-spin" /></div>}
                   </div>
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Scan with a phone camera</span>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Scan to choose a remote tool</span>
                 </div>
 
                 <div className="min-w-0 space-y-4">
@@ -173,13 +174,13 @@ export const RemoteAccessModal: React.FC<RemoteAccessModalProps> = ({ onClose, o
                     </label>
                   )}
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-gray-500">Open this address on the remote device</div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-gray-500">Remote selection screen</div>
                     <div className="mt-2 flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 font-mono text-sm font-bold text-emerald-300">{baseUrl}</code>
-                      <button type="button" onClick={() => void copyLink('base', baseUrl)} title="Copy address" className="rounded-lg border border-gray-700 p-2.5 text-gray-300 hover:bg-gray-800">
+                      <code className="min-w-0 flex-1 truncate rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 font-mono text-sm font-bold text-emerald-300">{remoteHomeUrl}</code>
+                      <button type="button" onClick={() => void copyLink('base', remoteHomeUrl)} title="Copy remote selection link" className="rounded-lg border border-gray-700 p-2.5 text-gray-300 hover:bg-gray-800">
                         {copiedKey === 'base' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
                       </button>
-                      <button type="button" onClick={() => window.electronAPI?.openExternalUrl?.(baseUrl)} title="Open in this PC's browser" className="rounded-lg border border-gray-700 p-2.5 text-gray-300 hover:bg-gray-800">
+                      <button type="button" onClick={() => window.electronAPI?.openExternalUrl?.(remoteHomeUrl)} title="Open remote selection screen in this PC's browser" className="rounded-lg border border-gray-700 p-2.5 text-gray-300 hover:bg-gray-800">
                         <ExternalLink size={16} />
                       </button>
                     </div>

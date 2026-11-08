@@ -3,6 +3,7 @@ import { Timer } from './components/Timer';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { AlertBanner } from './components/AlertBanner';
 import { NextProgramNotification } from './components/NextProgramNotification';
+import { AutoRunDisplay } from './components/AutoRunDisplay';
 
 function TimerDisplay() {
   const [timerState, setTimerState] = useState({
@@ -247,20 +248,11 @@ function TimerDisplay() {
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
       {(autoTimerDisplay.enabled && autoTimerDisplay.deadline && currentTimestamp < autoTimerDisplay.deadline + 900) || (handoffFadeUntil !== null && currentTimestamp < handoffFadeUntil) ? (
-        <div className={`fixed inset-0 z-40 flex flex-col items-center justify-center overflow-hidden bg-black px-6 pb-28 pt-12 text-center text-white sm:px-10 ${handoffFadeUntil ? 'animate-handoff-out' : 'animate-handoff-in'}`}>
-          <div className="w-full max-w-[94vw] animate-next-program-enter">
-            <p className="text-sm font-black uppercase tracking-[0.25em] text-amber-300 sm:text-xl">Next Program</p>
-            <h1 className="mt-6 break-words font-black leading-[0.92] text-white" style={{ fontSize: 'clamp(5rem, 14vw, 12rem)' }}>{autoTimerDisplay.nextProgramName}</h1>
-            <p className="mt-7 text-xl font-semibold text-white/80 sm:text-3xl">{currentTimestamp >= (autoTimerDisplay.deadline || 0) ? 'Starting now' : 'Starts in'}</p>
-            <p className="mt-1 font-black tabular-nums text-amber-300" style={{ fontSize: 'clamp(3rem, 7vw, 6rem)' }}>
-              {Math.max(0, Math.ceil(((autoTimerDisplay.deadline || currentTimestamp) - currentTimestamp) / 1000))} <span className="text-xl font-bold text-white/60 sm:text-3xl">seconds</span>
-            </p>
-          </div>
-          <div className="absolute inset-x-0 bottom-6 flex flex-col items-center justify-center gap-1 text-white/60 sm:bottom-8 sm:flex-row sm:gap-3">
-            <span className="text-xs font-bold uppercase tracking-widest sm:text-sm">Previous program ended</span>
-            <span className="font-mono text-3xl font-black text-white/80 sm:text-5xl">00:00</span>
-          </div>
-        </div>
+        <AutoRunDisplay
+          programName={autoTimerDisplay.nextProgramName}
+          deadline={autoTimerDisplay.deadline || currentTimestamp}
+          animationClass={handoffFadeUntil ? 'animate-handoff-out' : 'animate-handoff-in'}
+        />
       ) : !extraTime.isRunning ? (
         <>
           <Timer

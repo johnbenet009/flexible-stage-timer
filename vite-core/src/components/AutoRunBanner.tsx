@@ -19,14 +19,14 @@ export const AutoRunBanner: React.FC<AutoRunBannerProps> = ({ programName, categ
   const seconds = Math.max(0, Math.ceil((deadline - now) / 1000));
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 border-l-4 border-amber-400 bg-amber-500/10 px-5 py-4" aria-live="assertive">
-      <div className="min-w-0">
-        <p className="text-xs font-black uppercase tracking-widest text-amber-300">Auto-run ready · {categoryName}</p>
-        <p className="mt-1 text-lg font-bold text-white">Next up: {programName}</p>
-        <p className="mt-1 text-sm text-gray-300">The app will start this program in <span className="font-mono font-black text-amber-300">{seconds}</span> seconds.</p>
+    <section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-l-2 border-amber-400 bg-amber-500/10 px-3 py-2" aria-live="assertive">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">Auto-run · {categoryName}</p>
+        <p className="text-sm font-bold text-white">Next: {programName}</p>
+        <p className="text-xs text-gray-300">Starting in <span className="font-mono font-black text-amber-300">{seconds}s</span></p>
       </div>
-      <button type="button" onClick={onStartNow} className="inline-flex shrink-0 items-center gap-2 bg-amber-500 px-5 py-3 font-bold text-gray-950 transition-colors hover:bg-amber-400">
-        <Play size={16} fill="currentColor" /> Start next now <ArrowRight size={16} />
+      <button type="button" onClick={onStartNow} className="inline-flex shrink-0 items-center gap-1.5 bg-amber-500 px-3 py-2 text-xs font-bold text-gray-950 transition-colors hover:bg-amber-400">
+        <Play size={13} fill="currentColor" /> Start now <ArrowRight size={13} />
       </button>
     </section>
   );
