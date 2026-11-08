@@ -33,4 +33,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     dbGet: (key) => ipcRenderer.invoke('db-get', key),
     dbSet: (key, value) => ipcRenderer.invoke('db-set', key, value),
     dbGetAll: () => ipcRenderer.invoke('db-get-all'),
+    remoteStart: () => ipcRenderer.invoke('remote-server-start'),
+    remoteStop: () => ipcRenderer.invoke('remote-server-stop'),
+    remoteStatus: () => ipcRenderer.invoke('remote-server-status'),
+    remoteSetPin: (pin) => ipcRenderer.invoke('remote-server-set-pin', pin),
+    remotePublish: (state) => ipcRenderer.send('remote-publish-state', state),
+    onRemoteCommand: (callback) => {
+        const listener = (event, command) => callback(command);
+        ipcRenderer.on('remote-command', listener);
+        return () => ipcRenderer.removeListener('remote-command', listener);
+    },
+    onRemoteClientsChanged: (callback) => {
+        const listener = (event, count) => callback(count);
+        ipcRenderer.on('remote-clients-changed', listener);
+        return () => ipcRenderer.removeListener('remote-clients-changed', listener);
+    },
+    openExternalUrl: (url) => ipcRenderer.send('open-external-url', url),
 });

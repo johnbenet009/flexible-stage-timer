@@ -65,6 +65,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "remote-server.js",
       "public/**/*",
       "!public/bg.jpg",
       "!**/*.map",
@@ -89,6 +90,7 @@
     "@github/copilot-sdk": "^1.0.22",
     "app-builder-bin": "^4.0.0",
     "better-sqlite3": "^13.0.3",
-    "puppeteer-core": "^25.14.0"
+    "puppeteer-core": "^25.14.0",
+    "ws": "^8.22.1"
   }
 }

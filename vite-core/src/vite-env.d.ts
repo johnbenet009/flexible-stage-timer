@@ -26,5 +26,25 @@ interface Window {
 		saveCopilotToken?: (token: string) => Promise<{ ok: boolean; error?: string }>;
 		clearCopilotToken?: () => Promise<{ ok: boolean }>;
 		analyzeChurchTranscript?: (request: { transcript: string }) => Promise<{ text: string }>;
+		saveSelectedDisplay?: (displayId: number) => void;
+		dbGet?: (key: string) => Promise<string | null>;
+		dbSet?: (key: string, value: unknown) => Promise<{ ok: boolean; error?: string }>;
+		dbGetAll?: () => Promise<Record<string, any>>;
+		remoteStart?: () => Promise<RemoteServerStatus & { ok: boolean; error?: string }>;
+		remoteStop?: () => Promise<RemoteServerStatus & { ok: boolean }>;
+		remoteStatus?: () => Promise<RemoteServerStatus>;
+		remoteSetPin?: (pin: string) => Promise<RemoteServerStatus & { ok: boolean }>;
+		remotePublish?: (state: Record<string, unknown>) => void;
+		onRemoteCommand?: (callback: (command: any) => void) => () => void;
+		onRemoteClientsChanged?: (callback: (count: number) => void) => () => void;
+		openExternalUrl?: (url: string) => void;
 	};
+}
+
+interface RemoteServerStatus {
+	running: boolean;
+	port: number | null;
+	urls: Array<{ interface: string; address: string; url: string }>;
+	clients: number;
+	pinEnabled: boolean;
 }

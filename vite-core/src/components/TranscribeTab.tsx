@@ -397,6 +397,36 @@ export const TranscribeTab: React.FC = () => {
     setStatus('Stopped');
   };
 
+  const remoteTranscribeHandlerRef = useRef<(command: { action?: string; text?: string }) => void>(() => undefined);
+  remoteTranscribeHandlerRef.current = (command) => {
+    switch (command.action) {
+      case 'start':
+        if (!isListening && !isPreparing) void startTranscription();
+        break;
+      case 'stop':
+        if (isListening) stopTranscription();
+        break;
+      case 'clear':
+        setTranscript('');
+        setInterim('');
+        break;
+      case 'set':
+        if (!isListening && typeof command.text === 'string') setTranscript(command.text);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    window.electronAPI?.remotePublish?.({ transcribe: { transcript, interim, isListening, status } });
+  }, [transcript, interim, isListening, status]);
+
+  useEffect(() => {
+    const off = window.electronAPI?.onRemoteCommand?.((command: { scope?: string; action?: string; text?: string }) => {
+      if (command?.scope === 'transcribe') remoteTranscribeHandlerRef.current(command);
+    });
+    return () => { off?.(); };
+  }, []);
+
   const checkInternet = async () => {
     setInternetStatus('checking');
     try {

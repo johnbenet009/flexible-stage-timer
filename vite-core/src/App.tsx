@@ -5,7 +5,7 @@ import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic, SkipForward, Radio } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { BibleSongsTab, Verse } from './components/BibleSongsTab';
 import { NextProgramNotification } from './components/NextProgramNotification';
@@ -16,6 +16,7 @@ import { HowToGuide } from './components/HowToGuide';
 import { AddProgramModal } from './components/AddProgramModal';
 import { TranscribeTab } from './components/TranscribeTab';
 import { AutoRunBanner } from './components/AutoRunBanner';
+import { RemoteAccessModal } from './components/RemoteAccessModal';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -249,6 +250,13 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [autoRun, setAutoRun] = useState(() => localStorage.getItem('autoTimerEnabled') === 'true');
+  const [autoCooldownSec, setAutoCooldownSec] = useState(() => {
+    const saved = Number(localStorage.getItem('autoTimerCooldownSec'));
+    return saved >= 3 && saved <= 300 ? saved : 30;
+  });
+  const [showRemoteModal, setShowRemoteModal] = useState(false);
+  const [remoteClients, setRemoteClients] = useState(0);
+  const [remoteRunning, setRemoteRunning] = useState(false);
   const [autoQueueCategoryId, setAutoQueueCategoryId] = useState(() => localStorage.getItem('autoTimerCategoryId') || '');
   const [autoQueueIds, setAutoQueueIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('autoTimerQueue');
@@ -335,13 +343,14 @@ function App() {
     localStorage.setItem('autoTimerQueue', JSON.stringify(autoQueueIds));
     localStorage.setItem('autoTimerQueueIndex', String(autoQueueIndex));
     localStorage.setItem('autoTimerTransition', JSON.stringify(autoTransition));
+    localStorage.setItem('autoTimerCooldownSec', String(autoCooldownSec));
     localStorage.setItem('autoTimerDisplay', JSON.stringify({
       enabled: autoRun,
       nextProgramName: autoTransition?.programName ?? '',
       deadline: autoTransition?.deadline ?? null,
     }));
     window.dispatchEvent(new Event('storage'));
-  }, [autoRun, autoQueueCategoryId, autoQueueIds, autoQueueIndex, autoTransition]);
+  }, [autoRun, autoQueueCategoryId, autoQueueIds, autoQueueIndex, autoTransition, autoCooldownSec]);
 
   useEffect(() => {
     localStorage.setItem('timerState', JSON.stringify({
@@ -963,6 +972,10 @@ function App() {
         case 'a':
           toggleAttention();
           break;
+        case 'n':
+          if (event.ctrlKey || event.metaKey) return;
+          skipToNextProgram();
+          break;
         case 'c':
           setShowClock(true);
           break;
@@ -1057,6 +1070,26 @@ function App() {
     startProgramRef.current(nextProgram, true);
   };
 
+  const skipToNextProgram = () => {
+    if (!autoRun) return;
+    if (autoTransition) {
+      startQueuedNextProgram();
+      return;
+    }
+    setExtraTime(prev => ({ ...prev, isRunning: false, isPaused: false }));
+    setLiveTimer(prev => ({
+      ...prev,
+      minutes: 0,
+      seconds: 0,
+      isRunning: false,
+      isPaused: false,
+      isAttention: false,
+    }));
+    setTimerDeadline(null);
+    setIsTimerComplete(true);
+    setTimeout(() => setIsTimerComplete(false), 2500);
+  };
+
   const reorderProgram = (sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
     setPrograms(previous => {
@@ -1096,7 +1129,7 @@ function App() {
       setAutoTransition({
         programId: nextProgram.id,
         programName: nextProgram.name,
-        deadline: Date.now() + 30_000,
+        deadline: Date.now() + autoCooldownSec * 1000,
       });
     } else {
       setAutoRun(false);
@@ -1104,7 +1137,7 @@ function App() {
       setAutoQueueIds([]);
       setAutoQueueIndex(0);
     }
-  }, [isTimerComplete, autoRun, autoTransition, programs, autoQueueIds, autoQueueIndex, autoQueueCategoryId]);
+  }, [isTimerComplete, autoRun, autoTransition, programs, autoQueueIds, autoQueueIndex, autoQueueCategoryId, autoCooldownSec]);
 
   useEffect(() => {
     if (!autoRun || !autoTransition) return;
@@ -1214,6 +1247,98 @@ function App() {
       return [...prev, ...newCategories];
     });
   };
+
+  // ---- LAN remote access: publish state and apply remote commands ----
+  useEffect(() => {
+    window.electronAPI?.remotePublish?.({
+      timer: {
+        minutes: liveTimer.minutes,
+        seconds: liveTimer.seconds,
+        isRunning: liveTimer.isRunning,
+        isPaused: liveTimer.isPaused,
+        isAttention: liveTimer.isAttention,
+        isComplete: isTimerComplete,
+        programName: liveTimer.programName || '',
+      },
+      extraTime,
+      programs,
+      categories,
+      auto: {
+        enabled: autoRun,
+        categoryId: autoQueueCategoryId,
+        queueIds: autoQueueIds,
+        index: autoQueueIndex,
+        transition: autoTransition,
+        cooldownSec: autoCooldownSec,
+      },
+      alert: { message: alertMessage, show: showAlert, flashing: isAlertFlashing },
+      clock: { time: currentTime, use12: use12HourFormat, show: showClock },
+      nextProgram: showNextProgram ? { name: showNextProgram.name, duration: showNextProgram.duration } : null,
+    });
+  }, [liveTimer, isTimerComplete, extraTime, programs, categories, autoRun, autoQueueCategoryId, autoQueueIds, autoQueueIndex, autoTransition, autoCooldownSec, alertMessage, showAlert, isAlertFlashing, currentTime, use12HourFormat, showClock, showNextProgram]);
+
+  const remoteCommandHandlerRef = useRef<(command: any) => void>(() => undefined);
+  remoteCommandHandlerRef.current = (command) => {
+    if (!command || command.scope !== 'timer') return;
+    switch (command.action) {
+      case 'start': startLiveTimer(); break;
+      case 'pause': pauseLiveTimer(); break;
+      case 'resume': resumeLiveTimer(); break;
+      case 'stop': resetLiveTimer(); break;
+      case 'restart': restartLiveTimer(); break;
+      case 'attention': toggleAttention(); break;
+      case 'addMinutes': addTimeToLiveTimer(Number(command.value) || 0); break;
+      case 'addSeconds': addSecondsToLiveTimer(Number(command.value) || 0); break;
+      case 'nextProgram': skipToNextProgram(); break;
+      case 'startProgram': {
+        const program = programs.find(p => p.id === command.id);
+        if (program) startProgram(program);
+        break;
+      }
+      case 'autoStart':
+        if (typeof command.categoryId === 'string') startAutoRun(command.categoryId, command.programId);
+        break;
+      case 'autoStop': stopAutoRun(); break;
+      case 'setCooldown': {
+        const value = Math.round(Number(command.value));
+        if (value >= 3 && value <= 300) setAutoCooldownSec(value);
+        break;
+      }
+      case 'alert':
+        if (command.mode === 'clear') {
+          setAlertMessage('');
+          setShowAlert(false);
+          setIsAlertFlashing(false);
+        } else {
+          if (typeof command.message === 'string') setAlertMessage(command.message);
+          if (command.mode === 'flash') {
+            setIsAlertFlashing(true);
+            setTimeout(() => setIsAlertFlashing(false), 2500);
+          } else {
+            setShowAlert(true);
+          }
+        }
+        break;
+      case 'clock': setShowClock(Boolean(command.show)); break;
+      case 'extraStart': startExtraTime(); break;
+      case 'extraStop': stopExtraTime(); break;
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onRemoteCommand?.((command: any) => {
+      remoteCommandHandlerRef.current(command);
+    });
+    const unsubscribeClients = window.electronAPI?.onRemoteClientsChanged?.((count: number) => setRemoteClients(count));
+    window.electronAPI?.remoteStatus?.().then((status: any) => {
+      setRemoteRunning(Boolean(status?.running));
+      setRemoteClients(status?.clients || 0);
+    }).catch(() => undefined);
+    return () => {
+      unsubscribe?.();
+      unsubscribeClients?.();
+    };
+  }, []);
 
   if (showSplash) {
     // Check for custom splash image
@@ -1341,6 +1466,16 @@ function App() {
         </div>
 
         <div className="flex items-center space-x-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
+          <button
+            onClick={() => setShowRemoteModal(true)}
+            className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all ${remoteRunning ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:bg-gray-700'}`}
+            title="Remote access: control this app from phones and tablets on your network"
+          >
+            <Radio size={14} />
+            Remote
+            {remoteRunning && <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border border-gray-900 ${remoteClients > 0 ? 'bg-emerald-400' : 'bg-emerald-700'}`} />}
+            {remoteClients > 0 && <span className="rounded bg-emerald-500/20 px-1 font-mono text-[10px] text-emerald-300">{remoteClients}</span>}
+          </button>
           <div className="text-right hidden md:block">
             <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">System Clock</div>
             <div className="text-sm text-blue-400 font-mono font-bold">{currentTime}</div>
@@ -1600,6 +1735,51 @@ function App() {
             
 
               
+              {/* Autopilot control strip */}
+              {autoRun && (
+                <div className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-gray-900 to-gray-900 p-3 shadow-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-amber-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                        Autopilot · Program {Math.min(autoQueueIndex + 1, autoQueueIds.length)} of {autoQueueIds.length}
+                      </div>
+                      <div className="mt-0.5 truncate text-sm font-bold text-white">
+                        {autoTransition
+                          ? `Cooldown → ${autoTransition.programName}`
+                          : (() => {
+                              const upcoming = programs.find(p => p.id === autoQueueIds[autoQueueIndex + 1]);
+                              return upcoming ? `Next: ${upcoming.name}` : 'Last program in queue';
+                            })()}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-800/80 px-2 py-1" title="Cooldown countdown before the next program starts automatically">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1">Cooldown</span>
+                        <button
+                          onClick={() => setAutoCooldownSec(prev => Math.max(3, prev - 5))}
+                          className="w-6 h-6 rounded bg-gray-700 text-white hover:bg-gray-600 text-xs font-bold"
+                        >−</button>
+                        <span className="w-9 text-center font-mono text-sm font-bold text-amber-300">{autoCooldownSec}s</span>
+                        <button
+                          onClick={() => setAutoCooldownSec(prev => Math.min(300, prev + 5))}
+                          className="w-6 h-6 rounded bg-gray-700 text-white hover:bg-gray-600 text-xs font-bold"
+                        >+</button>
+                      </div>
+                      <button
+                        onClick={skipToNextProgram}
+                        disabled={!liveTimer.isRunning && !extraTime.isRunning && !autoTransition}
+                        title="End the current program now and start the next-program cooldown (N)"
+                        className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-black tracking-wide text-gray-950 shadow-lg shadow-amber-900/40 transition-all hover:bg-amber-400 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <SkipForward size={16} />
+                        NEXT PROG
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Live Timer Controls - Mobile Friendly Layout */}
             <div className="space-y-4">
               {/* Primary Controls */}
@@ -2416,6 +2596,13 @@ function App() {
         />
       )}
 
+
+      {showRemoteModal && (
+        <RemoteAccessModal
+          onClose={() => setShowRemoteModal(false)}
+          onStatusChange={(running, clients) => { setRemoteRunning(running); setRemoteClients(clients); }}
+        />
+      )}
 
       {showAddProgramModal && (
         <AddProgramModal

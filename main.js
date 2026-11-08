@@ -5,6 +5,7 @@ const url = require('url');
 const http = require('http');
 const puppeteer = require('puppeteer-core');
 const Database = require('better-sqlite3');
+const remoteServer = require('./remote-server');
 
 let db;
 app.whenReady().then(() => {
@@ -133,6 +134,7 @@ const gotTheLock = app.requestSingleInstanceLock();
 app.on('before-quit', () => {
     if (speechBrowser) void speechBrowser.close();
     if (speechServer?.listening) speechServer.close();
+    remoteServer.stop();
     if (keepAwakeBlockerId !== null && powerSaveBlocker.isStarted(keepAwakeBlockerId)) {
         powerSaveBlocker.stop(keepAwakeBlockerId);
     }
@@ -2014,4 +2016,97 @@ ipcMain.handle('window:is-maximized', () => {
 // Close all displays (IPC)
 ipcMain.on('close-all-displays', () => {
     closeAllDisplays();
+});
+
+// ---------- LAN Remote Access ----------
+const readRemoteConfig = () => {
+    try {
+        if (!db) return { enabled: true, pin: '', port: 9174 };
+        const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('remoteConfig');
+        if (row) return { enabled: true, pin: '', port: 9174, ...JSON.parse(row.value) };
+    } catch {}
+    return { enabled: true, pin: '', port: 9174 };
+};
+
+const saveRemoteConfig = (patch) => {
+    try {
+        if (!db) return;
+        const config = { ...readRemoteConfig(), ...patch };
+        db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('remoteConfig', JSON.stringify(config));
+    } catch (err) {
+        console.error('Failed to save remote config:', err);
+    }
+};
+
+remoteServer.setHandlers({
+    onCommand: (command) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('remote-command', command);
+        }
+    },
+    onClientsChanged: (count) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('remote-clients-changed', count);
+        }
+    },
+});
+
+ipcMain.handle('remote-server-start', async () => {
+    const config = readRemoteConfig();
+    try {
+        const result = await remoteServer.start({
+            directory: path.join(__dirname, 'public'),
+            port: config.port,
+            pin: config.pin,
+        });
+        saveRemoteConfig({ enabled: true, port: result.port });
+        return { ok: true, ...result };
+    } catch (error) {
+        return { ok: false, error: error.message };
+    }
+});
+
+ipcMain.handle('remote-server-stop', () => {
+    saveRemoteConfig({ enabled: false });
+    return { ok: true, ...remoteServer.stop() };
+});
+
+ipcMain.handle('remote-server-status', () => remoteServer.status());
+
+ipcMain.handle('remote-server-set-pin', (event, pin) => {
+    const clean = typeof pin === 'string' ? pin.trim().slice(0, 24) : '';
+    saveRemoteConfig({ pin: clean });
+    return { ok: true, ...remoteServer.setPin(clean) };
+});
+
+ipcMain.on('remote-publish-state', (event, partial) => {
+    if (mainWindow && event.sender === mainWindow.webContents) {
+        remoteServer.publish(partial);
+    }
+});
+
+ipcMain.on('open-external-url', (event, target) => {
+    try {
+        const parsed = new URL(String(target));
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            shell.openExternal(parsed.toString());
+        }
+    } catch {}
+});
+
+app.whenReady().then(async () => {
+    const config = readRemoteConfig();
+    if (config.enabled) {
+        try {
+            const result = await remoteServer.start({
+                directory: path.join(__dirname, 'public'),
+                port: config.port,
+                pin: config.pin,
+            });
+            saveRemoteConfig({ port: result.port });
+            console.log(`Remote access running on port ${result.port}`);
+        } catch (error) {
+            console.error('Remote server failed to start:', error);
+        }
+    }
 });
