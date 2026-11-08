@@ -138,12 +138,20 @@ function App() {
     const updateTime = () => {
       const now = new Date();
       // Use user-selected time format (12 or 24 hour)
-      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: use12HourFormat }));
+      const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: use12HourFormat });
+      setCurrentTime(formattedTime);
+      localStorage.setItem('currentTime', JSON.stringify(formattedTime));
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, [use12HourFormat]);
+
+  useEffect(() => {
+    localStorage.setItem('showClock', JSON.stringify(showClock));
+    window.dispatchEvent(new Event('storage'));
+  }, [showClock]);
+
   const [clockScale, setClockScale] = useState(100);
   const [programNameScale, setProgramNameScale] = useState(100);
   const [showProgramName, setShowProgramName] = useState(true);
@@ -890,6 +898,21 @@ function App() {
     setExtraTime(prev => ({ ...prev, isRunning: false }));
   };
 
+  const startRemoteDuration = (minutesValue: number, secondsValue: number) => {
+    const minutes = Math.floor(minutesValue);
+    const seconds = Math.floor(secondsValue);
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || minutes > 1439 || seconds < 0 || seconds > 59) return;
+    const durationSec = minutes * 60 + seconds;
+    if (durationSec <= 0) return;
+    if (autoRun) stopAutoRun();
+    setSetupTimer(prev => ({ ...prev, minutes, seconds, isRunning: false, isPaused: false }));
+    setLiveTimer({ minutes, seconds, isRunning: true, isPaused: false, isAttention: false, programName: undefined });
+    setLastRunDurationSec(durationSec);
+    setTimerDeadline(Date.now() + durationSec * 1000);
+    setIsTimerComplete(false);
+    setExtraTime(prev => ({ ...prev, isRunning: false }));
+  };
+
   const pauseLiveTimer = () => {
     // Capture remaining, clear deadline
     setLiveTimer(prev => {
@@ -1283,6 +1306,9 @@ function App() {
     if (!command || command.scope !== 'timer') return;
     switch (command.action) {
       case 'start': startLiveTimer(); break;
+      case 'startDuration':
+        startRemoteDuration(Number(command.minutes), Number(command.seconds));
+        break;
       case 'pause': pauseLiveTimer(); break;
       case 'resume': resumeLiveTimer(); break;
       case 'stop': resetLiveTimer(); break;

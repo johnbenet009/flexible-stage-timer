@@ -32,7 +32,7 @@ export default function RemoteTimerControl() {
 						<div className="relative h-36 bg-black mx-3 mt-3 rounded-xl overflow-hidden border border-slate-800">
 							<TimerFeed conn={conn} compact />
 						</div>
-						{tab === 'controls' && <div className="p-3 space-y-4"><Transport conn={conn} big /><TimeAdjust conn={conn} /><AutopilotPanel conn={conn} /></div>}
+						{tab === 'controls' && <div className="p-3 space-y-4"><ManualDuration conn={conn} /><Transport conn={conn} big /><TimeAdjust conn={conn} /><AutopilotPanel conn={conn} /></div>}
 						{tab === 'programs' && <div className="p-3"><ProgramList conn={conn} /></div>}
 						{tab === 'alerts' && <div className="p-3 space-y-4"><AlertPanel conn={conn} /><ClockPanel conn={conn} /></div>}
 						<nav className="fixed bottom-0 inset-x-0 z-20 bg-slate-900 border-t border-slate-700 grid grid-cols-3">
@@ -50,6 +50,7 @@ export default function RemoteTimerControl() {
 								<TimerFeed conn={conn} compact />
 								<span className="absolute top-2 left-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold z-10">Live preview</span>
 							</div>
+							<Panel title="New timer"><ManualDuration conn={conn} /></Panel>
 							<Panel title="Transport"><Transport conn={conn} big /></Panel>
 							<Panel title="Adjust time"><TimeAdjust conn={conn} /></Panel>
 						</div>
@@ -62,6 +63,54 @@ export default function RemoteTimerControl() {
 				)}
 			</div>
 		</PinGate>
+	);
+}
+
+function ManualDuration({ conn }: { conn: RemoteConnection }) {
+	const [minutes, setMinutes] = useState('15');
+	const [seconds, setSeconds] = useState('0');
+	const [error, setError] = useState('');
+	const totalSeconds = Number(minutes) * 60 + Number(seconds);
+	const valid = Number.isInteger(Number(minutes)) && Number.isInteger(Number(seconds))
+		&& Number(minutes) >= 0 && Number(minutes) <= 1439
+		&& Number(seconds) >= 0 && Number(seconds) <= 59
+		&& totalSeconds > 0;
+
+	const start = (event: React.FormEvent) => {
+		event.preventDefault();
+		if (!valid) {
+			setError('Enter minutes from 0 to 1439 and seconds from 0 to 59.');
+			return;
+		}
+		setError('');
+		conn.sendCommand('timer', 'startDuration', { minutes: Number(minutes), seconds: Number(seconds) });
+	};
+
+	return (
+		<form onSubmit={start} className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+			<div className="mb-3">
+				<h2 className="text-sm font-bold text-white">New timer</h2>
+				<p className="mt-0.5 text-xs text-slate-400">Set a one-time duration without creating a program.</p>
+			</div>
+			<div className="grid grid-cols-2 gap-2">
+				<label className="text-xs font-medium text-slate-400">
+					Minutes
+					<input type="number" inputMode="numeric" min="0" max="1439" step="1" value={minutes} onChange={event => { setMinutes(event.target.value); setError(''); }} className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-lg font-bold tabular-nums text-white focus:border-emerald-500 focus:outline-none" />
+				</label>
+				<label className="text-xs font-medium text-slate-400">
+					Seconds
+					<input type="number" inputMode="numeric" min="0" max="59" step="1" value={seconds} onChange={event => { setSeconds(event.target.value); setError(''); }} className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-lg font-bold tabular-nums text-white focus:border-emerald-500 focus:outline-none" />
+				</label>
+			</div>
+			<div className="mt-2 flex gap-2">
+				<button type="button" onClick={() => { setMinutes('15'); setSeconds('0'); setError(''); }} className="min-h-10 flex-1 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-slate-200 hover:bg-slate-700">15 min</button>
+				<button type="button" onClick={() => { setMinutes('0'); setSeconds('30'); setError(''); }} className="min-h-10 flex-1 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-slate-200 hover:bg-slate-700">30 sec</button>
+			</div>
+			<button type="submit" disabled={!valid} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500">
+				<Play className="h-4 w-4" fill="currentColor" /> Set &amp; Start {valid ? `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}` : 'timer'}
+			</button>
+			{error && <p role="alert" className="mt-2 text-xs text-red-300">{error}</p>}
+		</form>
 	);
 }
 
