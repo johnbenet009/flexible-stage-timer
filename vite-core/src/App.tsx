@@ -1415,7 +1415,7 @@ function App() {
 
   // Render control panel
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className={`${activeTab === 'bible' || activeTab === 'songs' ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-gray-900 flex flex-col`}>
       {/* Top Navigation Bar */}
       <div className="sticky top-0 z-50 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 px-2 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 shadow-md select-none" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
         <div className="flex items-center space-x-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
@@ -1507,7 +1507,7 @@ function App() {
         </div>
       </div>
 
-      <div className={`flex-1 w-full p-2 sm:p-4 ${activeTab === 'bible' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 min-h-0 w-full p-2 sm:p-4 ${activeTab === 'bible' || activeTab === 'songs' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <div className={activeTab === 'transcribe' ? 'block h-full' : 'hidden'}>
           <TranscribeTab />
         </div>

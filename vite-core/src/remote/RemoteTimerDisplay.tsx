@@ -14,18 +14,31 @@ function useNow(intervalMs = 200) {
 export default function RemoteTimerDisplay() {
 	const conn = useRemoteState();
 	const [bg, setBg] = useRemoteBackground('remoteBg.timer');
+	const [showCooldownInfo, setShowCooldownInfo] = useState(() => localStorage.getItem('remoteTimer.showCooldownInfo') !== 'false');
+
+	useEffect(() => {
+		localStorage.setItem('remoteTimer.showCooldownInfo', String(showCooldownInfo));
+	}, [showCooldownInfo]);
+
 	return (
 		<PinGate conn={conn}>
 			<div className="fixed inset-0 overflow-hidden select-none">
 				<BackgroundLayer bg={bg} />
-				<TimerFeed conn={conn} />
-				<DisplayChrome connected={conn.connected} bg={bg} setBg={setBg} bgKey="remoteBg.timer" />
+				<TimerFeed conn={conn} showCooldownInfo={showCooldownInfo} />
+				<DisplayChrome
+					connected={conn.connected}
+					bg={bg}
+					setBg={setBg}
+					bgKey="remoteBg.timer"
+					showTimerCooldownInfo={showCooldownInfo}
+					setShowTimerCooldownInfo={setShowCooldownInfo}
+				/>
 			</div>
 		</PinGate>
 	);
 }
 
-export function TimerFeed({ conn, compact = false }: { conn: ReturnType<typeof useRemoteState>; compact?: boolean }) {
+export function TimerFeed({ conn, compact = false, showCooldownInfo = true }: { conn: ReturnType<typeof useRemoteState>; compact?: boolean; showCooldownInfo?: boolean }) {
 	const { state, serverOffset } = conn;
 	const now = useNow();
 	const serverNow = now + serverOffset;
@@ -66,8 +79,8 @@ export function TimerFeed({ conn, compact = false }: { conn: ReturnType<typeof u
 	return (
 		<div className="absolute inset-0">
 			{(showCooldown || handoff) ? (
-				<div className={`absolute inset-0 z-20 flex flex-col items-center justify-center text-center text-white overflow-hidden ${compact ? 'px-3 py-2' : 'px-6 pb-20 pt-10'} ${handoff && !showCooldown ? 'animate-handoff-out' : 'animate-handoff-in'}`}>
-					<div className="w-full max-w-[94vw] animate-next-program-enter">
+				<div className={`absolute inset-0 z-20 flex flex-col items-center justify-center text-center text-white overflow-hidden ${compact ? 'px-3 py-2' : showCooldownInfo ? 'px-6 pb-20 pt-10' : 'px-4'} ${handoff && !showCooldown ? 'animate-handoff-out' : 'animate-handoff-in'}`}>
+					{showCooldownInfo ? <div className="w-full max-w-[94vw] animate-next-program-enter">
 						<p className={`font-black uppercase tracking-[0.25em] text-amber-300 ${compact ? 'text-[10px]' : 'text-sm sm:text-xl'}`}>Next Program</p>
 						<h1 className={`break-words font-black leading-[0.95] text-white ${compact ? 'mt-1' : 'mt-4'}`} style={{ fontSize: compact ? 'clamp(1.1rem, 6vw, 2rem)' : 'clamp(3rem, 12vw, 11rem)', textShadow: '3px 3px 8px rgba(0,0,0,0.8)' }}>
 							{transition?.programName || lastNameRef.current}
@@ -76,7 +89,9 @@ export function TimerFeed({ conn, compact = false }: { conn: ReturnType<typeof u
 						<p className="mt-0.5 font-black tabular-nums text-amber-300" style={{ fontSize: compact ? 'clamp(1.2rem, 6vw, 2.2rem)' : 'clamp(2.5rem, 7vw, 6rem)', textShadow: '2px 2px 6px rgba(0,0,0,0.8)' }}>
 							{cooldownSec} <span className={compact ? 'text-xs font-bold text-white/60' : 'text-xl font-bold text-white/60 sm:text-3xl'}>seconds</span>
 						</p>
-					</div>
+					</div> : <p className="font-black tabular-nums text-white animate-next-program-enter" style={{ fontSize: 'min(28vw, 34vh)', lineHeight: 1, textShadow: '3px 3px 8px rgba(0,0,0,0.8)' }}>
+						{String(Math.floor(cooldownSec / 60)).padStart(2, '0')}:{String(cooldownSec % 60).padStart(2, '0')}
+					</p>}
 				</div>
 			) : extra?.isRunning ? (
 				<div className="absolute inset-0 flex flex-col items-center justify-center">

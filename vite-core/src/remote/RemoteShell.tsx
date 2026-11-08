@@ -89,11 +89,13 @@ export function BackgroundLayer({ bg }: { bg: BgSettings }) {
 }
 
 export function BackgroundSettingsPanel({
-	bg, setBg, onClose,
+	bg, setBg, onClose, showTimerCooldownInfo, setShowTimerCooldownInfo,
 }: {
 	bg: BgSettings;
 	setBg: React.Dispatch<React.SetStateAction<BgSettings>>;
 	onClose: () => void;
+	showTimerCooldownInfo?: boolean;
+	setShowTimerCooldownInfo?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
 	const fileRef = useRef<HTMLInputElement>(null);
 	const [error, setError] = useState('');
@@ -118,6 +120,20 @@ export function BackgroundSettingsPanel({
 				<p className="text-xs text-slate-400 leading-relaxed">
 					This background applies to <span className="text-emerald-300 font-medium">this screen only</span>. The main program display is never affected.
 				</p>
+				{setShowTimerCooldownInfo && (
+					<label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-800/60 p-3">
+						<input
+							type="checkbox"
+							checked={showTimerCooldownInfo}
+							onChange={event => setShowTimerCooldownInfo(event.target.checked)}
+							className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
+						/>
+						<span>
+							<span className="block text-sm font-semibold text-white">Show next-program details</span>
+							<span className="mt-0.5 block text-xs leading-relaxed text-slate-400">Turn off to show only the countdown timer during cooldowns, ideal for OBS and chroma key.</span>
+						</span>
+					</label>
+				)}
 				<div>
 					<div className="text-xs font-semibold text-slate-300 uppercase tracking-wide mb-2">Solid color</div>
 					<div className="grid grid-cols-4 gap-2">
@@ -198,12 +214,14 @@ export function BackgroundSettingsPanel({
 }
 
 export function DisplayChrome({
-	connected, bg, setBg, bgKey,
+	connected, bg, setBg, bgKey, showTimerCooldownInfo, setShowTimerCooldownInfo,
 }: {
 	connected: boolean;
 	bg: BgSettings;
 	setBg: React.Dispatch<React.SetStateAction<BgSettings>>;
 	bgKey: string;
+	showTimerCooldownInfo?: boolean;
+	setShowTimerCooldownInfo?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
 	const [visible, setVisible] = useState(true);
 	const [showSettings, setShowSettings] = useState(false);
@@ -234,7 +252,7 @@ export function DisplayChrome({
 	void bgKey;
 	return (
 		<div className="absolute inset-0 z-30 pointer-events-none" onMouseMove={poke} onTouchStart={poke}>
-			<div className={`absolute top-3 right-3 flex items-center gap-2 transition-opacity duration-500 pointer-events-auto ${visible || showSettings ? 'opacity-100' : 'opacity-0'}`}>
+			<div className={`absolute top-3 right-3 flex items-center gap-2 transition-opacity duration-500 ${visible || showSettings ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}>
 				<ConnectionBadge connected={connected} />
 				<Link to="/remote" className="p-2 rounded-lg bg-slate-900/70 backdrop-blur border border-slate-600/60 text-slate-200 hover:bg-slate-800" title="Remote home">
 					<Home className="w-4 h-4" />
@@ -246,9 +264,28 @@ export function DisplayChrome({
 					<Settings2 className="w-4 h-4" />
 				</button>
 			</div>
+			{!visible && !showSettings && (
+				<button
+					type="button"
+					onClick={() => { poke(); setShowSettings(true); }}
+					onMouseMove={event => event.stopPropagation()}
+					onTouchStart={event => event.stopPropagation()}
+					className="pointer-events-auto absolute right-3 top-3 rounded-lg border border-slate-600/60 bg-slate-900/70 p-2 text-slate-200 opacity-60 backdrop-blur transition-opacity hover:opacity-100"
+					title="Show display settings"
+					aria-label="Show display settings"
+				>
+					<Settings2 className="h-4 w-4" />
+				</button>
+			)}
 			{showSettings && (
 				<div className="pointer-events-auto">
-					<BackgroundSettingsPanel bg={bg} setBg={setBg} onClose={() => setShowSettings(false)} />
+					<BackgroundSettingsPanel
+						bg={bg}
+						setBg={setBg}
+						onClose={() => setShowSettings(false)}
+						showTimerCooldownInfo={showTimerCooldownInfo}
+						setShowTimerCooldownInfo={setShowTimerCooldownInfo}
+					/>
 				</div>
 			)}
 		</div>

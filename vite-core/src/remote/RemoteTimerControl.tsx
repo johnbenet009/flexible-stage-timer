@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
 	Play, Pause, Square, RotateCcw, Bell, SkipForward, Home, Plus, Minus,
@@ -14,6 +14,10 @@ export default function RemoteTimerControl() {
 	const mini = params.get('view') === 'mini';
 	const [tab, setTab] = useState<'controls' | 'programs' | 'alerts'>('controls');
 
+	useEffect(() => {
+		if (mini) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+	}, [mini, tab]);
+
 	return (
 		<PinGate conn={conn}>
 			<div className="min-h-screen bg-slate-950 text-white">
@@ -25,7 +29,7 @@ export default function RemoteTimerControl() {
 
 				{mini ? (
 					<div className="pb-20">
-						<div className="relative h-44 bg-black mx-3 mt-3 rounded-xl overflow-hidden border border-slate-800">
+						<div className="relative h-36 bg-black mx-3 mt-3 rounded-xl overflow-hidden border border-slate-800">
 							<TimerFeed conn={conn} compact />
 						</div>
 						{tab === 'controls' && <div className="p-3 space-y-4"><Transport conn={conn} big /><TimeAdjust conn={conn} /><AutopilotPanel conn={conn} /></div>}

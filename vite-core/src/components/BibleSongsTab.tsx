@@ -1,9 +1,26 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Monitor, Play, Square, BookOpen, Music, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Search, Plus, Save, Trash2, Play, Square, BookOpen, Music, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ThemeSelector } from './ThemeSelector';
 
 export type Verse = { book: number; book_name: string; chapter: number; verse: number; text: string };
 type BibleBook = { id: number; name: string };
+type BibleMobilePane = 'books' | 'chapters' | 'verses';
+type SavedSong = { id: string; title: string; lyrics: string; updatedAt: number };
+
+const readSongLibrary = (): SavedSong[] => {
+  try {
+    const saved = localStorage.getItem('bibleSongsLibrary');
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed.filter((song): song is SavedSong => Boolean(song && typeof song.id === 'string' && typeof song.title === 'string' && typeof song.lyrics === 'string'));
+    }
+  } catch {
+    return [];
+  }
+  const title = localStorage.getItem('songEditorTitle') || '';
+  const lyrics = localStorage.getItem('songEditorSlides') || '';
+  return title.trim() || lyrics.trim() ? [{ id: 'legacy-song', title: title.trim() || 'Untitled song', lyrics, updatedAt: Date.now() }] : [];
+};
 
 interface BibleSongsTabProps {
   availableDisplays: Array<{ id: number; label: string }>;
@@ -46,6 +63,20 @@ const bookAbbreviation: Record<string, string> = {
   '3 John': '3Jo', 'Jude': 'Jd', Revelation: 'Ap'
 };
 
+const bookAliases: Record<string, string[]> = {
+  Genesis: ['gen', 'ge', 'gn'], Exodus: ['ex', 'exo'], Leviticus: ['lev', 'lv'],
+  Numbers: ['num', 'nm'], Deuteronomy: ['deut', 'deu', 'dt'], Psalms: ['psalm', 'ps', 'psa', 'sl'],
+  Proverbs: ['prov', 'pr', 'pv'], 'Song of Solomon': ['song', 'song of songs', 'canticles', 'sos'],
+  Matthew: ['matt', 'mt'], Mark: ['mk', 'mrk'], Luke: ['lk', 'luk'], John: ['jn', 'jhn'],
+  Acts: ['act'], Romans: ['rom', 'rm'], Revelation: ['rev', 're', 'apoc'],
+};
+
+const normalizeBookQuery = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]/gi, '')
+  .toLowerCase();
+
 export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   availableDisplays,
   selectedDisplay,
@@ -60,22 +91,33 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   onUpdateSongSlide,
 }) => {
   const [innerTab, setInnerTab] = useState<'bible' | 'songs'>('bible');
+  const [mobileBiblePane, setMobileBiblePane] = useState<BibleMobilePane>('books');
 
   // Bible State
   const [allVerses, setAllVerses] = useState<Verse[]>([]);
   const [books, setBooks] = useState<BibleBook[]>([]);
-  const [chapters, setChapters] = useState<number[]>([]);
-  const [chapterVerses, setChapterVerses] = useState<Verse[]>([]);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [selectedBookName, setSelectedBookName] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
   const [selectedVerseNumbers, setSelectedVerseNumbers] = useState<number[]>([]);
   const [quickSearch, setQuickSearch] = useState('');
+  const [quickSearchMessage, setQuickSearchMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [bookFilter, setBookFilter] = useState('');
+  const pendingReferenceRef = useRef<{ bookId: number; chapter: number; verseNumbers: number[] } | null>(null);
 
   // Songs State
+  const [savedSongs, setSavedSongs] = useState<SavedSong[]>(readSongLibrary);
   const [songTitle, setSongTitle] = useState(() => localStorage.getItem('songEditorTitle') || '');
   const [songLyrics, setSongLyrics] = useState(() => localStorage.getItem('songEditorSlides') || '');
+  const [songSearch, setSongSearch] = useState('');
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(() => {
+    const savedId = localStorage.getItem('songEditorSelectedId');
+    if (savedSongs.some(song => song.id === savedId)) return savedId;
+    const title = localStorage.getItem('songEditorTitle') || '';
+    const lyrics = localStorage.getItem('songEditorSlides') || '';
+    return savedSongs.find(song => song.title === title && song.lyrics === lyrics)?.id ?? null;
+  });
+  const [songSaveMessage, setSongSaveMessage] = useState('');
   const [activeSlide, setActiveSlide] = useState(0);
   const songSlides = songLyrics.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
   const currentSongSlide = songSlides[activeSlide] || '';
@@ -104,69 +146,93 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
             }
             break;
           }
-        } catch {}
+        } catch {
+          continue;
+        }
       }
     };
     loadBible();
   }, []);
 
-  // Update chapters when book changes
-  useEffect(() => {
-    if (selectedBookId === null) {
-      setChapters([]);
-      setSelectedChapter(null);
-      return;
-    }
-    const chSet = new Set<number>();
-    allVerses.forEach(v => { if (v.book === selectedBookId) chSet.add(v.chapter); });
-    const chs = Array.from(chSet).sort((a, b) => a - b);
-    setChapters(chs);
-    if (chs.length > 0) {
-      setSelectedChapter(chs[0]);
-    }
-  }, [selectedBookId, allVerses]);
+  const chapters = useMemo(() => {
+    if (selectedBookId === null) return [];
+    return [...new Set(allVerses.filter(verse => verse.book === selectedBookId).map(verse => verse.chapter))].sort((a, b) => a - b);
+  }, [allVerses, selectedBookId]);
 
-  // Update verses when chapter changes
+  const chapterVerses = useMemo(() => {
+    if (selectedBookId === null || selectedChapter === null) return [];
+    return allVerses.filter(verse => verse.book === selectedBookId && verse.chapter === selectedChapter);
+  }, [allVerses, selectedBookId, selectedChapter]);
+
   useEffect(() => {
-    if (selectedBookId === null || selectedChapter === null) {
-      setChapterVerses([]);
-      setSelectedVerseNumbers([]);
+    if (chapters.length === 0) {
+      if (selectedChapter !== null) setSelectedChapter(null);
+    } else if (!chapters.includes(selectedChapter ?? -1)) {
+      const pending = pendingReferenceRef.current;
+      setSelectedChapter(pending?.bookId === selectedBookId && chapters.includes(pending.chapter) ? pending.chapter : chapters[0]);
+    }
+  }, [chapters, selectedBookId, selectedChapter]);
+
+  useEffect(() => {
+    const pending = pendingReferenceRef.current;
+    if (pending?.bookId === selectedBookId && pending.chapter === selectedChapter) {
+      setSelectedVerseNumbers(pending.verseNumbers);
+      pendingReferenceRef.current = null;
       return;
     }
-    const verses = allVerses
-      .filter(v => v.book === selectedBookId && v.chapter === selectedChapter)
-      .sort((a, b) => a.verse - b.verse);
-    setChapterVerses(verses);
-    if (verses.length > 0) {
-      setSelectedVerseNumbers([verses[0].verse]);
-    }
-  }, [selectedBookId, selectedChapter, allVerses]);
+    setSelectedVerseNumbers(chapterVerses.length > 0 ? [chapterVerses[0].verse] : []);
+  }, [chapterVerses, selectedBookId, selectedChapter]);
 
   // Quick Reference Parser
   const handleQuickSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickSearch.trim() || allVerses.length === 0) return;
+    if (allVerses.length === 0) {
+      setQuickSearchMessage({ type: 'error', text: 'Bible data is still loading. Try again in a moment.' });
+      return;
+    }
     const trimmed = quickSearch.trim();
-    // Parse e.g. "John 3:16", "Romans 8:28-30", "Psalm 23"
-    const match = trimmed.match(/^([\d\s\w]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i);
-    if (!match) return;
+    const match = trimmed.match(/^(.+?)\s+(\d+)(?:\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(\d+))?)?$/i);
+    if (!match) {
+      setQuickSearchMessage({ type: 'error', text: 'Enter a reference such as John 3:16, Psalm 23, or Romans 8:28-30.' });
+      return;
+    }
     const [, bookQuery, chStr, vStartStr, vEndStr] = match;
     const chapter = parseInt(chStr, 10);
     const vStart = vStartStr ? parseInt(vStartStr, 10) : null;
     const vEnd = vEndStr ? parseInt(vEndStr, 10) : vStart;
 
-    const foundBook = books.find(b => b.name.toLowerCase() === bookQuery.toLowerCase() || (bookAbbreviation[b.name] && bookAbbreviation[b.name].toLowerCase() === bookQuery.toLowerCase()));
-    if (!foundBook) return;
+    const bookKey = normalizeBookQuery(bookQuery);
+    const foundBook = books.find(book => {
+      const names = [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])];
+      return names.some(name => normalizeBookQuery(name) === bookKey);
+    });
+    if (!foundBook) {
+      setQuickSearchMessage({ type: 'error', text: `Could not find the book "${bookQuery.trim()}" in the KJV Bible.` });
+      return;
+    }
 
+    const inChapter = allVerses.filter(verse => verse.book === foundBook.id && verse.chapter === chapter);
+    if (inChapter.length === 0) {
+      setQuickSearchMessage({ type: 'error', text: `${foundBook.name} does not have a chapter ${chapter}.` });
+      return;
+    }
+    if (vStart !== null && (vStart < 1 || vEnd === null || vEnd < vStart || vEnd > inChapter[inChapter.length - 1].verse)) {
+      setQuickSearchMessage({ type: 'error', text: `That verse range is not valid. ${foundBook.name} ${chapter} has verses 1-${inChapter[inChapter.length - 1].verse}.` });
+      return;
+    }
+
+    const matching = vStart === null
+      ? inChapter
+      : inChapter.filter(verse => verse.verse >= vStart && verse.verse <= (vEnd ?? vStart));
+    const selected = matching.map(verse => verse.verse);
+    const samePassage = selectedBookId === foundBook.id && selectedChapter === chapter;
+    pendingReferenceRef.current = samePassage ? null : { bookId: foundBook.id, chapter, verseNumbers: selected };
     setSelectedBookId(foundBook.id);
     setSelectedBookName(foundBook.name);
     setSelectedChapter(chapter);
-
-    const matching = allVerses.filter(v => v.book === foundBook.id && v.chapter === chapter && (vStart === null || (vEnd !== null ? v.verse >= vStart && v.verse <= vEnd : v.verse === vStart)));
-    if (matching.length > 0) {
-      setSelectedVerseNumbers(matching.map(v => v.verse));
-      projectBible(matching);
-    }
+    setMobileBiblePane('verses');
+    if (samePassage) setSelectedVerseNumbers(selected);
+    setQuickSearchMessage({ type: 'success', text: `${foundBook.name} ${chapter}${vStart === null ? '' : `:${vStart}${vEnd !== null && vEnd !== vStart ? `-${vEnd}` : ''}`} selected. Review the passage, then project when ready.` });
   };
 
   const currentSelectedVerses = React.useMemo(() => {
@@ -181,6 +247,15 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   }, [currentSelectedVerses, selectedTheme]);
 
   // Song effects
+  useEffect(() => {
+    localStorage.setItem('bibleSongsLibrary', JSON.stringify(savedSongs));
+  }, [savedSongs]);
+
+  useEffect(() => {
+    if (selectedSongId) localStorage.setItem('songEditorSelectedId', selectedSongId);
+    else localStorage.removeItem('songEditorSelectedId');
+  }, [selectedSongId]);
+
   useEffect(() => {
     localStorage.setItem('songEditorTitle', songTitle);
     localStorage.setItem('songEditorSlides', songLyrics);
@@ -205,6 +280,47 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   };
 
   const filteredBooks = books.filter(b => b.name.toLowerCase().includes(bookFilter.toLowerCase()));
+  const filteredSongs = savedSongs
+    .filter(song => song.title.toLowerCase().includes(songSearch.trim().toLowerCase()))
+    .sort((left, right) => right.updatedAt - left.updatedAt);
+
+  const saveSong = () => {
+    const title = songTitle.trim();
+    if (!title) {
+      setSongSaveMessage('Add a song title before saving.');
+      return;
+    }
+    const id = selectedSongId || `song-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const song = { id, title, lyrics: songLyrics, updatedAt: Date.now() };
+    setSavedSongs(previous => previous.some(item => item.id === id)
+      ? previous.map(item => item.id === id ? song : item)
+      : [song, ...previous]);
+    setSelectedSongId(id);
+    setSongSaveMessage(`Saved "${title}".`);
+  };
+
+  const startNewSong = () => {
+    setSelectedSongId(null);
+    setSongTitle('');
+    setSongLyrics('');
+    setActiveSlide(0);
+    setSongSaveMessage('New song draft. Save it to add it to your library.');
+  };
+
+  const openSong = (song: SavedSong) => {
+    setSelectedSongId(song.id);
+    setSongTitle(song.title);
+    setSongLyrics(song.lyrics);
+    setActiveSlide(0);
+    setSongSaveMessage('');
+  };
+
+  const deleteSong = (song: SavedSong) => {
+    if (!window.confirm(`Delete "${song.title}" from the song library?`)) return;
+    setSavedSongs(previous => previous.filter(item => item.id !== song.id));
+    if (selectedSongId === song.id) startNewSong();
+    setSongSaveMessage(`Deleted "${song.title}".`);
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-gray-900 text-white">
@@ -252,64 +368,63 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
       {innerTab === 'bible' && (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Quick Passage Search Bar */}
-          <form onSubmit={handleQuickSearchSubmit} className="flex items-center gap-3 p-3 bg-gray-800/60 border-b border-gray-700">
+          <form onSubmit={handleQuickSearchSubmit} className="flex flex-col gap-2 border-b border-gray-700 bg-gray-800/60 p-3 sm:flex-row sm:items-center sm:gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
                 value={quickSearch}
-                onChange={e => setQuickSearch(e.target.value)}
-                placeholder="Quick jump: e.g. John 3:16, Psalm 23, Romans 8:28-30"
-                className="w-full bg-gray-900 text-white pl-9 pr-4 py-2.5 rounded-lg border border-gray-700 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={e => { setQuickSearch(e.target.value); setQuickSearchMessage(null); }}
+                aria-label="Search a Bible passage"
+                placeholder="Find passage, e.g. John 3:16 or Ps 23"
+                className="w-full rounded-lg border border-gray-700 bg-gray-900 py-3 pl-9 pr-4 text-sm font-semibold text-white outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-colors"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-500"
             >
-              Jump & Project
+              <Search size={16} /> Go to passage
             </button>
-            {isProjecting && onCloseProjection ? (
-              <button
-                type="button"
-                onClick={onCloseProjection}
-                className="bg-red-600 hover:bg-red-500 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-colors flex items-center gap-1.5"
-              >
-                <Square size={14} /> Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => projectBible(currentSelectedVerses)}
-                disabled={currentSelectedVerses.length === 0 || selectedDisplay === null}
-                className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-colors disabled:opacity-40 flex items-center gap-1.5"
-              >
-                <Play size={14} /> Project Selected
-              </button>
-            )}
-            {testDisplay && (
-              <button
-                type="button"
-                onClick={testDisplay}
-                disabled={selectedDisplay === null}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg text-xs font-bold disabled:opacity-40"
-              >
-                Test
-              </button>
-            )}
           </form>
+          {quickSearchMessage && (
+            <p role={quickSearchMessage.type === 'error' ? 'alert' : 'status'} className={`border-b px-3 py-2 text-xs ${quickSearchMessage.type === 'error' ? 'border-red-900 bg-red-950/40 text-red-200' : 'border-emerald-900 bg-emerald-950/30 text-emerald-200'}`}>
+              {quickSearchMessage.text}
+            </p>
+          )}
+
+          <nav className="grid grid-cols-3 gap-1 border-b border-gray-700 bg-gray-900 p-2 md:hidden" aria-label="Bible navigation">
+            {([
+              ['books', 'Books', selectedBookName || 'Browse'],
+              ['chapters', 'Chapters', selectedChapter ? `${chapters.length} available` : 'Choose a book'],
+              ['verses', 'Verses', `${selectedVerseNumbers.length} selected`],
+            ] as const).map(([pane, label, detail]) => (
+              <button
+                key={pane}
+                type="button"
+                onClick={() => setMobileBiblePane(pane)}
+                disabled={pane !== 'books' && selectedBookId === null || pane === 'verses' && selectedChapter === null}
+                aria-current={mobileBiblePane === pane ? 'step' : undefined}
+                className={`min-h-14 rounded-lg px-2 py-1 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${mobileBiblePane === pane ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
+              >
+                <span className="block text-xs font-bold">{label}</span>
+                <span className={`mt-0.5 block truncate text-[10px] ${mobileBiblePane === pane ? 'text-blue-100' : 'text-gray-500'}`}>{detail}</span>
+              </button>
+            ))}
+          </nav>
 
           {/* Main 3-Column Bible Workspace */}
           <div className="grid grid-cols-1 md:grid-cols-12 flex-1 min-h-0 overflow-hidden">
             {/* Column 1: Books (3 cols) */}
-            <div className="md:col-span-3 flex flex-col border-r border-gray-700 bg-gray-900/90 min-h-0">
+            <div className={`${mobileBiblePane === 'books' ? 'flex' : 'hidden'} md:col-span-3 md:flex flex-col border-r border-gray-700 bg-gray-900/90 min-h-0`}>
               <div className="p-3 border-b border-gray-800">
                 <input
                   type="text"
                   value={bookFilter}
                   onChange={e => setBookFilter(e.target.value)}
-                  placeholder="Filter 66 books..."
-                  className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-700 text-xs font-bold outline-none"
+                  placeholder="Filter books..."
+                  aria-label="Filter Bible books"
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-sm font-semibold text-white outline-none focus:border-blue-500"
                 />
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -319,29 +434,35 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                     onClick={() => {
                       setSelectedBookId(b.id);
                       setSelectedBookName(b.name);
+                      setMobileBiblePane('chapters');
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`w-full min-h-11 flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
                       selectedBookId === b.id ? 'bg-blue-600 text-white shadow-md' : 'text-gray-300 hover:bg-gray-800'
                     }`}
                   >
                     <span className="truncate">{b.name}</span>
-                    <span className={`w-2 h-2 rounded-full ${getBookColor(b.id)}`} />
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${getBookColor(b.id)}`} />
+                      <ChevronRight className="h-4 w-4 text-gray-500 md:hidden" />
+                    </span>
                   </button>
                 ))}
+                {filteredBooks.length === 0 && <p className="px-3 py-6 text-center text-sm text-gray-500">No books match that search.</p>}
               </div>
             </div>
 
             {/* Column 2: Chapters (2 cols) */}
-            <div className="md:col-span-2 flex flex-col border-r border-gray-700 bg-gray-900/60 min-h-0">
-              <div className="p-3 border-b border-gray-800 text-xs font-black text-gray-400 uppercase tracking-widest">
+            <div className={`${mobileBiblePane === 'chapters' ? 'flex' : 'hidden'} md:col-span-2 md:flex flex-col border-r border-gray-700 bg-gray-900/60 min-h-0`}>
+              <div className="flex items-center justify-between gap-2 border-b border-gray-800 p-3 text-xs font-black uppercase tracking-widest text-gray-400">
                 Chapters ({chapters.length})
+                <button type="button" onClick={() => setMobileBiblePane('books')} className="rounded px-2 py-1 text-[10px] font-bold text-blue-300 hover:bg-gray-800 md:hidden">Change book</button>
               </div>
-              <div className="flex-1 overflow-y-auto p-2 grid grid-cols-3 gap-1.5 custom-scrollbar align-content-start">
+              <div className="flex-1 overflow-y-auto p-2 grid grid-cols-4 md:grid-cols-3 content-start gap-1.5 custom-scrollbar">
                 {chapters.map(ch => (
                   <button
                     key={ch}
-                    onClick={() => setSelectedChapter(ch)}
-                    className={`h-10 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
+                    onClick={() => { setSelectedChapter(ch); setMobileBiblePane('verses'); }}
+                    className={`h-11 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
                       selectedChapter === ch ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                     }`}
                   >
@@ -352,35 +473,37 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
             </div>
 
             {/* Column 3: Verses & Live Preview (7 cols) */}
-            <div className="md:col-span-7 flex flex-col min-h-0 bg-gray-900">
-              <div className="p-3 border-b border-gray-800 flex items-center justify-between">
+            <div className={`${mobileBiblePane === 'verses' ? 'flex' : 'hidden'} md:col-span-7 md:flex flex-col min-h-0 bg-gray-900`}>
+              <div className="flex items-center justify-between gap-2 border-b border-gray-800 p-3">
                 <div className="text-xs font-bold text-white">
                   {selectedBookName} {selectedChapter} <span className="text-gray-400 font-normal">({chapterVerses.length} verses)</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-1.5">
                   <button
                     onClick={() => setSelectedVerseNumbers(chapterVerses.map(v => v.verse))}
-                    className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded text-[11px] font-bold"
+                    className="min-h-9 rounded bg-gray-800 px-2.5 py-1 text-[11px] font-bold text-blue-400 hover:bg-gray-700"
                   >
                     Select All
                   </button>
                   <button
                     onClick={() => setSelectedVerseNumbers([])}
-                    className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded text-[11px] font-bold"
+                    className="min-h-9 rounded bg-gray-800 px-2.5 py-1 text-[11px] font-bold text-gray-400 hover:bg-gray-700"
                   >
                     Clear
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                 {chapterVerses.map(v => {
                   const isSelected = selectedVerseNumbers.includes(v.verse);
                   return (
-                    <div
+                    <button
                       key={v.verse}
                       onClick={() => toggleVerseSelection(v.verse)}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                      type="button"
+                      aria-pressed={isSelected}
+                      className={`w-full p-3 rounded-xl border text-left transition-all flex items-start gap-3 ${
                         isSelected ? 'bg-blue-900/40 border-blue-500 shadow-md' : 'bg-gray-800/60 border-gray-700/60 hover:bg-gray-800'
                       }`}
                     >
@@ -393,10 +516,28 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                         <span className="text-xs font-black text-blue-400 mr-2">{v.verse}</span>
                         <span className="text-sm text-gray-200 leading-relaxed font-serif">{v.text}</span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-gray-700 bg-gray-900/95 px-3 py-2.5 backdrop-blur sm:px-4">
+            <div className="min-w-0 text-xs text-gray-400">
+              <span className="font-bold text-white">{selectedVerseNumbers.length} selected</span>
+              <span className="hidden sm:inline"> · {selectedBookName} {selectedChapter}</span>
+              {selectedDisplay === null && <span className="block text-amber-300 sm:inline sm:ml-2">Choose a screen above to project</span>}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              {testDisplay && (
+                <button type="button" onClick={testDisplay} disabled={selectedDisplay === null} className="min-h-10 rounded-lg bg-gray-800 px-3 text-xs font-bold text-gray-200 hover:bg-gray-700 disabled:opacity-40">Test</button>
+              )}
+              {isProjecting ? (
+                <button type="button" onClick={onCloseProjection} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-500"><Square size={14} /> Stop projection</button>
+              ) : (
+                <button type="button" onClick={() => projectBible(currentSelectedVerses)} disabled={currentSelectedVerses.length === 0 || selectedDisplay === null} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-40"><Play size={15} /> Project selected</button>
+              )}
             </div>
           </div>
         </div>
@@ -405,11 +546,57 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
       {/* Songs Tab Content */}
       {innerTab === 'songs' && (
         <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          <section className="mx-auto mb-5 w-full max-w-7xl border-b border-gray-700 pb-4" aria-label="Song library">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white">Song library</h2>
+                <p className="mt-0.5 text-xs text-gray-400">{savedSongs.length} saved {savedSongs.length === 1 ? 'song' : 'songs'} on this device</p>
+              </div>
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                <label className="relative min-w-[9rem] flex-1 sm:w-56 sm:flex-none">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={15} />
+                  <input
+                    type="search"
+                    value={songSearch}
+                    onChange={event => setSongSearch(event.target.value)}
+                    placeholder="Search saved songs"
+                    aria-label="Search saved songs"
+                    className="min-h-10 w-full rounded-lg border border-gray-700 bg-gray-900 py-2 pl-9 pr-3 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </label>
+                <button type="button" onClick={startNewSong} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-600 px-3 text-sm font-semibold text-gray-200 hover:bg-gray-800"><Plus size={15} /> New</button>
+                <button type="button" onClick={saveSong} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-500"><Save size={15} /> {selectedSongId ? 'Save changes' : 'Save song'}</button>
+              </div>
+            </div>
+
+            {songSaveMessage && <p role="status" className="mt-2 text-xs text-emerald-300">{songSaveMessage}</p>}
+
+            {savedSongs.length > 0 ? (
+              <div className="mt-3 grid max-h-36 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
+                {filteredSongs.map(song => {
+                  const slideCount = song.lyrics.split(/\n\s*\n/).map(slide => slide.trim()).filter(Boolean).length;
+                  return (
+                    <div key={song.id} className={`flex min-w-0 items-center rounded-lg border ${selectedSongId === song.id ? 'border-blue-500 bg-blue-950/30' : 'border-gray-700 bg-gray-900/60'}`}>
+                      <button type="button" onClick={() => openSong(song)} aria-pressed={selectedSongId === song.id} className="min-h-12 min-w-0 flex-1 px-3 py-2 text-left hover:bg-white/5">
+                        <span className="block truncate text-sm font-semibold text-white">{song.title}</span>
+                        <span className="mt-0.5 block text-[11px] text-gray-500">{slideCount} {slideCount === 1 ? 'slide' : 'slides'}</span>
+                      </button>
+                      <button type="button" onClick={() => deleteSong(song)} title={`Delete ${song.title}`} aria-label={`Delete ${song.title}`} className="mr-1 rounded p-2 text-gray-500 hover:bg-red-950 hover:text-red-300"><Trash2 size={15} /></button>
+                    </div>
+                  );
+                })}
+                {filteredSongs.length === 0 && <p className="px-2 py-4 text-sm text-gray-500">No saved songs match that search.</p>}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg bg-gray-900/60 px-3 py-3 text-sm text-gray-400">No saved songs yet. Add a title and slide text below, then choose Save song.</p>
+            )}
+          </section>
+
           <div className="mx-auto grid w-full max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)]">
             <section className="space-y-5">
               <header className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-700 pb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Song Slides</h2>
+                  <h2 className="text-xl font-bold text-white">Song editor</h2>
                   <p className="mt-1 text-sm text-gray-400">Prepare lyrics you are authorized to display. Separate slides with a blank line.</p>
                 </div>
               </header>
@@ -418,7 +605,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                 Song title
                 <input
                   value={songTitle}
-                  onChange={event => setSongTitle(event.target.value)}
+                  onChange={event => { setSongTitle(event.target.value); setSongSaveMessage(''); }}
                   placeholder="Enter a song title"
                   className="w-full border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder:text-gray-500 rounded-xl"
                 />
@@ -428,7 +615,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                 Slide text
                 <textarea
                   value={songLyrics}
-                  onChange={event => setSongLyrics(event.target.value)}
+                  onChange={event => { setSongLyrics(event.target.value); setSongSaveMessage(''); }}
                   placeholder={'Paste or type authorized lyrics here.\n\nUse a blank line between slides.'}
                   rows={10}
                   className="w-full resize-y border border-gray-700 bg-gray-900 px-4 py-3 leading-relaxed text-white placeholder:text-gray-500 rounded-xl"

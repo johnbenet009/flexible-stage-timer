@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Timer, Mic, BookOpen, MonitorPlay, SlidersHorizontal, ArrowLeft, Smartphone, Monitor, ChevronRight, Radio } from 'lucide-react';
 import { useRemoteState } from './useRemoteState';
@@ -6,93 +6,115 @@ import { ConnectionBadge, PinGate } from './RemoteShell';
 
 type Tab = 'timer' | 'transcribe';
 type Mode = 'display' | 'control';
+type Step = 1 | 2 | 3;
 
 export default function RemoteHome() {
 	const conn = useRemoteState();
 	const navigate = useNavigate();
 	const [tab, setTab] = useState<Tab | null>(null);
 	const [mode, setMode] = useState<Mode | null>(null);
+	const [step, setStep] = useState<Step>(1);
 
+	useEffect(() => {
+		window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+	}, [step]);
+
+	// Function to navigate to different views
 	const go = (view: 'full' | 'mini') => {
 		if (!tab || !mode) return;
 		navigate(`/remote/${tab}/${mode}${mode === 'control' && view === 'mini' ? '?view=mini' : ''}`);
 	};
 
+	const goBack = () => {
+		if (step === 3) setStep(2);
+		else if (step === 2) { setMode(null); setStep(1); }
+	};
+
 	return (
 		<PinGate conn={conn}>
-			<div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
+			<div className="min-h-screen bg-slate-950 text-white relative overflow-x-hidden">
 				<div className="absolute inset-0 pointer-events-none">
 					<div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl animate-blob" />
 					<div className="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-blob animation-delay-2000" />
 				</div>
-				<div className="relative max-w-2xl mx-auto px-5 py-8 min-h-screen flex flex-col">
-					<header className="flex items-center justify-between mb-8">
+				<div className="relative max-w-2xl mx-auto w-full px-4 py-4 sm:px-6 sm:py-8 min-h-screen flex flex-col">
+					<header className="flex items-center gap-3 mb-5 sm:mb-8">
+						{step > 1 && (
+							<button type="button" onClick={goBack} className="shrink-0 flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white" aria-label="Go to previous selection">
+								<ArrowLeft className="w-4 h-4" /> Back
+							</button>
+						)}
 						<div className="flex items-center gap-3">
-							<div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-900/40">
+							<div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-900/40">
 								<Radio className="w-5 h-5 text-white" />
 							</div>
 							<div>
-								<h1 className="text-lg font-bold leading-tight">Stage Timer Remote</h1>
-								<p className="text-xs text-slate-400">Control and displays over your local network</p>
+								<h1 className="text-sm sm:text-lg font-bold leading-tight">Stage Timer Remote</h1>
+								<p className="hidden sm:block text-xs text-slate-400">Control and displays over your local network</p>
 							</div>
 						</div>
-						<ConnectionBadge connected={conn.connected} />
+						<ConnectionBadge connected={conn.connected} className="ml-auto shrink-0" />
 					</header>
 
-					{/* Step 1: choose workspace */}
-					<section className="mb-6">
-						<div className="flex items-center gap-2 mb-3">
-							<span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${tab ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}`}>1</span>
-							<h2 className="font-semibold text-slate-200">What do you want to work with?</h2>
+					<div className="mb-6" aria-label={`Step ${step} of 3`}>
+						<div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
+							<span>Step {step} of 3</span>
+							<span>{step === 1 ? 'Choose a tool' : step === 2 ? `Choose ${tab === 'timer' ? 'Timer' : 'Transcribe'} mode` : 'Choose a layout'}</span>
 						</div>
+						<div className="mt-2 grid grid-cols-3 gap-2" aria-hidden="true">
+							{[1, 2, 3].map(index => <span key={index} className={`h-1 rounded-full ${index <= step ? 'bg-emerald-400' : 'bg-slate-800'}`} />)}
+						</div>
+					</div>
+
+					<main className="flex-1">
+					{step === 1 && <section className="animate-scaleIn">
+						<h2 className="mb-1 text-xl font-bold text-white">What do you want to open?</h2>
+						<p className="mb-4 text-sm text-slate-400">Choose a tool to continue.</p>
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 							<ChoiceCard
-								active={tab === 'timer'}
-								onClick={() => { setTab('timer'); setMode(null); }}
+								active={false}
+								onClick={() => { setTab('timer'); setMode(null); setStep(2); }}
 								icon={<Timer className="w-6 h-6" />}
 								title="Timer"
 								desc="Stage countdown, programs, autopilot"
 								accent="emerald"
 							/>
 							<ChoiceCard
-								active={tab === 'transcribe'}
-								onClick={() => { setTab('transcribe'); setMode(null); }}
+								active={false}
+								onClick={() => { setTab('transcribe'); setMode(null); setStep(2); }}
 								icon={<Mic className="w-6 h-6" />}
 								title="Transcribe"
 								desc="Live speech captions"
 								accent="blue"
 							/>
-							<div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 opacity-50 cursor-not-allowed select-none">
+							<div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 opacity-60 select-none">
 								<BookOpen className="w-6 h-6 text-slate-500 mb-2" />
-								<div className="font-semibold text-slate-400">Bible / Songs</div>
-								<div className="text-xs text-slate-500 mt-1">Coming later</div>
+								<div className="font-semibold text-slate-400">Bible / Lyrics</div>
+								<div className="text-xs text-slate-500 mt-1">In development</div>
 							</div>
 						</div>
-					</section>
+					</section>}
 
-					{/* Step 2: display or control */}
-					{tab && (
-						<section className="mb-6 animate-scaleIn">
-							<div className="flex items-center gap-2 mb-3">
-								<span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${mode ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}`}>2</span>
-								<h2 className="font-semibold text-slate-200">Alternate display or control?</h2>
-							</div>
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					{step === 2 && tab && (
+						<section className="animate-scaleIn">
+							<h2 className="mb-1 text-xl font-bold text-white">How do you want to use {tab === 'timer' ? 'Timer' : 'Transcribe'}?</h2>
+							<p className="mb-4 text-sm text-slate-400">Choose a control panel or a separate live screen.</p>
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 								<ChoiceCard
-									active={mode === 'display'}
-									onClick={() => setMode('display')}
+									active={false}
+									onClick={() => { setMode('display'); setStep(3); }}
 									icon={<MonitorPlay className="w-6 h-6" />}
-									title="Alternate Screen"
-									desc="Live feed with its own background or green screen. Does not change the main display."
+									title="Live Screen"
+									desc="Show the live timer or captions on a separate screen."
 									accent="violet"
 									big
 								/>
 								<ChoiceCard
-									active={mode === 'control'}
-									onClick={() => setMode('control')}
+									active={false}
+									onClick={() => { setMode('control'); setStep(3); }}
 									icon={<SlidersHorizontal className="w-6 h-6" />}
 									title="Control Panel"
-									desc="Operate the actual program: settings, actions and a mini preview."
+									desc="Operate the timer or transcription from this device."
 									accent="amber"
 									big
 								/>
@@ -100,16 +122,13 @@ export default function RemoteHome() {
 						</section>
 					)}
 
-					{/* Step 3: layout */}
-					{tab && mode && (
-						<section className="mb-6 animate-scaleIn">
-							<div className="flex items-center gap-2 mb-3">
-								<span className="w-6 h-6 rounded-full bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center">3</span>
-								<h2 className="font-semibold text-slate-200">{mode === 'control' ? 'Complete or mini layout?' : 'Open the live screen'}</h2>
-							</div>
+					{step === 3 && tab && mode && (
+						<section className="animate-scaleIn">
+							<h2 className="mb-1 text-xl font-bold text-white">{mode === 'control' ? 'Choose a control layout' : 'Open the live screen'}</h2>
+							<p className="mb-4 text-sm text-slate-400">{tab === 'timer' ? 'Timer' : 'Transcribe'} · {mode === 'control' ? 'Control panel' : 'Live screen'}</p>
 							{mode === 'control' ? (
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<button onClick={() => go('full')} className="group flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-900 hover:border-emerald-500 hover:bg-slate-800 p-4 text-left transition-all">
+									<button onClick={() => go('full')} className="group flex min-h-24 items-center gap-4 rounded-2xl border border-slate-700 bg-slate-900 hover:border-emerald-500 hover:bg-slate-800 p-4 text-left transition-all">
 										<Monitor className="w-7 h-7 text-emerald-400" />
 										<div className="flex-1">
 											<div className="font-semibold">Complete</div>
@@ -117,7 +136,7 @@ export default function RemoteHome() {
 										</div>
 										<ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
 									</button>
-									<button onClick={() => go('mini')} className="group flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-900 hover:border-emerald-500 hover:bg-slate-800 p-4 text-left transition-all">
+									<button onClick={() => go('mini')} className="group flex min-h-24 items-center gap-4 rounded-2xl border border-slate-700 bg-slate-900 hover:border-emerald-500 hover:bg-slate-800 p-4 text-left transition-all">
 										<Smartphone className="w-7 h-7 text-emerald-400" />
 										<div className="flex-1">
 											<div className="font-semibold">Mini (mobile)</div>
@@ -127,7 +146,7 @@ export default function RemoteHome() {
 									</button>
 								</div>
 							) : (
-								<button onClick={() => go('full')} className="group w-full flex items-center gap-4 rounded-2xl border border-violet-500/50 bg-violet-600/15 hover:bg-violet-600/25 p-5 text-left transition-all">
+								<button onClick={() => go('full')} className="group w-full flex min-h-24 items-center gap-4 rounded-2xl border border-violet-500/50 bg-violet-600/15 hover:bg-violet-600/25 p-4 text-left transition-all">
 									<MonitorPlay className="w-8 h-8 text-violet-300" />
 									<div className="flex-1">
 										<div className="font-semibold text-lg">Open {tab === 'timer' ? 'Timer' : 'Transcribe'} live screen</div>
@@ -139,13 +158,9 @@ export default function RemoteHome() {
 						</section>
 					)}
 
-					{(tab || mode) && (
-						<button onClick={() => { if (mode) setMode(null); else setTab(null); }} className="self-start flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors">
-							<ArrowLeft className="w-4 h-4" /> Back
-						</button>
-					)}
+					</main>
 
-					<footer className="mt-auto pt-8 text-center text-xs text-slate-600">
+					<footer className="mt-auto pt-6 text-center text-xs text-slate-600">
 						Keep this device on the same Wi-Fi network as the main computer.
 					</footer>
 				</div>
@@ -179,6 +194,10 @@ function ChoiceCard({
 			<div className={`mb-2 ${accents.icon}`}>{icon}</div>
 			<div className="font-semibold text-white">{title}</div>
 			<div className="text-xs text-slate-400 mt-1 leading-relaxed">{desc}</div>
+			<div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-xs font-bold text-slate-300">
+				<span>Choose {title}</span>
+				<ChevronRight className="h-4 w-4" aria-hidden="true" />
+			</div>
 		</button>
 	);
 }
