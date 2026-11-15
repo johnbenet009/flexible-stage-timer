@@ -186,7 +186,6 @@ export const TranscribeTab: React.FC = () => {
   const [showSetup, setShowSetup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [internetStatus, setInternetStatus] = useState<'unchecked' | 'checking' | 'online' | 'offline'>('unchecked');
-  const [showInternetGate, setShowInternetGate] = useState(false);
   const [token, setToken] = useState('');
   const [tokenConfigured, setTokenConfigured] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -434,11 +433,9 @@ export const TranscribeTab: React.FC = () => {
       if (!result) throw new Error('The desktop network checker is unavailable. Restart the updated app and try again.');
       if (result.online) {
         setInternetStatus('online');
-        setShowInternetGate(false);
         setError('');
       } else {
         setInternetStatus('offline');
-        setShowInternetGate(true);
         const failures = result.checks?.filter(check => !check.online).map(check => {
           const host = new URL(check.endpoint).hostname;
           return `${host}: ${check.error || `HTTP ${check.status}`}`;
@@ -447,7 +444,6 @@ export const TranscribeTab: React.FC = () => {
       }
     } catch (cause) {
       setInternetStatus('offline');
-      setShowInternetGate(true);
       setError(cause instanceof Error ? cause.message : 'Could not check internet access from the desktop app.');
     }
   };
@@ -823,27 +819,6 @@ export const TranscribeTab: React.FC = () => {
             <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[#090b0e] p-3 sm:p-6">
               <img src={previewGraphic.dataUrl} alt={`Full-size Day ${previewGraphic.day} social graphic: ${previewGraphic.headline}`} className="max-h-[calc(100vh-9rem)] max-w-full object-contain shadow-2xl" />
             </div>
-          </section>
-        </div>
-      )}
-
-      {showInternetGate && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="transcribe-internet-title" className="w-full max-w-lg border border-gray-700 bg-gray-900 p-6 shadow-2xl">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-sky-500/15 text-sky-300"><Wifi size={22} /></div>
-              <div>
-                <h3 id="transcribe-internet-title" className="text-lg font-bold text-white">Internet connection required</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-300">This page requires an internet connection for live transcription. Connect this PC, then check the connection here to enable the transcript controls.</p>
-              </div>
-            </div>
-            {internetStatus === 'offline' && <p role="alert" className="mt-4 border-l-2 border-red-500 bg-red-500/10 p-3 text-sm text-red-200">Connection check failed. Check Wi-Fi, VPN, firewall, or proxy settings, then retry.</p>}
-            {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
-            <button type="button" onClick={() => void checkInternet()} disabled={internetStatus === 'checking'} className="mt-6 flex w-full items-center justify-center gap-2 bg-sky-700 px-4 py-3 font-bold text-white hover:bg-sky-600 disabled:opacity-50">
-              {internetStatus === 'checking' ? <Loader2 size={17} className="animate-spin" /> : <Wifi size={17} />}
-              {internetStatus === 'checking' ? 'Checking this PC…' : 'Check internet connection'}
-            </button>
-            <p className="mt-3 text-center text-xs text-gray-500">The app checks general internet access. Google Chrome also needs to reach its separate speech-recognition service.</p>
           </section>
         </div>
       )}

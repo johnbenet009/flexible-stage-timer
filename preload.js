@@ -4,6 +4,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearCache: () => ipcRenderer.invoke('clear-cache'),
     openAdvancedMultiScreen: () => ipcRenderer.send('open-advanced-multiscreen'),
     getDisplays: () => ipcRenderer.invoke('get-displays'),
+    onDisplaysChanged: (callback) => {
+        const listener = (event, displays) => callback(displays);
+        ipcRenderer.on('displays-changed', listener);
+        return () => ipcRenderer.removeListener('displays-changed', listener);
+    },
     checkInternetConnection: () => ipcRenderer.invoke('check-internet-connection'),
     startChromeSpeechRecognition: (request) => ipcRenderer.invoke('start-chrome-speech-recognition', request),
     stopChromeSpeechRecognition: () => ipcRenderer.invoke('stop-chrome-speech-recognition'),
@@ -17,6 +22,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     closeGreenScreenTimer: () => ipcRenderer.send('close-green-screen-timer'),
     openBibleProjection: (displayId) => ipcRenderer.send('open-bible-projection', displayId),
     closeBibleProjection: () => ipcRenderer.send('close-bible-projection'),
+    navigateBibleProjection: (direction) => ipcRenderer.send('navigate-bible-projection', direction),
+    onBibleProjectionNavigate: (callback) => {
+        const listener = (event, direction) => callback(direction);
+        ipcRenderer.on('bible-projection-navigate', listener);
+        return () => ipcRenderer.removeListener('bible-projection-navigate', listener);
+    },
+    onBibleProjectionClosed: (callback) => {
+        const listener = () => callback();
+        ipcRenderer.on('bible-projection-closed', listener);
+        return () => ipcRenderer.removeListener('bible-projection-closed', listener);
+    },
     windowMinimize: () => ipcRenderer.send('window:minimize'),
     windowToggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
     windowClose: () => ipcRenderer.send('window:close'),

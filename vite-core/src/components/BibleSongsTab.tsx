@@ -1,11 +1,39 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Plus, Save, Trash2, Play, Square, BookOpen, Music, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, Save, Trash2, Play, Square, BookOpen, Music, Check, ChevronLeft, ChevronRight, History, Keyboard, RefreshCw, Settings2 } from 'lucide-react';
 import { ThemeSelector } from './ThemeSelector';
+import { ProjectionSettingsPanel } from './ProjectionSettingsPanel';
+import { useProjectionSettings } from './projectionSettings';
 
 export type Verse = { book: number; book_name: string; chapter: number; verse: number; text: string };
 type BibleBook = { id: number; name: string };
 type BibleMobilePane = 'books' | 'chapters' | 'verses';
 type SavedSong = { id: string; title: string; lyrics: string; updatedAt: number };
+type BibleTool = 'browse' | 'search' | 'history';
+type BibleReference = { id: string; label: string; verses: Verse[]; addedAt: number };
+
+const readBibleReferences = (key: string): BibleReference[] => {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(key) || '[]');
+    return Array.isArray(saved) ? saved.filter((item): item is BibleReference => Boolean(item && typeof item.id === 'string' && Array.isArray(item.verses))) : [];
+  } catch {
+    return [];
+  }
+};
+
+const BIBLE_SECTIONS: Array<{ name: string; color: string; books: string[] }> = [
+  { name: 'Law', color: 'bg-sky-700', books: ['Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy'] },
+  { name: 'History', color: 'bg-emerald-700', books: ['Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 'Nehemiah', 'Esther'] },
+  { name: 'Poetry', color: 'bg-amber-700', books: ['Job', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Song of Solomon'] },
+  { name: 'Major Prophets', color: 'bg-rose-700', books: ['Isaiah', 'Jeremiah', 'Lamentations', 'Ezekiel', 'Daniel'] },
+  { name: 'Minor Prophets', color: 'bg-orange-700', books: ['Hosea', 'Joel', 'Amos', 'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi'] },
+  { name: 'Gospels', color: 'bg-teal-700', books: ['Matthew', 'Mark', 'Luke', 'John'] },
+  { name: 'Church History', color: 'bg-cyan-700', books: ['Acts'] },
+  { name: 'Letters', color: 'bg-indigo-700', books: ['Romans', '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter', '2 Peter', '1 John', '2 John', '3 John', 'Jude'] },
+  { name: 'Revelation', color: 'bg-slate-700', books: ['Revelation'] },
+];
+
+const bookSectionColor = new Map(BIBLE_SECTIONS.flatMap(section => section.books.map(book => [book, section.color] as const)));
+const numberGridColumns = (count: number) => Math.max(1, Math.ceil(Math.sqrt(count * 1.6)));
 
 const readSongLibrary = (): SavedSong[] => {
   try {
@@ -26,7 +54,8 @@ interface BibleSongsTabProps {
   availableDisplays: Array<{ id: number; label: string }>;
   selectedDisplay: number | null;
   onDisplayChange: (displayId: number) => void;
-  projectBible: (verses: Verse[]) => void;
+  onRefreshDisplays: () => void;
+  projectBible: (verses: Verse[], options?: { referenceOnly?: boolean; description?: string }) => void;
   testDisplay?: () => void;
   isProjecting: boolean;
   onCloseProjection: () => void;
@@ -46,21 +75,21 @@ const getBookColor = (bookId: number) => bookColors[bookId % bookColors.length];
 
 const bookAbbreviation: Record<string, string> = {
   Genesis: 'Gn', Exodus: 'Ex', Leviticus: 'Lv', Numbers: 'Nm', Deuteronomy: 'Dt',
-  Joshua: 'Js', Judges: 'Jz', Ruth: 'Rt', '1 Samuel': '1Sm', '2 Samuel': '2Sm',
-  '1 Kings': '1Rs', '2 Kings': '2Rs', '1 Chronicles': '1Cr', '2 Chronicles': '2Cr',
-  Ezra: 'Ez', Nehemiah: 'Ne', Esther: 'Et', Job: 'Jó', Psalms: 'Sl',
-  Proverbs: 'Pv', Ecclesiastes: 'Ec', 'Song of Solomon': 'Ct', Isaiah: 'Is',
-  Jeremiah: 'Jr', Lamentations: 'Lm', Ezekiel: 'Ez', Daniel: 'Dn',
-  Hosea: 'Os', Joel: 'Jl', Amos: 'Am', Obadiah: 'Ob', Jonah: 'Jn',
-  Micah: 'Mq', Nahum: 'Na', Habakkuk: 'Hc', Zephaniah: 'Sf',
-  Haggai: 'Ag', Zechariah: 'Zc', Malachi: 'Ml', Matthew: 'Mt',
-  Mark: 'Mc', Luke: 'Lc', John: 'Jo', Acts: 'At', Romans: 'Rm',
-  '1 Corinthians': '1Co', '2 Corinthians': '2Co', Galatians: 'Gl',
-  Ephesians: 'Ef', Philippians: 'Fp', Colossians: 'Cl', '1 Thessalonians': '1Ts',
-  '2 Thessalonians': '2Ts', '1 Timothy': '1Tm', '2 Timothy': '2Tm',
-  Titus: 'Tt', Philemon: 'Fm', Hebrews: 'Hb', James: 'Tg',
+  Joshua: 'Jos', Judges: 'Jg', Ruth: 'Ru', '1 Samuel': '1Sm', '2 Samuel': '2Sm',
+  '1 Kings': '1Ki', '2 Kings': '2Ki', '1 Chronicles': '1Ch', '2 Chronicles': '2Ch',
+  Ezra: 'Ezr', Nehemiah: 'Ne', Esther: 'Es', Job: 'Jb', Psalms: 'Ps',
+  Proverbs: 'Pr', Ecclesiastes: 'Ec', 'Song of Solomon': 'So', Isaiah: 'Is',
+  Jeremiah: 'Jr', Lamentations: 'La', Ezekiel: 'Eze', Daniel: 'Dn',
+  Hosea: 'Ho', Joel: 'Jl', Amos: 'Am', Obadiah: 'Ob', Jonah: 'Jon',
+  Micah: 'Mic', Nahum: 'Na', Habakkuk: 'Hab', Zephaniah: 'Zp',
+  Haggai: 'Hg', Zechariah: 'Zc', Malachi: 'Ml', Matthew: 'Mt',
+  Mark: 'Mk', Luke: 'Lk', John: 'Jn', Acts: 'Ac', Romans: 'Rm',
+  '1 Corinthians': '1Co', '2 Corinthians': '2Co', Galatians: 'Ga',
+  Ephesians: 'Eph', Philippians: 'Php', Colossians: 'Col', '1 Thessalonians': '1Th',
+  '2 Thessalonians': '2Th', '1 Timothy': '1Ti', '2 Timothy': '2Ti',
+  Titus: 'Tit', Philemon: 'Phm', Hebrews: 'Heb', James: 'Jm',
   '1 Peter': '1Pe', '2 Peter': '2Pe', '1 John': '1Jo', '2 John': '2Jo',
-  '3 John': '3Jo', 'Jude': 'Jd', Revelation: 'Ap'
+  '3 John': '3Jo', Jude: 'Jud', Revelation: 'Rev'
 };
 
 const bookAliases: Record<string, string[]> = {
@@ -77,10 +106,13 @@ const normalizeBookQuery = (value: string) => value
   .replace(/[^a-z0-9]/gi, '')
   .toLowerCase();
 
+const bibleSearchWords = (value: string) => value.toLocaleLowerCase().match(/[a-z0-9]+/g) || [];
+
 export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   availableDisplays,
   selectedDisplay,
   onDisplayChange,
+  onRefreshDisplays,
   projectBible,
   testDisplay,
   isProjecting,
@@ -92,6 +124,9 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
 }) => {
   const [innerTab, setInnerTab] = useState<'bible' | 'songs'>('bible');
   const [mobileBiblePane, setMobileBiblePane] = useState<BibleMobilePane>('books');
+  const [bibleTool, setBibleTool] = useState<BibleTool>('browse');
+  const [projectionSettings, updateProjectionSettings] = useProjectionSettings();
+  const [showBibleSettings, setShowBibleSettings] = useState(false);
 
   // Bible State
   const [allVerses, setAllVerses] = useState<Verse[]>([]);
@@ -100,9 +135,21 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   const [selectedBookName, setSelectedBookName] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
   const [selectedVerseNumbers, setSelectedVerseNumbers] = useState<number[]>([]);
-  const [quickSearch, setQuickSearch] = useState('');
-  const [quickSearchMessage, setQuickSearchMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [quickLookupOpen, setQuickLookupOpen] = useState(false);
+  const [quickLookupStage, setQuickLookupStage] = useState<'book' | 'chapter' | 'verse'>('book');
+  const [quickLookupQuery, setQuickLookupQuery] = useState('');
+  const [quickLookupBook, setQuickLookupBook] = useState<BibleBook | null>(null);
   const [bookFilter, setBookFilter] = useState('');
+  const searchTextRef = useRef<HTMLInputElement>(null);
+  const verseReaderRef = useRef<HTMLDivElement>(null);
+  const [presentedVerses, setPresentedVerses] = useState<Verse[]>([]);
+  const [bibleHistory, setBibleHistory] = useState<BibleReference[]>(() => readBibleReferences('bibleHistory'));
+  const [searchText, setSearchText] = useState('');
+  const [searchMode, setSearchMode] = useState<'exact' | 'all' | 'any'>('all');
+  const [searchTestament, setSearchTestament] = useState<'all' | 'old' | 'new'>('all');
+  const [searchBookId, setSearchBookId] = useState('all');
+  const [searchResults, setSearchResults] = useState<Verse[]>([]);
+  const [searchMessage, setSearchMessage] = useState('');
   const pendingReferenceRef = useRef<{ bookId: number; chapter: number; verseNumbers: number[] } | null>(null);
 
   // Songs State
@@ -164,6 +211,23 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
     return allVerses.filter(verse => verse.book === selectedBookId && verse.chapter === selectedChapter);
   }, [allVerses, selectedBookId, selectedChapter]);
 
+  const quickBookMatches = useMemo(() => {
+    const query = normalizeBookQuery(quickLookupQuery);
+    if (!query) return [];
+    return books.filter(book => [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])]
+      .some(name => normalizeBookQuery(name).startsWith(query))).slice(0, 8);
+  }, [books, quickLookupQuery]);
+
+  const quickLookupChapterCandidates = useMemo(() => {
+    const query = quickLookupQuery.trim();
+    return chapters.filter(chapter => query === '' || String(chapter).startsWith(query));
+  }, [chapters, quickLookupQuery]);
+
+  const quickLookupVerseCandidates = useMemo(() => {
+    const query = quickLookupQuery.trim();
+    return chapterVerses.filter(verse => query === '' || String(verse.verse).startsWith(query));
+  }, [chapterVerses, quickLookupQuery]);
+
   useEffect(() => {
     if (chapters.length === 0) {
       if (selectedChapter !== null) setSelectedChapter(null);
@@ -183,68 +247,299 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
     setSelectedVerseNumbers(chapterVerses.length > 0 ? [chapterVerses[0].verse] : []);
   }, [chapterVerses, selectedBookId, selectedChapter]);
 
-  // Quick Reference Parser
-  const handleQuickSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (allVerses.length === 0) {
-      setQuickSearchMessage({ type: 'error', text: 'Bible data is still loading. Try again in a moment.' });
-      return;
-    }
-    const trimmed = quickSearch.trim();
-    const match = trimmed.match(/^(.+?)\s+(\d+)(?:\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(\d+))?)?$/i);
-    if (!match) {
-      setQuickSearchMessage({ type: 'error', text: 'Enter a reference such as John 3:16, Psalm 23, or Romans 8:28-30.' });
-      return;
-    }
-    const [, bookQuery, chStr, vStartStr, vEndStr] = match;
-    const chapter = parseInt(chStr, 10);
-    const vStart = vStartStr ? parseInt(vStartStr, 10) : null;
-    const vEnd = vEndStr ? parseInt(vEndStr, 10) : vStart;
+  const chooseQuickBook = (book: BibleBook) => {
+    setQuickLookupBook(book);
+    setSelectedBookId(book.id);
+    setSelectedBookName(book.name);
+    setSelectedChapter(null);
+    setSelectedVerseNumbers([]);
+    setQuickLookupStage('chapter');
+    setQuickLookupQuery('');
+  };
 
-    const bookKey = normalizeBookQuery(bookQuery);
-    const foundBook = books.find(book => {
-      const names = [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])];
-      return names.some(name => normalizeBookQuery(name) === bookKey);
-    });
-    if (!foundBook) {
-      setQuickSearchMessage({ type: 'error', text: `Could not find the book "${bookQuery.trim()}" in the KJV Bible.` });
-      return;
-    }
-
-    const inChapter = allVerses.filter(verse => verse.book === foundBook.id && verse.chapter === chapter);
-    if (inChapter.length === 0) {
-      setQuickSearchMessage({ type: 'error', text: `${foundBook.name} does not have a chapter ${chapter}.` });
-      return;
-    }
-    if (vStart !== null && (vStart < 1 || vEnd === null || vEnd < vStart || vEnd > inChapter[inChapter.length - 1].verse)) {
-      setQuickSearchMessage({ type: 'error', text: `That verse range is not valid. ${foundBook.name} ${chapter} has verses 1-${inChapter[inChapter.length - 1].verse}.` });
-      return;
-    }
-
-    const matching = vStart === null
-      ? inChapter
-      : inChapter.filter(verse => verse.verse >= vStart && verse.verse <= (vEnd ?? vStart));
-    const selected = matching.map(verse => verse.verse);
-    const samePassage = selectedBookId === foundBook.id && selectedChapter === chapter;
-    pendingReferenceRef.current = samePassage ? null : { bookId: foundBook.id, chapter, verseNumbers: selected };
-    setSelectedBookId(foundBook.id);
-    setSelectedBookName(foundBook.name);
+  const chooseQuickChapter = (chapter: number) => {
     setSelectedChapter(chapter);
+    setQuickLookupStage('verse');
+    setQuickLookupQuery('');
     setMobileBiblePane('verses');
-    if (samePassage) setSelectedVerseNumbers(selected);
-    setQuickSearchMessage({ type: 'success', text: `${foundBook.name} ${chapter}${vStart === null ? '' : `:${vStart}${vEnd !== null && vEnd !== vStart ? `-${vEnd}` : ''}`} selected. Review the passage, then project when ready.` });
+  };
+
+  const chooseQuickVerse = (verseNumber: number, closeLookup = false, projectVerse = false) => {
+    if (!chapterVerses.some(verse => verse.verse === verseNumber)) return;
+    setSelectedVerseNumbers([verseNumber]);
+    setMobileBiblePane('verses');
+    if (closeLookup && projectVerse) {
+      const verse = chapterVerses.find(item => item.verse === verseNumber);
+      if (verse) presentVerses([verse]);
+    }
+    if (closeLookup) {
+      setQuickLookupOpen(false);
+      setQuickLookupStage('book');
+      setQuickLookupQuery('');
+    }
   };
 
   const currentSelectedVerses = React.useMemo(() => {
     return chapterVerses.filter(v => selectedVerseNumbers.includes(v.verse));
   }, [chapterVerses, selectedVerseNumbers]);
 
-  // Sync projection data
   useEffect(() => {
-    if (currentSelectedVerses.length > 0) {
-      localStorage.setItem('bibleProjectionData', JSON.stringify({ verses: currentSelectedVerses, theme: selectedTheme }));
+    if (!isProjecting || presentedVerses.length === 0) return;
+    const reader = verseReaderRef.current;
+    const activeVerse = reader?.querySelector<HTMLElement>('[data-projected-verse="true"]');
+    if (!reader || !activeVerse) return;
+    const readerRect = reader.getBoundingClientRect();
+    const activeRect = activeVerse.getBoundingClientRect();
+    const top = reader.scrollTop + activeRect.top - readerRect.top - (reader.clientHeight - activeRect.height) / 2;
+    reader.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }, [isProjecting, presentedVerses, selectedBookId, selectedChapter]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bibleHistory', JSON.stringify(bibleHistory));
+  }, [bibleHistory]);
+
+  const navigateToVerses = (verses: Verse[]) => {
+    if (verses.length === 0) return;
+    const first = verses[0];
+    pendingReferenceRef.current = { bookId: first.book, chapter: first.chapter, verseNumbers: verses.map(verse => verse.verse) };
+    setSelectedBookId(first.book);
+    setSelectedBookName(first.book_name);
+    setSelectedChapter(first.chapter);
+    setSelectedVerseNumbers(verses.map(verse => verse.verse));
+    setMobileBiblePane('verses');
+    setBibleTool('browse');
+  };
+
+  const referenceLabel = (verses: Verse[]) => {
+    if (verses.length === 0) return 'No passage selected';
+    const first = verses[0];
+    const last = verses[verses.length - 1];
+    const range = verses.length > 1 ? `:${first.verse}-${last.verse}` : `:${first.verse}`;
+    return `${first.book_name} ${first.chapter}${range}`;
+  };
+
+  const rememberPresentation = (verses: Verse[]) => {
+    if (verses.length === 0) return;
+    const entry: BibleReference = { id: `${Date.now()}-${verses[0].book}-${verses[0].chapter}-${verses[0].verse}`, label: referenceLabel(verses), verses, addedAt: Date.now() };
+    setBibleHistory(previous => [entry, ...previous.filter(item => item.label !== entry.label)].slice(0, 100));
+  };
+
+  const presentVerses = (verses = currentSelectedVerses) => {
+    if (verses.length === 0 || selectedDisplay === null) return;
+    const first = verses[0];
+    const firstIndex = allVerses.findIndex(verse => verse.book === first.book && verse.chapter === first.chapter && verse.verse === first.verse);
+    const sequence = firstIndex >= 0 ? [allVerses[firstIndex]] : [first];
+    pendingReferenceRef.current = { bookId: first.book, chapter: first.chapter, verseNumbers: [first.verse] };
+    setSelectedBookId(first.book);
+    setSelectedBookName(first.book_name);
+    setSelectedChapter(first.chapter);
+    setSelectedVerseNumbers([first.verse]);
+    setMobileBiblePane('verses');
+    setPresentedVerses(sequence);
+    rememberPresentation(sequence);
+    projectBible(sequence);
+  };
+
+  const stepPresentedVerse = (direction: -1 | 1) => {
+    if (presentedVerses.length === 0) return;
+    const firstVerse = presentedVerses[0];
+    const firstIndex = allVerses.findIndex(verse => verse.book === firstVerse.book && verse.chapter === firstVerse.chapter && verse.verse === firstVerse.verse);
+    const nextIndex = firstIndex + direction;
+    if (nextIndex < 0 || nextIndex >= allVerses.length) return;
+    const nextVerse = allVerses[nextIndex];
+    const nextVerses = [nextVerse];
+    pendingReferenceRef.current = { bookId: nextVerse.book, chapter: nextVerse.chapter, verseNumbers: [nextVerse.verse] };
+    setSelectedBookId(nextVerse.book);
+    setSelectedBookName(nextVerse.book_name);
+    setSelectedChapter(nextVerse.chapter);
+    setSelectedVerseNumbers([nextVerse.verse]);
+    setMobileBiblePane('verses');
+    setPresentedVerses(nextVerses);
+    projectBible(nextVerses);
+    rememberPresentation(nextVerses);
+  };
+
+  const searchBible = (event: React.FormEvent) => {
+    event.preventDefault();
+    const terms = [...new Set(bibleSearchWords(searchText.trim()))];
+    if (terms.length === 0) {
+      setSearchResults([]);
+      setSearchMessage('Enter a word or phrase to search the Bible.');
+      return;
     }
-  }, [currentSelectedVerses, selectedTheme]);
+    const phrase = terms.join(' ');
+    const result = allVerses.filter(verse => {
+      if (searchTestament === 'old' && verse.book > 39) return false;
+      if (searchTestament === 'new' && verse.book <= 39) return false;
+      if (searchBookId !== 'all' && verse.book !== Number(searchBookId)) return false;
+      const words = bibleSearchWords(verse.text);
+      if (searchMode === 'exact') return words.join(' ').includes(phrase);
+      const wordSet = new Set(words);
+      return searchMode === 'all' ? terms.every(term => wordSet.has(term)) : terms.some(term => wordSet.has(term));
+    });
+    setSearchResults(result.slice(0, 200));
+    setSearchMessage(result.length > 200 ? `${result.length} matches found. Showing the first 200; narrow your search to see fewer results.` : `${result.length} ${result.length === 1 ? 'verse' : 'verses'} found.`);
+  };
+
+  const bibleKeyboardActionsRef = useRef({ presentVerses, stepPresentedVerse });
+  bibleKeyboardActionsRef.current = { presentVerses, stepPresentedVerse };
+  const quickLookupActionsRef = useRef({ chooseQuickBook, chooseQuickChapter, chooseQuickVerse });
+  quickLookupActionsRef.current = { chooseQuickBook, chooseQuickChapter, chooseQuickVerse };
+
+  useEffect(() => {
+    if (innerTab !== 'bible') return;
+    return window.electronAPI?.onBibleProjectionNavigate?.(direction => {
+      if (isProjecting) bibleKeyboardActionsRef.current.stepPresentedVerse(direction);
+    });
+  }, [innerTab, isProjecting]);
+
+  useEffect(() => {
+    if (innerTab !== 'bible') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const editing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setBibleTool('search');
+        window.setTimeout(() => searchTextRef.current?.focus(), 0);
+        return;
+      }
+      if (quickLookupOpen) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setQuickLookupOpen(false);
+          setQuickLookupStage('book');
+          setQuickLookupQuery('');
+          return;
+        }
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          if (quickLookupQuery) setQuickLookupQuery(query => query.slice(0, -1));
+          else if (quickLookupStage === 'verse') setQuickLookupStage('chapter');
+          else if (quickLookupStage === 'chapter') {
+            setQuickLookupStage('book');
+            setQuickLookupBook(null);
+          }
+          return;
+        }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          event.preventDefault();
+          if (quickLookupStage === 'chapter') {
+            const chapter = Number(quickLookupQuery);
+            if (chapters.includes(chapter)) quickLookupActionsRef.current.chooseQuickChapter(chapter);
+          } else if (quickLookupStage === 'verse' && event.key === 'Enter') {
+            const verse = Number(quickLookupQuery);
+            if (chapterVerses.some(item => item.verse === verse)) quickLookupActionsRef.current.chooseQuickVerse(verse, true, true);
+          } else if (quickLookupStage === 'book') {
+            const query = normalizeBookQuery(quickLookupQuery);
+            const exact = books.find(book => [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])].some(name => normalizeBookQuery(name) === query));
+            if (exact) quickLookupActionsRef.current.chooseQuickBook(exact);
+          }
+          return;
+        }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          const candidates = quickLookupStage === 'book'
+            ? quickBookMatches
+            : quickLookupStage === 'chapter'
+              ? quickLookupChapterCandidates
+              : quickLookupVerseCandidates.map(verse => verse.verse);
+          if (candidates.length > 0) {
+            const current = quickLookupStage === 'book'
+              ? quickBookMatches.findIndex(book => book.id === quickLookupBook?.id)
+              : quickLookupStage === 'chapter'
+                ? quickLookupChapterCandidates.indexOf(selectedChapter ?? -1)
+                : quickLookupVerseCandidates.findIndex(verse => selectedVerseNumbers.includes(verse.verse));
+            const next = (Math.max(0, current) + (event.key === 'ArrowDown' ? 1 : -1) + candidates.length) % candidates.length;
+            if (quickLookupStage === 'book') quickLookupActionsRef.current.chooseQuickBook(quickBookMatches[next]);
+            else if (quickLookupStage === 'chapter') {
+              setSelectedChapter(quickLookupChapterCandidates[next]);
+              setQuickLookupQuery(String(quickLookupChapterCandidates[next]));
+            }
+            else quickLookupActionsRef.current.chooseQuickVerse(quickLookupVerseCandidates[next]);
+          }
+          return;
+        }
+        if (event.key.length === 1 && /^[a-z0-9]$/i.test(event.key)) {
+          event.preventDefault();
+          if (quickLookupStage === 'book') {
+            const query = quickLookupQuery + event.key;
+            setQuickLookupQuery(query);
+            const normalized = normalizeBookQuery(query);
+            const exact = books.find(book => [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])].some(name => normalizeBookQuery(name) === normalized));
+            if (exact) quickLookupActionsRef.current.chooseQuickBook(exact);
+          } else if (/^\d$/.test(event.key)) {
+            const query = quickLookupQuery + event.key;
+            setQuickLookupQuery(query);
+            if (quickLookupStage === 'chapter') {
+              const normalizedQuery = query.replace(/^0+(?=\d)/, '');
+              const exactChapter = chapters.find(chapter => chapter === Number(query));
+              const hasLongerMatch = !query.startsWith('0') && chapters.some(chapter => {
+                const chapterText = String(chapter);
+                return chapterText.startsWith(normalizedQuery) && chapterText.length > normalizedQuery.length;
+              });
+              if (exactChapter !== undefined) {
+                setSelectedChapter(exactChapter);
+                if (query.startsWith('0') || !hasLongerMatch) quickLookupActionsRef.current.chooseQuickChapter(exactChapter);
+              }
+            } else {
+              const normalizedQuery = query.replace(/^0+(?=\d)/, '');
+              const exactVerse = chapterVerses.find(verse => verse.verse === Number(query));
+              const hasLongerMatch = !query.startsWith('0') && chapterVerses.some(verse => {
+                const verseText = String(verse.verse);
+                return verseText.startsWith(normalizedQuery) && verseText.length > normalizedQuery.length;
+              });
+              if (exactVerse) {
+                quickLookupActionsRef.current.chooseQuickVerse(exactVerse.verse, query.startsWith('0') || !hasLongerMatch);
+              } else {
+                const paddedVerse = query.startsWith('0')
+                  ? chapterVerses.find(verse => verse.verse === Number(normalizedQuery))
+                  : undefined;
+                if (paddedVerse) quickLookupActionsRef.current.chooseQuickVerse(paddedVerse.verse);
+                else if (!hasLongerMatch) {
+                  const normalizedVerse = chapterVerses.find(verse => String(verse.verse) === normalizedQuery);
+                  if (normalizedVerse) quickLookupActionsRef.current.chooseQuickVerse(normalizedVerse.verse);
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
+      if (editing) return;
+
+      if (event.key === 'Escape' && isProjecting) {
+        setPresentedVerses([]);
+        onCloseProjection();
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'F5') {
+        if (currentSelectedVerses.length > 0) {
+          event.preventDefault();
+          bibleKeyboardActionsRef.current.presentVerses();
+        }
+        return;
+      }
+      if (isProjecting && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault();
+        bibleKeyboardActionsRef.current.stepPresentedVerse(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1 && /^[a-z0-9]$/i.test(event.key)) {
+        event.preventDefault();
+        setBibleTool('browse');
+        setQuickLookupOpen(true);
+        setQuickLookupStage('book');
+        setQuickLookupBook(null);
+        setQuickLookupQuery(event.key);
+        const normalized = normalizeBookQuery(event.key);
+        const exact = books.find(book => [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])].some(name => normalizeBookQuery(name) === normalized));
+        if (exact) chooseQuickBook(exact);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [books, chapterVerses, chapters, currentSelectedVerses, innerTab, isProjecting, onCloseProjection, presentedVerses, quickBookMatches, quickLookupBook?.id, quickLookupChapterCandidates, quickLookupOpen, quickLookupQuery, quickLookupStage, quickLookupVerseCandidates, selectedChapter, selectedVerseNumbers]);
 
   // Song effects
   useEffect(() => {
@@ -324,76 +619,200 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-gray-900 text-white">
-      {/* Top Header & Inner Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-800 border-b border-gray-700">
-        <div className="flex items-center space-x-3">
-          <div className="flex bg-gray-900 p-1 rounded-xl border border-gray-700">
-            <button
-              onClick={() => setInnerTab('bible')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                innerTab === 'bible' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <BookOpen size={16} />
-              <span>Bible</span>
-            </button>
-            <button
-              onClick={() => setInnerTab('songs')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                innerTab === 'songs' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Music size={16} />
-              <span>Songs</span>
-            </button>
-          </div>
+      {innerTab === 'songs' && (
+        <div className="flex min-h-10 items-center justify-between gap-2 border-b border-gray-700 bg-gray-800 px-2 py-1">
+          <button type="button" onClick={() => setInnerTab('bible')} className="inline-flex min-h-8 items-center gap-1.5 rounded px-3 text-xs font-bold text-gray-200 hover:bg-gray-700"><BookOpen size={14} /> Bible</button>
+          <span className="text-xs font-semibold text-gray-400">Songs</span>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={selectedDisplay === null ? '' : selectedDisplay}
-            onChange={e => onDisplayChange(Number(e.target.value))}
-            className="px-3 py-2 bg-gray-900 text-white border border-gray-700 rounded-lg text-xs font-bold"
-          >
-            <option value="" disabled>Choose Screen...</option>
-            {availableDisplays.map(d => (
-              <option key={d.id} value={d.id}>{d.label}</option>
-            ))}
-          </select>
-          <span className="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs font-bold text-gray-300">KJV</span>
-        </div>
-      </div>
+      )}
 
       {/* Bible Tab Content */}
       {innerTab === 'bible' && (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          {/* Quick Passage Search Bar */}
-          <form onSubmit={handleQuickSearchSubmit} className="flex flex-col gap-2 border-b border-gray-700 bg-gray-800/60 p-3 sm:flex-row sm:items-center sm:gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input
-                type="text"
-                value={quickSearch}
-                onChange={e => { setQuickSearch(e.target.value); setQuickSearchMessage(null); }}
-                aria-label="Search a Bible passage"
-                placeholder="Find passage, e.g. John 3:16 or Ps 23"
-                className="w-full rounded-lg border border-gray-700 bg-gray-900 py-3 pl-9 pr-4 text-sm font-semibold text-white outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <nav className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-gray-700 bg-gray-900 px-2 py-1" aria-label="Bible tools">
+            {([
+              ['browse', BookOpen, 'Bible'],
+              ['search', Search, 'Search'],
+              ['history', History, `History${bibleHistory.length ? ` · ${bibleHistory.length}` : ''}`],
+            ] as const).map(([tool, Icon, label]) => (
+              <button key={tool} type="button" onClick={() => setBibleTool(tool)} aria-pressed={bibleTool === tool} className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded px-2.5 text-xs font-bold transition-colors ${bibleTool === tool ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setInnerTab('songs')} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded px-2.5 text-xs font-bold text-gray-400 hover:bg-gray-800 hover:text-white"><Music size={14} /> Songs</button>
+            <button type="button" onClick={() => setShowBibleSettings(true)} title="Bible projection settings" aria-label="Bible projection settings" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700"><Settings2 size={14} /></button>
+            <span className="ml-auto hidden items-center gap-1 whitespace-nowrap px-2 text-[10px] text-gray-500 xl:inline-flex"><Keyboard size={12} /> Type to jump</span>
+            <select value={availableDisplays.some(display => display.id === selectedDisplay) ? selectedDisplay ?? '' : ''} onChange={event => onDisplayChange(Number(event.target.value))} aria-label="Projection display" className="min-h-8 max-w-36 shrink-0 rounded border border-gray-700 bg-gray-900 px-2 text-[10px] font-bold text-gray-200">
+              <option value="" disabled>{availableDisplays.length ? 'Choose screen' : window.electronAPI?.getDisplays ? 'No displays found' : 'Desktop app required'}</option>
+              {availableDisplays.map(display => <option key={display.id} value={display.id}>{display.label}</option>)}
+            </select>
+            <button type="button" onClick={onRefreshDisplays} disabled={!window.electronAPI?.getDisplays} title="Refresh display list" aria-label="Refresh display list" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40"><RefreshCw size={13} /></button>
+            {testDisplay && <button type="button" onClick={testDisplay} disabled={selectedDisplay === null || !window.electronAPI?.testDisplay} title="Test selected display" aria-label="Test selected display" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40"><Play size={13} /></button>}
+            <span className="shrink-0 px-1 text-[10px] font-bold text-gray-400">KJV</span>
+          </nav>
+
+          {quickLookupOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) { setQuickLookupOpen(false); setQuickLookupStage('book'); setQuickLookupQuery(''); } }}>
+              <section role="dialog" aria-modal="true" aria-label="Quick Bible passage lookup" className="relative w-full max-w-2xl overflow-hidden border border-slate-600 bg-slate-950 text-center text-slate-100 shadow-2xl shadow-black/60">
+                <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-5 py-3">
+                  <div className="flex items-center gap-2 text-left">
+                    <BookOpen size={16} className="text-cyan-300" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Quick Bible lookup</span>
+                  </div>
+                  <button type="button" onClick={() => { setQuickLookupOpen(false); setQuickLookupStage('book'); setQuickLookupQuery(''); }} className="text-xs text-slate-400 hover:text-white">Esc to cancel</button>
+                </header>
+                <div className="grid grid-cols-3 divide-x divide-slate-800">
+                  <section aria-label="Book selection" className={`min-w-0 px-3 py-5 sm:px-5 ${quickLookupStage === 'book' ? 'bg-slate-800/70' : ''}`}>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Book</p>
+                    <h2 className={`min-h-8 break-words text-xl font-semibold sm:text-2xl ${quickLookupStage === 'book' ? 'text-cyan-200' : 'text-white'}`}>{quickLookupBook?.name || (quickLookupStage === 'book' ? quickLookupQuery : '')}</h2>
+                    {quickLookupStage === 'book' && (
+                      quickBookMatches.length > 0
+                        ? <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                            {quickBookMatches.map(book => <button key={book.id} type="button" onClick={() => chooseQuickBook(book)} className={`rounded border px-2 py-1 text-[11px] transition-colors ${quickLookupBook?.id === book.id ? 'border-cyan-400 bg-cyan-400/15 text-cyan-100' : 'border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-800'}`}>{book.name}{bookAbbreviation[book.name] ? ` (${bookAbbreviation[book.name]})` : ''}</button>)}
+                          </div>
+                        : quickLookupQuery && <p className="mt-3 text-xs text-rose-300">No books found</p>
+                    )}
+                  </section>
+                  <section aria-label="Chapter selection" className={`min-w-0 px-3 py-5 sm:px-5 ${quickLookupStage === 'chapter' ? 'bg-slate-800/70' : ''}`}>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Chapter</p>
+                    <h2 className={`min-h-8 text-xl font-semibold sm:text-2xl ${quickLookupStage === 'chapter' ? 'text-cyan-200' : 'text-white'}`}>{quickLookupStage === 'chapter' ? quickLookupQuery : selectedChapter || ''}</h2>
+                    {quickLookupBook && <p className="mt-1 text-xs text-slate-400">Chapters: {chapters.length}</p>}
+                    {quickLookupStage === 'chapter' && quickLookupQuery && quickLookupChapterCandidates.length > 0 && <div className="mt-3 flex flex-wrap justify-center gap-1">{quickLookupChapterCandidates.slice(0, 20).map(chapter => <button key={chapter} type="button" onClick={() => chooseQuickChapter(chapter)} className={`min-w-7 rounded px-1.5 py-1 text-xs ${selectedChapter === chapter ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-700'}`}>{chapter}</button>)}</div>}
+                    {quickLookupStage === 'chapter' && quickLookupQuery && quickLookupChapterCandidates.length === 0 && <p className="mt-3 text-xs text-rose-300">No chapters found</p>}
+                  </section>
+                  <section aria-label="Verse selection" className={`min-w-0 px-3 py-5 sm:px-5 ${quickLookupStage === 'verse' ? 'bg-slate-800/70' : ''}`}>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Verse</p>
+                    <h2 className={`min-h-8 text-xl font-semibold sm:text-2xl ${quickLookupStage === 'verse' ? 'text-cyan-200' : 'text-white'}`}>{quickLookupStage === 'verse' ? quickLookupQuery : ''}</h2>
+                    {selectedChapter && <p className="mt-1 text-xs text-slate-400">Verses: {chapterVerses.length}</p>}
+                    {quickLookupStage === 'verse' && quickLookupQuery && quickLookupVerseCandidates.length > 0 && <div className="mt-3 flex flex-wrap justify-center gap-1">{quickLookupVerseCandidates.slice(0, 20).map(verse => <button key={verse.verse} type="button" onClick={() => quickLookupActionsRef.current.chooseQuickVerse(verse.verse)} className={`min-w-7 rounded px-1.5 py-1 text-xs ${selectedVerseNumbers.includes(verse.verse) ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-700'}`}>{verse.verse}</button>)}</div>}
+                    {quickLookupStage === 'verse' && quickLookupQuery && quickLookupVerseCandidates.length === 0 && !quickLookupQuery.startsWith('0') && <p className="mt-3 text-xs text-rose-300">No verses found</p>}
+                  </section>
+                </div>
+                <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-900/80 px-5 py-3 text-[10px] text-slate-500">
+                  <span>{quickLookupStage === 'book' ? 'Type book name or abbreviation' : quickLookupStage === 'chapter' ? 'Enter or Tab to choose chapter' : 'Enter to show selected verse'}</span>
+                  <span className="font-mono text-slate-400">↑ ↓ Select · Enter Continue</span>
+                </footer>
+              </section>
             </div>
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-500"
-            >
-              <Search size={16} /> Go to passage
-            </button>
-          </form>
-          {quickSearchMessage && (
-            <p role={quickSearchMessage.type === 'error' ? 'alert' : 'status'} className={`border-b px-3 py-2 text-xs ${quickSearchMessage.type === 'error' ? 'border-red-900 bg-red-950/40 text-red-200' : 'border-emerald-900 bg-emerald-950/30 text-emerald-200'}`}>
-              {quickSearchMessage.text}
-            </p>
           )}
 
-          <nav className="grid grid-cols-3 gap-1 border-b border-gray-700 bg-gray-900 p-2 md:hidden" aria-label="Bible navigation">
+          {showBibleSettings && (
+            <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-[2px]" onMouseDown={event => { if (event.target === event.currentTarget) setShowBibleSettings(false); }}>
+              <ProjectionSettingsPanel settings={projectionSettings} onChange={updateProjectionSettings} onClose={() => setShowBibleSettings(false)} />
+            </div>
+          )}
+
+          {bibleTool === 'search' ? (
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden" aria-label="Search Bible text">
+              <form onSubmit={searchBible} className="grid shrink-0 gap-2 border-b border-gray-700 bg-gray-800/50 p-3 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_auto]">
+                <input ref={searchTextRef} type="search" value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Search words or an exact phrase" aria-label="Search Bible text" className="min-h-11 rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-blue-500" />
+                <select value={searchMode} onChange={event => setSearchMode(event.target.value as 'exact' | 'all' | 'any')} aria-label="Search matching mode" className="min-h-11 rounded-lg border border-gray-700 bg-gray-900 px-3 text-xs font-semibold text-white">
+                  <option value="exact">Exact phrase</option><option value="all">All words</option><option value="any">Any word</option>
+                </select>
+                <select value={searchTestament} onChange={event => setSearchTestament(event.target.value as 'all' | 'old' | 'new')} aria-label="Filter testament" className="min-h-11 rounded-lg border border-gray-700 bg-gray-900 px-3 text-xs font-semibold text-white">
+                  <option value="all">Whole Bible</option><option value="old">Old Testament</option><option value="new">New Testament</option>
+                </select>
+                <select value={searchBookId} onChange={event => setSearchBookId(event.target.value)} aria-label="Filter book" className="min-h-11 rounded-lg border border-gray-700 bg-gray-900 px-3 text-xs font-semibold text-white">
+                  <option value="all">All books</option>{books.map(book => <option key={book.id} value={book.id}>{book.name}</option>)}
+                </select>
+                <button type="submit" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-500 sm:col-span-4 sm:justify-self-end"><Search size={15} /> Search verses</button>
+              </form>
+              {searchMessage && <p role="status" className="shrink-0 border-b border-gray-700 px-3 py-2 text-xs text-gray-400">{searchMessage}</p>}
+              <div className="min-h-0 flex-1 divide-y divide-gray-800 overflow-y-auto">
+                {searchResults.map(verse => (
+                  <button key={`${verse.book}-${verse.chapter}-${verse.verse}`} type="button" onClick={() => navigateToVerses([verse])} onDoubleClick={() => { navigateToVerses([verse]); presentVerses([verse]); }} className="w-full px-4 py-3 text-left hover:bg-gray-800/70">
+                    <span className="mr-2 text-xs font-black text-blue-400">{verse.book_name} {verse.chapter}:{verse.verse}</span><span className="font-serif text-sm leading-relaxed text-gray-200">{verse.text}</span>
+                  </button>
+                ))}
+                {searchResults.length === 0 && <p className="p-6 text-center text-sm text-gray-500">Search across the KJV Bible. Double-click a result to show it.</p>}
+              </div>
+            </section>
+          ) : bibleTool === 'history' ? (
+            <section className="min-h-0 flex-1 overflow-y-auto p-3" aria-label="Bible presentation history">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-white">Presented this session</h2>
+                {bibleHistory.length > 0 && <button type="button" onClick={() => setBibleHistory([])} className="rounded px-2 py-1 text-xs font-semibold text-gray-400 hover:bg-gray-800">Clear all</button>}
+              </div>
+              <div className="space-y-1.5">
+                {bibleHistory.map(reference => (
+                  <div key={reference.id} className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800/60 p-2">
+                    <button type="button" onClick={() => navigateToVerses(reference.verses)} onDoubleClick={() => { navigateToVerses(reference.verses); presentVerses(reference.verses); }} className="min-h-11 min-w-0 flex-1 px-2 text-left">
+                      <span className="block text-sm font-bold text-white">{reference.label}</span>
+                      <span className="mt-0.5 block truncate text-xs text-gray-400">{reference.verses.map(verse => verse.text).join(' ')}</span>
+                    </button>
+                    <button type="button" onClick={() => presentVerses(reference.verses)} title={`Show ${reference.label}`} aria-label={`Show ${reference.label}`} className="rounded-lg bg-green-700 p-2.5 text-white hover:bg-green-600"><Play size={15} /></button>
+                  </div>
+                ))}
+              </div>
+              {bibleHistory.length === 0 && <p className="rounded-lg border border-dashed border-gray-700 px-4 py-8 text-center text-sm text-gray-500">Presented Bible passages will appear here for this session.</p>}
+            </section>
+          ) : (
+          <>
+              <div className={`hidden min-h-0 flex-1 grid-cols-[minmax(190px,0.22fr)_minmax(0,0.78fr)] grid-rows-[minmax(0,1.2fr)_minmax(0,0.8fr)] overflow-hidden ${bibleTool === 'browse' ? 'md:grid' : 'md:hidden'}`}>
+                <section className="col-start-1 row-span-2 flex min-h-0 flex-col border-r border-gray-700 bg-gray-900/80" aria-label="Selected chapter verses">
+                  <div className="flex items-center justify-between gap-2 border-b border-gray-800 px-2 py-2">
+                    <h3 className="truncate text-sm font-bold text-white">{selectedBookName} {selectedChapter}</h3>
+                    <span className="shrink-0 text-xs text-gray-400">{chapterVerses.length}</span>
+                  </div>
+                  <div ref={verseReaderRef} className="min-h-0 flex-1 overflow-y-auto divide-y divide-gray-800 custom-scrollbar">
+                    {chapterVerses.map(verse => {
+                      const selected = selectedVerseNumbers.includes(verse.verse);
+                      const onScreen = isProjecting && presentedVerses.some(item => item.book === verse.book && item.chapter === verse.chapter && item.verse === verse.verse);
+                      return <button key={verse.verse} type="button" data-projected-verse={onScreen ? 'true' : undefined} onClick={() => toggleVerseSelection(verse.verse)} onDoubleClick={() => presentVerses([verse])} aria-pressed={selected} className={`w-full px-3 py-2.5 text-left text-sm leading-relaxed ${onScreen ? 'bg-emerald-800/70 text-white ring-1 ring-inset ring-emerald-400' : selected ? 'bg-blue-950/60 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><span className={`mr-1.5 font-black ${onScreen ? 'text-emerald-200' : 'text-blue-400'}`}>{verse.verse}</span>{verse.text}</button>;
+                    })}
+                  </div>
+                </section>
+
+                <section className="col-start-2 row-start-1 flex min-h-0 flex-col overflow-hidden border-b border-gray-700 bg-gray-900/70" aria-label="Bible books">
+                  <div className="flex min-h-8 items-center gap-2 border-b border-gray-800 px-2">
+                    <h3 className="shrink-0 text-xs font-black uppercase tracking-widest text-gray-300">Books</h3>
+                    <input type="search" value={bookFilter} onChange={event => setBookFilter(event.target.value)} aria-label="Filter Bible books" placeholder="Filter books" className="min-h-7 min-w-0 flex-1 border-0 bg-transparent px-1 text-sm text-white outline-none placeholder:text-gray-400 focus:ring-0" />
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-hidden p-1.5">
+                    <div className="grid h-full grid-cols-11 grid-rows-6 gap-px">
+                      {books.filter(book => book.name.toLowerCase().includes(bookFilter.trim().toLowerCase())).map(book => {
+                        const selected = selectedBookId === book.id;
+                        const color = bookSectionColor.get(book.name) || 'bg-gray-700';
+                        return (
+                          <button key={book.id} type="button" onClick={() => { setSelectedBookId(book.id); setSelectedBookName(book.name); }} aria-pressed={selected} title={book.name} className={`flex h-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden border border-white/10 px-0.5 text-center text-white transition-colors ${color} ${selected ? 'z-10 ring-2 ring-white' : 'opacity-85 hover:opacity-100'}`}>
+                            <span className="text-base font-semibold leading-none">{bookAbbreviation[book.name] || book.name.slice(0, 3)}</span>
+                            <span className="mt-1 w-full truncate text-[10px] leading-none">{book.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {books.filter(book => book.name.toLowerCase().includes(bookFilter.trim().toLowerCase())).length === 0 && <p className="p-4 text-center text-xs text-gray-500">No books match that filter.</p>}
+                  </div>
+                </section>
+
+                <div className="col-start-2 row-start-2 grid min-h-0 grid-cols-2 overflow-hidden">
+                <section className="flex min-h-0 flex-col overflow-hidden border-r border-gray-700 bg-gray-900/60" aria-label="Bible chapters">
+                  <h3 className="border-b border-gray-800 px-2 py-2 text-xs font-black uppercase tracking-widest text-gray-300">Chapters · {chapters.length}</h3>
+                  <div className="min-h-0 flex-1 overflow-hidden p-2">
+                    <div className="grid h-full gap-1" style={{ gridTemplateColumns: `repeat(${numberGridColumns(chapters.length)}, minmax(0, 1fr))`, gridAutoRows: 'minmax(0, 1fr)' }}>
+                      {chapters.map(chapter => <button key={chapter} type="button" onClick={() => setSelectedChapter(chapter)} aria-pressed={selectedChapter === chapter} className={`h-full min-h-0 rounded text-sm font-bold ${selectedChapter === chapter ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'}`}>{chapter}</button>)}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="flex min-h-0 flex-col overflow-hidden bg-gray-900" aria-label="Bible verse numbers">
+                  <div className="flex items-center justify-between gap-2 border-b border-gray-800 px-2 py-2">
+                    <h3 className="truncate text-xs font-black uppercase tracking-widest text-gray-300">Verses · {chapterVerses.length}</h3>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-hidden p-2">
+                    <div className="grid h-full gap-1" style={{ gridTemplateColumns: `repeat(${numberGridColumns(chapterVerses.length)}, minmax(0, 1fr))`, gridAutoRows: 'minmax(0, 1fr)' }}>
+                      {chapterVerses.map(verse => {
+                        const selected = selectedVerseNumbers.includes(verse.verse);
+                        const onScreen = isProjecting && presentedVerses.some(item => item.book === verse.book && item.chapter === verse.chapter && item.verse === verse.verse);
+                        return <button key={verse.verse} type="button" data-projected-verse={onScreen ? 'true' : undefined} onClick={() => toggleVerseSelection(verse.verse)} onDoubleClick={() => presentVerses([verse])} aria-pressed={selected} aria-label={`Verse ${verse.verse}`} className={`h-full min-h-0 rounded text-sm font-bold ${onScreen ? 'bg-emerald-700 text-white ring-1 ring-emerald-300' : selected ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'}`}>{verse.verse}</button>;
+                      })}
+                    </div>
+                  </div>
+                </section>
+                </div>
+              </div>
+
+          <nav className={`grid grid-cols-3 gap-1 border-b border-gray-700 bg-gray-900 p-2 md:hidden ${bibleTool === 'browse' ? '' : 'hidden'}`} aria-label="Bible navigation">
             {([
               ['books', 'Books', selectedBookName || 'Browse'],
               ['chapters', 'Chapters', selectedChapter ? `${chapters.length} available` : 'Choose a book'],
@@ -413,8 +832,8 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
             ))}
           </nav>
 
-          {/* Main 3-Column Bible Workspace */}
-          <div className="grid grid-cols-1 md:grid-cols-12 flex-1 min-h-0 overflow-hidden">
+          {/* Mobile Bible browser */}
+          <div className="grid grid-cols-1 md:hidden flex-1 min-h-0 overflow-hidden">
             {/* Column 1: Books (3 cols) */}
             <div className={`${mobileBiblePane === 'books' ? 'flex' : 'hidden'} md:col-span-3 md:flex flex-col border-r border-gray-700 bg-gray-900/90 min-h-0`}>
               <div className="p-3 border-b border-gray-800">
@@ -480,12 +899,6 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                 </div>
                 <div className="flex shrink-0 gap-1.5">
                   <button
-                    onClick={() => setSelectedVerseNumbers(chapterVerses.map(v => v.verse))}
-                    className="min-h-9 rounded bg-gray-800 px-2.5 py-1 text-[11px] font-bold text-blue-400 hover:bg-gray-700"
-                  >
-                    Select All
-                  </button>
-                  <button
                     onClick={() => setSelectedVerseNumbers([])}
                     className="min-h-9 rounded bg-gray-800 px-2.5 py-1 text-[11px] font-bold text-gray-400 hover:bg-gray-700"
                   >
@@ -522,24 +935,9 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
               </div>
             </div>
           </div>
+          </>
+          )}
 
-          <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-gray-700 bg-gray-900/95 px-3 py-2.5 backdrop-blur sm:px-4">
-            <div className="min-w-0 text-xs text-gray-400">
-              <span className="font-bold text-white">{selectedVerseNumbers.length} selected</span>
-              <span className="hidden sm:inline"> · {selectedBookName} {selectedChapter}</span>
-              {selectedDisplay === null && <span className="block text-amber-300 sm:inline sm:ml-2">Choose a screen above to project</span>}
-            </div>
-            <div className="flex shrink-0 gap-2">
-              {testDisplay && (
-                <button type="button" onClick={testDisplay} disabled={selectedDisplay === null} className="min-h-10 rounded-lg bg-gray-800 px-3 text-xs font-bold text-gray-200 hover:bg-gray-700 disabled:opacity-40">Test</button>
-              )}
-              {isProjecting ? (
-                <button type="button" onClick={onCloseProjection} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-500"><Square size={14} /> Stop projection</button>
-              ) : (
-                <button type="button" onClick={() => projectBible(currentSelectedVerses)} disabled={currentSelectedVerses.length === 0 || selectedDisplay === null} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-40"><Play size={15} /> Project selected</button>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
@@ -656,7 +1054,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
 
               <div className="flex flex-wrap gap-3 border-t border-gray-700 pt-5">
                 {isProjecting ? (
-                  <button type="button" onClick={onCloseProjection} className="inline-flex items-center gap-2 bg-red-700 px-5 py-3 font-bold text-white hover:bg-red-600 rounded-xl"><Square size={16} /> Stop Projection</button>
+                  <button type="button" onClick={() => { setPresentedVerses([]); onCloseProjection(); }} className="inline-flex items-center gap-2 bg-red-700 px-5 py-3 font-bold text-white hover:bg-red-600 rounded-xl"><Square size={16} /> Stop Projection</button>
                 ) : (
                   <button type="button" disabled={!currentSongSlide || selectedDisplay === null} onClick={() => onProjectSong(songTitle, currentSongSlide)} className="inline-flex items-center gap-2 bg-green-700 px-5 py-3 font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-40 rounded-xl"><Play size={16} /> Project Current Slide</button>
                 )}

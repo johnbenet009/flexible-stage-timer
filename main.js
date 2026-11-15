@@ -163,21 +163,25 @@ app.on('ready', () => {
         const audioOnlyRequest = Array.isArray(details?.mediaTypes)
             && details.mediaTypes.includes('audio')
             && !details.mediaTypes.includes('video');
-        callback(permission === 'media' && audioOnlyRequest && requestingLocalApp);
+        const videoOnlyRequest = Array.isArray(details?.mediaTypes)
+            && details.mediaTypes.includes('video')
+            && !details.mediaTypes.includes('audio');
+        callback(permission === 'media' && requestingLocalApp && (audioOnlyRequest || videoOnlyRequest));
     });
 
     session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
         const audioOnlyRequest = details?.mediaType === 'audio';
-        return permission === 'media' && audioOnlyRequest && requestingOrigin.startsWith('file://');
+        const videoOnlyRequest = details?.mediaType === 'video';
+        return permission === 'media' && (audioOnlyRequest || videoOnlyRequest) && requestingOrigin.startsWith('file://');
     });
     
     // Keep both the computer and display awake while Stage Timer is open.
     keepAwakeBlockerId = powerSaveBlocker.start('prevent-display-sleep');
 
     mainWindow = new BrowserWindow({
-        width: 1050,
+        width: 1360,
         height: 900,
-        minWidth: 1050,
+        minWidth: 1180,
         minHeight: 600,
         title: `Stage Timer - v${app.getVersion()}`,
         backgroundColor: '#111827',
@@ -246,8 +250,9 @@ app.on('activate', () => {
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
-        width: 1050,
+        width: 1360,
         height: 900,
+        minWidth: 1180,
         title: `Stage Timer - v${app.getVersion()}`,
         webPreferences: {
             nodeIntegration: false,
@@ -1200,6 +1205,7 @@ function createTimerWindow(display, windowId) {
     }));
     
     // Store the window reference
+    timerWindow.displayId = display.id;
     timerWindows.set(windowId, timerWindow);
     
     // Clean up when window is closed
@@ -1211,6 +1217,7 @@ function createTimerWindow(display, windowId) {
 }
 
 function openTimerWindow(display) {
+    closeDisplayModules(display.id, 'timer');
     if (secondWindow) {
         secondWindow.close();
     }
@@ -1435,7 +1442,7 @@ ipcMain.on('open-advanced-multiscreen', () => {
     showAdvancedMultiScreenModal();
 });
 
-ipcMain.handle('get-displays', () => {
+const getAvailableDisplayList = () => {
     const displays = screen.getAllDisplays();
     const primaryDisplay = screen.getPrimaryDisplay();
     return displays.map((display, idx) => ({
@@ -1446,6 +1453,23 @@ ipcMain.handle('get-displays', () => {
         isUsedByMainTimer: display.id === secondWindowDisplayId,
         isUsedByOverlay: display.id === overlayWindowDisplayId
     }));
+};
+
+const notifyDisplaysChanged = () => {
+    const displays = getAvailableDisplayList();
+    BrowserWindow.getAllWindows().forEach(window => {
+        if (!window.isDestroyed()) window.webContents.send('displays-changed', displays);
+    });
+};
+
+app.whenReady().then(() => {
+    screen.on('display-added', notifyDisplaysChanged);
+    screen.on('display-removed', notifyDisplaysChanged);
+    screen.on('display-metrics-changed', notifyDisplaysChanged);
+});
+
+ipcMain.handle('get-displays', () => {
+    return getAvailableDisplayList();
 });
 
 ipcMain.handle('check-internet-connection', async () => {
@@ -1753,6 +1777,7 @@ ipcMain.handle('analyze-church-transcript', async (event, request) => {
 ipcMain.on('open-green-screen-timer', (event, displayId) => {
     const displays = screen.getAllDisplays();
     const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+    closeDisplayModules(targetDisplay.id, 'overlay');
 
     if (greenScreenWindow) {
         greenScreenWindow.close();
@@ -1796,9 +1821,24 @@ ipcMain.on('open-green-screen-timer', (event, displayId) => {
 // Bible projection window support
 let bibleWindow = null;
 let bibleWindowDisplayId = null;
+function closeDisplayModules(displayId, except = null) {
+    if (except !== 'bible' && bibleWindow && bibleWindowDisplayId === displayId) bibleWindow.close();
+    if (except !== 'timer') {
+        if (secondWindow && secondWindowDisplayId === displayId) secondWindow.close();
+        for (const [windowId, timerWindow] of timerWindows) {
+            if (timerWindow && !timerWindow.isDestroyed() && timerWindow.displayId === displayId) {
+                timerWindow.close();
+                timerWindows.delete(windowId);
+            }
+        }
+    }
+    if (except !== 'overlay' && greenScreenWindow && overlayWindowDisplayId === displayId) greenScreenWindow.close();
+}
+
 ipcMain.on('open-bible-projection', (event, displayId) => {
     const displays = screen.getAllDisplays();
     const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+    closeDisplayModules(targetDisplay.id, 'bible');
 
     if (bibleWindow) {
         if (bibleWindowDisplayId !== targetDisplay.id) {
@@ -1848,6 +1888,9 @@ ipcMain.on('open-bible-projection', (event, displayId) => {
     bibleWindow.on('closed', () => {
         bibleWindow = null;
         bibleWindowDisplayId = null;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('bible-projection-closed');
+        }
     });
 });
 
@@ -1858,9 +1901,16 @@ ipcMain.on('close-bible-projection', () => {
     bibleWindowDisplayId = null;
 });
 
+ipcMain.on('navigate-bible-projection', (event, direction) => {
+    if (!bibleWindow || bibleWindow.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
+    if (direction !== -1 && direction !== 1) return;
+    mainWindow.webContents.send('bible-projection-navigate', direction);
+});
+
 ipcMain.on('open-timer-display', (event, displayId) => {
     const displays = screen.getAllDisplays();
     const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+    closeDisplayModules(targetDisplay.id, 'timer');
 
     if (secondWindow) {
         secondWindow.close();

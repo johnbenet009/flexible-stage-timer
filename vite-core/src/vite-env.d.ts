@@ -5,6 +5,7 @@ interface Window {
 		clearCache?: () => Promise<void>;
 		openAdvancedMultiScreen?: () => void;
 		getDisplays?: () => Promise<Array<{ id: number; label: string; isPrimary: boolean; isUsedByMainTimer: boolean; isUsedByOverlay: boolean }>>;
+		onDisplaysChanged?: (callback: (displays: Array<{ id: number; label: string; isPrimary: boolean; isUsedByMainTimer: boolean; isUsedByOverlay: boolean }>) => void) => () => void;
 		checkInternetConnection?: () => Promise<{ online: boolean; checkedAt: number; checks?: Array<{ endpoint: string; online: boolean; status?: number; error?: string }> }>;
 		startChromeSpeechRecognition?: (request: { language: string; deviceLabel: string }) => Promise<{ selectedDevice: string; customTrack: boolean }>;
 		stopChromeSpeechRecognition?: () => Promise<{ ok: boolean }>;
@@ -14,6 +15,9 @@ interface Window {
 		closeGreenScreenTimer?: () => void;
 		openBibleProjection?: (displayId: number) => void;
 		closeBibleProjection?: () => void;
+		navigateBibleProjection?: (direction: -1 | 1) => void;
+		onBibleProjectionNavigate?: (callback: (direction: -1 | 1) => void) => () => void;
+		onBibleProjectionClosed?: (callback: () => void) => () => void;
 		windowMinimize?: () => void;
 		windowToggleMaximize?: () => void;
 		windowClose?: () => void;

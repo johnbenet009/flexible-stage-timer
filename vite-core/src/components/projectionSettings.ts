@@ -1,37 +1,63 @@
 import { useEffect, useState } from 'react';
 
 export interface ProjectionSettings {
+  backgroundType: 'color' | 'image' | 'video' | 'camera';
   fontFamily: 'serif' | 'sans' | 'mono';
   fontScale: number;
   bold: boolean;
   italic: boolean;
   uppercase: boolean;
+  lowercase: boolean;
   textColor: string;
   bgColor: string;
   bgImage: string;
+  bgVideo: string;
+  cameraDeviceId: string;
   bgDim: number;
-  position: 'top' | 'center' | 'bottom';
+  position: 'top' | 'center' | 'bottom' | 'left' | 'right';
   align: 'left' | 'center';
+  outlineSize: number;
+  outlineColor: string;
+  shadowColor: string;
+  shadowSize: number;
+  shadowDirection: number;
+  referencePosition: 'top-full' | 'top-center' | 'top-left' | 'top-right' | 'bottom-full' | 'bottom-center' | 'bottom-left' | 'bottom-right';
+  referenceBackground: 'none' | 'color';
+  referenceBgColor: string;
   showVerseNumbers: boolean;
   showReference: boolean;
+  showBookName: boolean;
   textShadow: boolean;
   lineSpacing: number;
 }
 
 export const DEFAULT_PROJECTION_SETTINGS: ProjectionSettings = {
+  backgroundType: 'color',
   fontFamily: 'sans',
   fontScale: 100,
   bold: true,
   italic: false,
   uppercase: false,
+  lowercase: false,
   textColor: '#ffffff',
   bgColor: '#000000',
   bgImage: '',
+  bgVideo: '',
+  cameraDeviceId: '',
   bgDim: 45,
   position: 'center',
   align: 'center',
+  outlineSize: 0,
+  outlineColor: '#000000',
+  shadowColor: '#000000',
+  shadowSize: 8,
+  shadowDirection: 135,
+  referencePosition: 'top-center',
+  referenceBackground: 'none',
+  referenceBgColor: '#000000',
   showVerseNumbers: true,
   showReference: true,
+  showBookName: true,
   textShadow: true,
   lineSpacing: 1.25,
 };
@@ -41,7 +67,14 @@ export const PROJECTION_SETTINGS_KEY = 'bibleScreenSettings';
 export function loadProjectionSettings(): ProjectionSettings {
   try {
     const raw = localStorage.getItem(PROJECTION_SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_PROJECTION_SETTINGS, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw);
+      return {
+        ...DEFAULT_PROJECTION_SETTINGS,
+        ...saved,
+        backgroundType: saved.backgroundType || (saved.bgImage ? 'image' : 'color'),
+      };
+    }
   } catch { /* corrupt settings */ }
   return DEFAULT_PROJECTION_SETTINGS;
 }

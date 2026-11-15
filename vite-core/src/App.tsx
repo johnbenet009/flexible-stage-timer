@@ -5,7 +5,7 @@ import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic, SkipForward, Radio } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic, SkipForward, Radio, GripVertical } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { BibleSongsTab, Verse } from './components/BibleSongsTab';
 import { NextProgramNotification } from './components/NextProgramNotification';
@@ -170,8 +170,31 @@ function App() {
 
   const [isBibleProjected, setIsBibleProjected] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs' | 'transcribe'>('main');
+  useEffect(() => window.electronAPI?.onBibleProjectionClosed?.(() => {
+    localStorage.setItem('activeProjection', 'none');
+    setIsBibleProjected(false);
+  }), []);
+
+  const [navigationOrder, setNavigationOrder] = useState<Array<'main' | 'transcribe' | 'overlay' | 'bible' | 'guide'>>(() => {
+    const defaultOrder = ['main', 'transcribe', 'overlay', 'bible', 'guide'] as const;
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem('appNavigationOrder') || 'null');
+      if (Array.isArray(saved) && saved.length === defaultOrder.length && defaultOrder.every(id => saved.includes(id))) {
+        return saved as Array<typeof defaultOrder[number]>;
+      }
+    } catch {
+      return [...defaultOrder];
+    }
+    return [...defaultOrder];
+  });
+  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs' | 'transcribe'>(() => navigationOrder[0]);
+  const draggedNavigationTab = useRef<'main' | 'transcribe' | 'overlay' | 'bible' | 'guide' | null>(null);
   const [guideSection, setGuideSection] = useState<'main' | 'overlay'>('main');
+
+  useEffect(() => {
+    localStorage.setItem('appNavigationOrder', JSON.stringify(navigationOrder));
+  }, [navigationOrder]);
+
   const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>(() => {
     const savedSizes = localStorage.getItem('displaySizes');
     const parsed = savedSizes ? JSON.parse(savedSizes) : {};
@@ -430,33 +453,34 @@ function App() {
   }, [selectedTheme]);
 
   useEffect(() => {
-    if (window.electronAPI?.getDisplays) {
-      window.electronAPI.getDisplays().then(setAvailableDisplays);
+    if (!window.electronAPI?.getDisplays) {
+      setSelectedProjectDisplay(null);
+      return;
     }
+    window.electronAPI.getDisplays().then(setAvailableDisplays).catch(error => console.error('Failed to load displays:', error));
+    return window.electronAPI.onDisplaysChanged?.(setAvailableDisplays);
   }, []);
 
-  // when displays are fetched, default the project display if none chosen yet
   useEffect(() => {
     if (availableDisplays.length === 0) return;
-
-    // If we previously saved a display and it is no longer available, reset it.
-    if (selectedProjectDisplay !== null) {
-      const isStillAvailable = availableDisplays.some(d => d.id === selectedProjectDisplay);
-      if (!isStillAvailable) {
-        setSelectedProjectDisplay(null);
-      }
+    const isStillAvailable = availableDisplays.some(display => display.id === selectedProjectDisplay);
+    if (!isStillAvailable) {
+      const defaultDisplay = availableDisplays.find(display => display.isPrimary) || availableDisplays[0];
+      setSelectedProjectDisplay(defaultDisplay.id);
     }
   }, [availableDisplays, selectedProjectDisplay]);
 
   useEffect(() => {
     if (selectedProjectDisplay !== null) {
       localStorage.setItem('projectDisplay', String(selectedProjectDisplay));
+    } else {
+      localStorage.removeItem('projectDisplay');
     }
   }, [selectedProjectDisplay]);
   useEffect(() => {
     // refresh list whenever user goes to a tab that might project output
     if ((activeTab === 'overlay' || activeTab === 'bible' || activeTab === 'songs') && window.electronAPI?.getDisplays) {
-      window.electronAPI.getDisplays().then(setAvailableDisplays);
+      window.electronAPI.getDisplays().then(setAvailableDisplays).catch(error => console.error('Failed to refresh displays:', error));
     }
   }, [activeTab]);
 
@@ -570,19 +594,10 @@ function App() {
     setIsBibleProjected(false);
   };
 
-  const projectBible = () => {
-    // projection data is written by BibleTab effect
-    if (selectedProjectDisplay !== null) {
+  const projectBibleVerses = (verses: Verse[], options?: { referenceOnly?: boolean; description?: string }) => {
+    if (selectedProjectDisplay !== null && window.electronAPI?.openBibleProjection && (verses.length > 0 || options?.referenceOnly)) {
       localStorage.setItem('activeProjection', 'bible');
-      window.electronAPI?.openBibleProjection(selectedProjectDisplay);
-      setIsBibleProjected(true);
-    }
-  };
-
-  const projectBibleVerses = (verses: Verse[]) => {
-    if (selectedProjectDisplay !== null && verses.length > 0) {
-      localStorage.setItem('activeProjection', 'bible');
-      localStorage.setItem('bibleProjectionData', JSON.stringify({ verses, theme: selectedTheme }));
+      localStorage.setItem('bibleProjectionData', JSON.stringify({ verses, theme: selectedTheme, referenceOnly: Boolean(options?.referenceOnly), description: options?.description || '' }));
       window.electronAPI?.openBibleProjection(selectedProjectDisplay);
       setIsBibleProjected(true);
     }
@@ -602,9 +617,15 @@ function App() {
   };
 
   const testBibleDisplay = () => {
-    if (selectedProjectDisplay !== null) {
-      window.electronAPI?.testDisplay(selectedProjectDisplay);
+    if (selectedProjectDisplay !== null && window.electronAPI?.testDisplay) {
+      window.electronAPI.testDisplay(selectedProjectDisplay);
     }
+  };
+
+  const refreshProjectDisplays = () => {
+    window.electronAPI?.getDisplays?.()
+      .then(setAvailableDisplays)
+      .catch(error => console.error('Failed to refresh displays:', error));
   };
 
   const applyOverlaySettings = () => {
@@ -1439,6 +1460,28 @@ function App() {
     );
   }
 
+  const navigationTabs = [
+    { id: 'main', label: 'Timer', Icon: Layout, active: activeTab === 'main', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => setActiveTab('main') },
+    { id: 'transcribe', label: 'Transcribe', Icon: Mic, active: activeTab === 'transcribe', activeClass: 'bg-red-700 text-white shadow-lg', onClick: () => setActiveTab('transcribe') },
+    { id: 'overlay', label: 'Overlay', Icon: Monitor, active: activeTab === 'overlay', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => setActiveTab('overlay') },
+    { id: 'bible', label: 'Bible/Songs', Icon: FileText, active: activeTab === 'bible' || activeTab === 'songs', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => setActiveTab(activeTab === 'songs' ? 'bible' : 'songs') },
+    { id: 'guide', label: '?', Icon: HelpCircle, active: activeTab === 'guide', activeClass: 'bg-purple-600 text-white shadow-lg', onClick: () => { setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main'); setActiveTab('guide'); } },
+  ] as const;
+
+  const reorderNavigationTab = (targetId: typeof navigationOrder[number]) => {
+    const sourceId = draggedNavigationTab.current;
+    draggedNavigationTab.current = null;
+    if (!sourceId || sourceId === targetId) return;
+    setNavigationOrder(order => {
+      const next = [...order];
+      const sourceIndex = next.indexOf(sourceId);
+      const targetIndex = next.indexOf(targetId);
+      next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, sourceId);
+      return next;
+    });
+  };
+
   // Render control panel
   return (
     <div className={`${activeTab === 'bible' || activeTab === 'songs' ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-gray-900 flex flex-col`}>
@@ -1451,61 +1494,45 @@ function App() {
           <h1 className="text-xl font-bold text-white tracking-tight">Stage Timer <span className="text-xs text-blue-400 font-normal">v2.2.0</span></h1>
         </div>
         
-        <div className="flex min-w-0 max-w-full flex-[1_1_420px] flex-wrap justify-center bg-gray-900 rounded-lg p-1 border border-gray-700" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
-          <button 
-            onClick={() => setActiveTab('main')}
-            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'main' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            <Layout size={16} />
-            <span>Timer</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('transcribe')}
-            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'transcribe' ? 'bg-red-700 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            <Mic size={16} />
-            <span>Transcribe</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('overlay')}
-            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'overlay' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            <Monitor size={16} />
-            <span>Overlay</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab(activeTab === 'songs' ? 'bible' : 'songs')}
-            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'bible' || activeTab === 'songs' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            <FileText size={16} />
-            <span>Bible/Songs</span>
-          </button>
-          <button 
-            onClick={() => {
-              setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main');
-              setActiveTab('guide');
-            }}
-            className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            <HelpCircle size={16} />
-            <span>Guide</span>
-          </button>
+        <div className="flex min-w-0 max-w-full flex-[1_1_420px] flex-nowrap justify-center overflow-x-auto bg-gray-900 rounded-lg p-1 border border-gray-700" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
+          {navigationOrder.map(id => {
+            const tab = navigationTabs.find(item => item.id === id);
+            if (!tab) return null;
+            const Icon = tab.Icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                draggable
+                onClick={tab.onClick}
+                onDragStart={event => { draggedNavigationTab.current = tab.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', tab.id); }}
+                onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
+                onDrop={event => { event.preventDefault(); reorderNavigationTab(tab.id); }}
+                onDragEnd={() => { draggedNavigationTab.current = null; }}
+                title="Drag to reorder"
+                aria-label={`${tab.label}, draggable navigation tab`}
+                className={`group flex shrink-0 cursor-grab items-center space-x-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-bold transition-all active:cursor-grabbing sm:px-3 ${tab.active ? tab.activeClass : 'text-gray-400 hover:text-white'}`}
+              >
+                <GripVertical size={12} className="hidden text-gray-500 opacity-60 group-hover:opacity-100 sm:block" />
+                <Icon size={16} />
+                {tab.id === 'guide' ? <span className="sr-only">Guide</span> : <span>{tab.label}</span>}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex items-center space-x-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
           <button
             onClick={() => setShowRemoteModal(true)}
-            className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all ${remoteRunning ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:bg-gray-700'}`}
+            aria-label="Remote access"
+            className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-all ${remoteRunning ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:bg-gray-700'}`}
             title="Remote access: control this app from phones and tablets on your network"
           >
             <Radio size={14} />
-            Remote
             {remoteRunning && <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border border-gray-900 ${remoteClients > 0 ? 'bg-emerald-400' : 'bg-emerald-700'}`} />}
-            {remoteClients > 0 && <span className="rounded bg-emerald-500/20 px-1 font-mono text-[10px] text-emerald-300">{remoteClients}</span>}
           </button>
-          <div className="text-right hidden md:block">
-            <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">System Clock</div>
-            <div className="text-sm text-blue-400 font-mono font-bold">{currentTime}</div>
+          <div className="hidden text-sm font-mono font-bold text-blue-400 md:block" aria-label="System clock" title="System clock">
+            {currentTime}
           </div>
           <div className="flex items-center">
             <button
@@ -2573,6 +2600,7 @@ function App() {
             availableDisplays={availableDisplays}
             selectedDisplay={selectedProjectDisplay}
             onDisplayChange={setSelectedProjectDisplay}
+            onRefreshDisplays={refreshProjectDisplays}
             projectBible={projectBibleVerses}
             testDisplay={testBibleDisplay}
             isProjecting={isBibleProjected}

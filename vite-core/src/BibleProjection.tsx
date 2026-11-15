@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Verse } from './components/BibleTab';
+import type { Verse } from './components/BibleSongsTab';
+import { ProjectionSurface } from './components/ProjectionSurface';
+import { useProjectionSettings } from './components/projectionSettings';
 
 interface ProjectionData {
   verses: Verse[];
   theme: string;
+  referenceOnly?: boolean;
+  description?: string;
 }
 
 interface SongProjectionData {
@@ -11,12 +15,6 @@ interface SongProjectionData {
   body: string;
   theme: string;
 }
-
-const themes: { [key: string]: { backgroundColor: string; textColor: string } } = {
-  light: { backgroundColor: '#ffffff', textColor: '#000000' },
-  dark: { backgroundColor: '#000000', textColor: '#ffffff' },
-  blue: { backgroundColor: '#1e3a8a', textColor: '#ffffff' },
-};
 
 // Define book categories for periodic table layout
 const bookCategories = {
@@ -49,6 +47,7 @@ export default function BibleProjection() {
   const [data, setData] = useState<ProjectionData | null>(null);
   const [song, setSong] = useState<SongProjectionData | null>(null);
   const [projectionType, setProjectionType] = useState(() => localStorage.getItem('activeProjection') || 'bible');
+  const [settings] = useProjectionSettings();
 
   useEffect(() => {
     const loadProjection = (stored: string | null) => {
@@ -81,53 +80,37 @@ export default function BibleProjection() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         window.electronAPI?.closeBibleProjection();
+        return;
+      }
+      if (projectionType === 'bible' && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) {
+        e.preventDefault();
+        window.electronAPI?.navigateBibleProjection?.(e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  const theme = themes[data?.theme || 'dark'] || themes.dark;
-
-  if (projectionType === 'songs' && song) {
-    const songTheme = themes[song.theme] || themes.dark;
-    return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-10 py-12 text-center" style={{ backgroundColor: songTheme.backgroundColor, color: songTheme.textColor }}>
-        {song.title && <h1 className="text-[3.5vh] font-semibold opacity-75">{song.title}</h1>}
-        <p className="max-w-[88vw] whitespace-pre-line text-[7vh] font-bold leading-tight">{song.body}</p>
-      </div>
-    );
-  }
+  }, [projectionType]);
 
   if (!data) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: theme.backgroundColor, color: theme.textColor }}>
+      <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: settings.bgColor, color: settings.textColor }}>
         <p>Loading Bible...</p>
       </div>
     );
   }
 
-  if (data.verses.length > 0) {
-    // Show selected verses
-    const fontSize = Math.max(2, 6 - data.verses.length * 0.2);
+  if (projectionType === 'songs' && song) {
+    return <ProjectionSurface settings={settings} songTitle={song.title} songBody={song.body} className="fixed inset-0" />;
+  }
 
+  if (data.verses.length > 0) {
     return (
-      <div
-        className="fixed inset-0 flex flex-col items-center justify-center p-4"
-        style={{ backgroundColor: theme.backgroundColor, color: theme.textColor }}
-      >
-        {data.verses[0] && (
-          <h2 className="mb-4 text-xl font-semibold">
-            {data.verses[0].book_name} {data.verses[0].chapter}
-          </h2>
-        )}
-        {data.verses.map(v => (
-          <p key={v.verse} style={{ fontSize: `${fontSize}rem`, textAlign: 'center', maxWidth: '90%' }}>
-            <sup className="align-top">{v.verse}</sup> {v.text}
-          </p>
-        ))}
+      <div className="fixed inset-0">
+        {data.description && <div className="absolute left-0 right-0 top-[5%] z-10 text-center text-[3cqh] font-semibold" style={{ color: settings.textColor }}>{data.description}</div>}
+        <ProjectionSurface settings={settings} verses={data.verses} referenceOnly={data.referenceOnly} className="h-full w-full" />
       </div>
     );
   }
@@ -136,7 +119,7 @@ export default function BibleProjection() {
   return (
     <div
       className="fixed inset-0 p-4 overflow-auto"
-      style={{ backgroundColor: theme.backgroundColor, color: theme.textColor }}
+      style={{ backgroundColor: settings.bgColor, color: settings.textColor }}
     >
       <h1 className="text-3xl font-bold text-center mb-8">The Holy Bible</h1>
       <div className="grid grid-cols-1 gap-6">
