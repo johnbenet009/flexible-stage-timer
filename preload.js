@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('bible-projection-navigate', listener);
         return () => ipcRenderer.removeListener('bible-projection-navigate', listener);
     },
+    typeBibleProjectionKey: (key) => ipcRenderer.send('type-bible-projection-key', key),
+    onBibleProjectionKey: (callback) => {
+        const listener = (event, key) => callback(key);
+        ipcRenderer.on('bible-projection-key', listener);
+        return () => ipcRenderer.removeListener('bible-projection-key', listener);
+    },
     onBibleProjectionClosed: (callback) => {
         const listener = () => callback();
         ipcRenderer.on('bible-projection-closed', listener);

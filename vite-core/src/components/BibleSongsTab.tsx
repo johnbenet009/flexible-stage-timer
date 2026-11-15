@@ -393,6 +393,16 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
     });
   }, [innerTab, isProjecting]);
 
+  // When the projection window is focused, it intercepts all keyboard input.
+  // This listener receives forwarded keypresses from the projection window and
+  // re-dispatches them on this window so the quick-lookup handler picks them up.
+  useEffect(() => {
+    if (innerTab !== 'bible') return;
+    return window.electronAPI?.onBibleProjectionKey?.(key => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    });
+  }, [innerTab]);
+
   useEffect(() => {
     if (innerTab !== 'bible') return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -506,6 +516,20 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
         }
         return;
       }
+      // Alphanumeric keys always open the quick lookup modal, even when focus is on a UI element.
+      // This ensures navigation with arrow keys (which may move focus to buttons) doesn't break typing.
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1 && /^[a-z0-9]$/i.test(event.key)) {
+        event.preventDefault();
+        setBibleTool('browse');
+        setQuickLookupOpen(true);
+        setQuickLookupStage('book');
+        setQuickLookupBook(null);
+        setQuickLookupQuery(event.key);
+        const normalized = normalizeBookQuery(event.key);
+        const exact = books.find(book => [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])].some(name => normalizeBookQuery(name) === normalized));
+        if (exact) chooseQuickBook(exact);
+        return;
+      }
       if (editing) return;
 
       if (event.key === 'Escape' && isProjecting) {
@@ -524,17 +548,6 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
         event.preventDefault();
         bibleKeyboardActionsRef.current.stepPresentedVerse(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1);
         return;
-      }
-      if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1 && /^[a-z0-9]$/i.test(event.key)) {
-        event.preventDefault();
-        setBibleTool('browse');
-        setQuickLookupOpen(true);
-        setQuickLookupStage('book');
-        setQuickLookupBook(null);
-        setQuickLookupQuery(event.key);
-        const normalized = normalizeBookQuery(event.key);
-        const exact = books.find(book => [book.name, bookAbbreviation[book.name] || '', ...(bookAliases[book.name] || [])].some(name => normalizeBookQuery(name) === normalized));
-        if (exact) chooseQuickBook(exact);
       }
     };
     window.addEventListener('keydown', onKeyDown);

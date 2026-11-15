@@ -257,6 +257,7 @@ export const ProjectionSettingsPanel: React.FC<Props> = ({ settings, onChange, o
             <select value={settings.align} onChange={e => onChange({ align: e.target.value as ProjectionSettings['align'] })} className={selectCls}>
               <option value="center">Centered</option>
               <option value="left">Left</option>
+              <option value="right">Right</option>
             </select>
           </div>
         </div>
@@ -273,16 +274,24 @@ export const ProjectionSettingsPanel: React.FC<Props> = ({ settings, onChange, o
             <option value="bottom-left">Bottom left</option>
             <option value="bottom-right">Bottom right</option>
           </select>
+          <div className="flex justify-between items-center mb-1.5 mt-2">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Reference font size</span>
+            <span className="text-xs font-bold text-blue-300 tabular-nums">{settings.referenceFontScale ?? 100}%</span>
+          </div>
+          <input type="range" min={40} max={200} step={5} value={settings.referenceFontScale ?? 100} onChange={e => onChange({ referenceFontScale: Number(e.target.value) })} className="w-full accent-blue-500" aria-label="Reference font size" />
           <div className="grid grid-cols-2 gap-3">
-            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Reference background
+            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Reference color
+              <input aria-label="Reference text color" type="color" value={settings.referenceColor ?? settings.textColor} onChange={event => onChange({ referenceColor: event.target.value })} className="mt-1 block h-9 w-full cursor-pointer border border-gray-600 bg-transparent" />
+            </label>
+            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Ref. background
               <select aria-label="Reference background mode" value={settings.referenceBackground} onChange={event => onChange({ referenceBackground: event.target.value as ProjectionSettings['referenceBackground'] })} className={`${selectCls} mt-1`}>
                 <option value="none">Transparent</option><option value="color">Solid color</option>
               </select>
             </label>
-            {settings.referenceBackground === 'color' && <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Background color
-              <input aria-label="Reference background color" type="color" value={settings.referenceBgColor} onChange={event => onChange({ referenceBgColor: event.target.value })} className="mt-1 block h-9 w-full cursor-pointer border border-gray-600 bg-transparent" />
-            </label>}
           </div>
+          {settings.referenceBackground === 'color' && <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Background color
+            <input aria-label="Reference background color" type="color" value={settings.referenceBgColor} onChange={event => onChange({ referenceBgColor: event.target.value })} className="mt-1 block h-9 w-full cursor-pointer border border-gray-600 bg-transparent" />
+          </label>}
         </div>
 
         <div className="space-y-2">

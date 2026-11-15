@@ -1907,6 +1907,12 @@ ipcMain.on('navigate-bible-projection', (event, direction) => {
     mainWindow.webContents.send('bible-projection-navigate', direction);
 });
 
+ipcMain.on('type-bible-projection-key', (event, key) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (typeof key !== 'string') return;
+    mainWindow.webContents.send('bible-projection-key', key);
+});
+
 ipcMain.on('open-timer-display', (event, displayId) => {
     const displays = screen.getAllDisplays();
     const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();

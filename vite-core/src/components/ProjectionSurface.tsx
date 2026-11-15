@@ -28,7 +28,7 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
 
   useLayoutEffect(() => {
     setFitScale(1);
-  }, [contentKey, settings.fontScale, settings.fontFamily, settings.bold, settings.italic, settings.uppercase, settings.lowercase, settings.lineSpacing, settings.showVerseNumbers, settings.showReference, settings.outlineSize, settings.shadowSize, settings.position, settings.referencePosition]);
+  }, [contentKey, settings.fontScale, settings.fontFamily, settings.bold, settings.italic, settings.uppercase, settings.lowercase, settings.lineSpacing, settings.showVerseNumbers, settings.showReference, settings.outlineSize, settings.shadowSize, settings.position, settings.referencePosition, settings.referenceFontScale, settings.align]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -37,7 +37,7 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
     if (content.scrollHeight > container.clientHeight || content.scrollWidth > container.clientWidth) {
       setFitScale(s => Math.max(0.18, s * 0.92));
     }
-  }, [contentKey, fitScale, settings.fontScale, settings.fontFamily, settings.bold, settings.italic, settings.uppercase, settings.lowercase, settings.lineSpacing, settings.showVerseNumbers, settings.showReference, settings.outlineSize, settings.shadowSize, settings.position, settings.referencePosition]);
+  }, [contentKey, fitScale, settings.fontScale, settings.fontFamily, settings.bold, settings.italic, settings.uppercase, settings.lowercase, settings.lineSpacing, settings.showVerseNumbers, settings.showReference, settings.outlineSize, settings.shadowSize, settings.position, settings.referencePosition, settings.referenceFontScale, settings.align]);
 
   useEffect(() => {
     if (settings.backgroundType !== 'camera') return;
@@ -74,6 +74,7 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
   const fontBase = baseVh * (settings.fontScale / 100) * fitScale;
   const justify = settings.position === 'top' ? 'flex-start' : settings.position === 'bottom' ? 'flex-end' : 'center';
   const sidePosition = settings.position === 'left' || settings.position === 'right';
+  const refFontScale = settings.referenceFontScale ?? 100;
   const shadowRadians = settings.shadowDirection * Math.PI / 180;
   const shadowX = Math.cos(shadowRadians) * settings.shadowSize;
   const shadowY = Math.sin(shadowRadians) * settings.shadowSize;
@@ -106,6 +107,7 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
   const referenceIsRight = settings.referencePosition.endsWith('right');
   const referenceStyle: React.CSSProperties = {
     ...textStyle,
+    color: settings.referenceColor || settings.textColor,
     position: 'absolute',
     zIndex: 2,
     top: referenceIsTop ? '3%' : undefined,
@@ -114,14 +116,20 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
     right: referenceIsFull || referenceIsRight ? 0 : referenceIsLeft ? undefined : '10%',
     width: referenceIsFull ? '100%' : referenceIsLeft || referenceIsRight ? '42%' : undefined,
     textAlign: referenceIsLeft ? 'left' : referenceIsRight ? 'right' : 'center',
-    fontSize: `${fontBase * (referenceOnly ? 1.25 : 0.45)}cqh`,
+    fontSize: `${fontBase * (referenceOnly ? 1.25 : 0.45) * (refFontScale / 100)}cqh`,
     opacity: 0.92,
     padding: settings.referenceBackground === 'color' ? '1.2cqh 2.5cqw' : '0 2.5cqw',
     backgroundColor: settings.referenceBackground === 'color' ? settings.referenceBgColor : 'transparent',
   };
   const contentStyle: React.CSSProperties = sidePosition
-    ? { width: '58%', marginLeft: settings.position === 'left' ? '0' : 'auto', marginRight: settings.position === 'right' ? '0' : 'auto' }
-    : { width: '100%' };
+    ? { width: '58%', marginLeft: settings.position === 'left' ? '0' : 'auto', marginRight: settings.position === 'right' ? '0' : 'auto', textAlign: settings.align }
+    : { width: '100%', textAlign: settings.align };
+
+  // Reserve space so the verse block doesn't slide under the reference bar.
+  // The reference is absolutely positioned at 3% from top or bottom, with ~8% height for the label.
+  const refBarClearance = settings.showReference && reference && !isSong ? '12%' : '4%';
+  const paddingTop = !isSong && settings.showReference && reference && referenceIsTop ? refBarClearance : '4%';
+  const paddingBottom = !isSong && settings.showReference && reference && !referenceIsTop ? refBarClearance : '4%';
 
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ backgroundColor: settings.bgColor, containerType: 'size' }}>
@@ -149,7 +157,7 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
           {referenceText}
         </div>
       )}
-      <div ref={containerRef} className="absolute inset-0 flex flex-col px-[5%] py-[4%]" style={{ justifyContent: justify, alignItems: sidePosition ? (settings.position === 'left' ? 'flex-start' : 'flex-end') : 'center' }}>
+      <div ref={containerRef} className="absolute inset-0 flex flex-col px-[5%]" style={{ paddingTop, paddingBottom, justifyContent: justify, alignItems: sidePosition ? (settings.position === 'left' ? 'flex-start' : 'flex-end') : 'center' }}>
         <div ref={contentRef} style={contentStyle}>
           {isSong ? (
             <>

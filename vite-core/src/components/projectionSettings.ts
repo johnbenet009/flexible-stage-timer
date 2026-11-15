@@ -15,7 +15,9 @@ export interface ProjectionSettings {
   cameraDeviceId: string;
   bgDim: number;
   position: 'top' | 'center' | 'bottom' | 'left' | 'right';
-  align: 'left' | 'center';
+  align: 'left' | 'center' | 'right';
+  referenceFontScale: number;
+  referenceColor: string;
   outlineSize: number;
   outlineColor: string;
   shadowColor: string;
@@ -47,6 +49,8 @@ export const DEFAULT_PROJECTION_SETTINGS: ProjectionSettings = {
   bgDim: 45,
   position: 'center',
   align: 'center',
+  referenceFontScale: 100,
+  referenceColor: '',
   outlineSize: 0,
   outlineColor: '#000000',
   shadowColor: '#000000',

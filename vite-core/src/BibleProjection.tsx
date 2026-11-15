@@ -87,6 +87,15 @@ export default function BibleProjection() {
       if (projectionType === 'bible' && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) {
         e.preventDefault();
         window.electronAPI?.navigateBibleProjection?.(e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      // Forward alphanumeric keys and Backspace to the control window so the
+      // quick-lookup modal can be opened/operated while the projection is active.
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if ((e.key.length === 1 && /^[a-z0-9]$/i.test(e.key)) || e.key === 'Backspace' || e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          window.electronAPI?.typeBibleProjectionKey?.(e.key);
+        }
       }
     };
 

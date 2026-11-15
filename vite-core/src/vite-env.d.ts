@@ -17,6 +17,8 @@ interface Window {
 		closeBibleProjection?: () => void;
 		navigateBibleProjection?: (direction: -1 | 1) => void;
 		onBibleProjectionNavigate?: (callback: (direction: -1 | 1) => void) => () => void;
+		typeBibleProjectionKey?: (key: string) => void;
+		onBibleProjectionKey?: (callback: (key: string) => void) => () => void;
 		onBibleProjectionClosed?: (callback: () => void) => () => void;
 		windowMinimize?: () => void;
 		windowToggleMaximize?: () => void;
