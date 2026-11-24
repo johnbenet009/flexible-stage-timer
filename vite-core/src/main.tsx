@@ -10,6 +10,8 @@ import RemoteTimerDisplay from './remote/RemoteTimerDisplay.tsx';
 import RemoteTimerControl from './remote/RemoteTimerControl.tsx';
 import RemoteTranscribeDisplay from './remote/RemoteTranscribeDisplay.tsx';
 import RemoteTranscribeControl from './remote/RemoteTranscribeControl.tsx';
+import RemoteBibleControl from './remote/RemoteBibleControl.tsx';
+import RemoteCameraControl from './remote/RemoteCameraControl.tsx';
 import './index.css';
 
 function ScrollToTop() {
@@ -36,6 +38,8 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/remote/timer/control" element={<RemoteTimerControl />} />
         <Route path="/remote/transcribe/display" element={<RemoteTranscribeDisplay />} />
         <Route path="/remote/transcribe/control" element={<RemoteTranscribeControl />} />
+        <Route path="/remote/bible/control" element={<RemoteBibleControl />} />
+        <Route path="/remote/cameras" element={<RemoteCameraControl />} />
       </Routes>
     </HashRouter>
   </StrictMode>

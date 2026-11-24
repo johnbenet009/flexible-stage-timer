@@ -5,7 +5,7 @@ import { AlertBanner } from './components/AlertBanner';
 import { ProgramList } from './components/ProgramList';
 import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { Program, TimerState, ExtraTimeState, Category, GreenScreenTimerState, OverlaySettings } from './types';
-import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic, SkipForward, Radio, GripVertical } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertTriangle, Clock, Settings, FolderPlus, FileText, HelpCircle, Plus, RotateCcw, Layout, Monitor, Watch, Type, Trash2, X, User, Minus, Square, Mic, SkipForward, Radio, GripVertical, Camera } from 'lucide-react';
 import { DisplaySettings } from './components/DisplaySettings';
 import { BibleSongsTab, Verse } from './components/BibleSongsTab';
 import { NextProgramNotification } from './components/NextProgramNotification';
@@ -18,6 +18,7 @@ import { AddProgramModal } from './components/AddProgramModal';
 import { TranscribeTab } from './components/TranscribeTab';
 import { AutoRunBanner } from './components/AutoRunBanner';
 import { RemoteAccessModal } from './components/RemoteAccessModal';
+import { RemoteCameraMixer } from './components/RemoteCameraMixer';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -169,31 +170,76 @@ function App() {
   });
 
   const [isBibleProjected, setIsBibleProjected] = useState(false);
+  const [showBibleExitDialog, setShowBibleExitDialog] = useState(false);
+  const [pendingBibleExitTab, setPendingBibleExitTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs' | 'transcribe'>('bible');
+  const [showClearScreenDialog, setShowClearScreenDialog] = useState(false);
+  const [timerBackgroundCleared, setTimerBackgroundCleared] = useState(false);
 
   useEffect(() => window.electronAPI?.onBibleProjectionClosed?.(() => {
     localStorage.setItem('activeProjection', 'none');
     setIsBibleProjected(false);
   }), []);
 
-  const [navigationOrder, setNavigationOrder] = useState<Array<'main' | 'transcribe' | 'overlay' | 'bible' | 'guide'>>(() => {
-    const defaultOrder = ['main', 'transcribe', 'overlay', 'bible', 'guide'] as const;
+  const [navigationOrder, setNavigationOrder] = useState<Array<'main' | 'transcribe' | 'overlay' | 'bible' | 'cameras' | 'guide'>>(() => {
+    const defaultOrder = ['main', 'transcribe', 'overlay', 'bible', 'cameras', 'guide'] as const;
     try {
       const saved: unknown = JSON.parse(localStorage.getItem('appNavigationOrder') || 'null');
-      if (Array.isArray(saved) && saved.length === defaultOrder.length && defaultOrder.every(id => saved.includes(id))) {
-        return saved as Array<typeof defaultOrder[number]>;
+      if (Array.isArray(saved)) {
+        const migrated = [...saved.filter((id): id is typeof defaultOrder[number] => defaultOrder.includes(id as typeof defaultOrder[number]))];
+        if (!migrated.includes('cameras')) migrated.push('cameras');
+        if (migrated.length === defaultOrder.length && defaultOrder.every(id => migrated.includes(id))) return migrated;
       }
     } catch {
       return [...defaultOrder];
     }
     return [...defaultOrder];
   });
-  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs' | 'transcribe'>(() => navigationOrder[0]);
-  const draggedNavigationTab = useRef<'main' | 'transcribe' | 'overlay' | 'bible' | 'guide' | null>(null);
+  const [activeTab, setActiveTab] = useState<'main' | 'overlay' | 'guide' | 'bible' | 'songs' | 'transcribe' | 'cameras'>(() => navigationOrder[0]);
+  const draggedNavigationTab = useRef<'main' | 'transcribe' | 'overlay' | 'bible' | 'cameras' | 'guide' | null>(null);
   const [guideSection, setGuideSection] = useState<'main' | 'overlay'>('main');
 
   useEffect(() => {
     localStorage.setItem('appNavigationOrder', JSON.stringify(navigationOrder));
   }, [navigationOrder]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshDisplays = () => window.electronAPI?.getDisplays?.().then(displays => {
+      if (!active) return;
+      setAvailableDisplays(displays);
+      setSelectedProjectDisplay(current => {
+        const valid = displays.some(display => display.id === current && !display.isPrimary);
+        if (current !== null && !valid) {
+          localStorage.removeItem('projectDisplay');
+          return null;
+        }
+        return current;
+      });
+    }).catch(error => console.error('Failed to load displays:', error));
+    void refreshDisplays?.();
+    const unsubscribe = window.electronAPI?.onDisplaysChanged?.(() => void refreshDisplays?.());
+    return () => { active = false; unsubscribe?.(); };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void window.electronAPI?.requestStartupDisplay?.().then(startup => {
+      if (!active || !startup) return;
+      setSelectedProjectDisplay(startup.displayId);
+      if (activeTab === 'bible' || activeTab === 'songs') {
+        localStorage.setItem('activeProjection', 'bible');
+        const current = localStorage.getItem('bibleProjectionData');
+        let projection: Record<string, unknown> = {};
+        try { projection = current ? JSON.parse(current) : {}; } catch { /* use a clean projection payload */ }
+        localStorage.setItem('bibleProjectionData', JSON.stringify({ ...projection, verses: [], referenceOnly: false, description: '' }));
+        window.electronAPI?.openBibleProjection?.(startup.displayId);
+        setIsBibleProjected(true);
+      } else {
+        window.electronAPI?.openTimerDisplay?.(startup.displayId);
+      }
+    }).catch(error => console.error('Failed to restore startup display:', error));
+    return () => { active = false; };
+  }, []);
 
   const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>(() => {
     const savedSizes = localStorage.getItem('displaySizes');
@@ -588,14 +634,44 @@ function App() {
     setSelectedTheme(themeId);
   };
 
-  const stopBibleProjection = () => {
+  const stopBibleProjection = (retainBackground = false) => {
+    if (retainBackground) {
+      const current = localStorage.getItem('bibleProjectionData');
+      if (current) {
+        try {
+          const projection = JSON.parse(current);
+          localStorage.setItem('bibleProjectionData', JSON.stringify({ ...projection, verses: [], referenceOnly: false, description: '' }));
+        } catch { /* ignore invalid projection data */ }
+      }
+      localStorage.setItem('activeProjection', 'bible');
+      setIsBibleProjected(true);
+      return;
+    }
     window.electronAPI?.closeBibleProjection();
     localStorage.setItem('activeProjection', 'none');
     setIsBibleProjected(false);
   };
 
+  const requestBibleExit = (nextTab = activeTab) => {
+    setPendingBibleExitTab(nextTab);
+    setShowBibleExitDialog(true);
+  };
+
+  const changeNavigationTab = (nextTab: typeof activeTab) => {
+    const leavingBible = (activeTab === 'bible' || activeTab === 'songs') && nextTab !== 'bible' && nextTab !== 'songs';
+    if (leavingBible && isBibleProjected) requestBibleExit(nextTab);
+    else setActiveTab(nextTab);
+  };
+
+  const finishBibleExit = (retainBackground: boolean) => {
+    stopBibleProjection(retainBackground);
+    setShowBibleExitDialog(false);
+    setActiveTab(pendingBibleExitTab);
+  };
+
   const projectBibleVerses = (verses: Verse[], options?: { referenceOnly?: boolean; description?: string }) => {
-    if (selectedProjectDisplay !== null && window.electronAPI?.openBibleProjection && (verses.length > 0 || options?.referenceOnly)) {
+    const targetIsExternal = availableDisplays.some(display => display.id === selectedProjectDisplay && !display.isPrimary);
+    if (selectedProjectDisplay !== null && targetIsExternal && window.electronAPI?.openBibleProjection && (verses.length > 0 || options?.referenceOnly)) {
       localStorage.setItem('activeProjection', 'bible');
       localStorage.setItem('bibleProjectionData', JSON.stringify({ verses, theme: selectedTheme, referenceOnly: Boolean(options?.referenceOnly), description: options?.description || '' }));
       window.electronAPI?.openBibleProjection(selectedProjectDisplay);
@@ -605,7 +681,8 @@ function App() {
 
   const projectSongSlide = (title: string, body: string) => {
     updateSongProjection(title, body);
-    if (selectedProjectDisplay !== null) {
+    const targetIsExternal = availableDisplays.some(display => display.id === selectedProjectDisplay && !display.isPrimary);
+    if (selectedProjectDisplay !== null && targetIsExternal) {
       localStorage.setItem('activeProjection', 'songs');
       window.electronAPI?.openBibleProjection(selectedProjectDisplay);
       setIsBibleProjected(true);
@@ -617,7 +694,8 @@ function App() {
   };
 
   const testBibleDisplay = () => {
-    if (selectedProjectDisplay !== null && window.electronAPI?.testDisplay) {
+    const targetIsExternal = availableDisplays.some(display => display.id === selectedProjectDisplay && !display.isPrimary);
+    if (selectedProjectDisplay !== null && targetIsExternal && window.electronAPI?.testDisplay) {
       window.electronAPI.testDisplay(selectedProjectDisplay);
     }
   };
@@ -836,6 +914,7 @@ function App() {
       const backgroundData = { type, source };
       localStorage.setItem('background', JSON.stringify(backgroundData));
       setBackground(backgroundData);
+      setTimerBackgroundCleared(false);
     } catch (err) {
       console.error('Error setting background:', err);
       setBackground({ type: 'default', source: null });
@@ -966,6 +1045,16 @@ function App() {
     setTimerDeadline(null);
     setIsTimerComplete(false);
     if (autoRun) stopAutoRun();
+  };
+
+  const clearTimerScreen = (clearBackground: boolean) => {
+    resetLiveTimer();
+    setExtraTime({ minutes: 0, seconds: 0, isRunning: false, isPaused: false });
+    setShowNextProgram(null);
+    setShowClock(false);
+    setTimerBackgroundCleared(clearBackground);
+    if (clearBackground) void handleBackgroundChange('default', null);
+    setShowClearScreenDialog(false);
   };
 
   const restartLiveTimer = () => {
@@ -1304,6 +1393,7 @@ function App() {
         isAttention: liveTimer.isAttention,
         isComplete: isTimerComplete,
         programName: liveTimer.programName || '',
+        backgroundCleared: timerBackgroundCleared,
       },
       extraTime,
       programs,
@@ -1320,11 +1410,43 @@ function App() {
       clock: { time: currentTime, use12: use12HourFormat, show: showClock },
       nextProgram: showNextProgram ? { name: showNextProgram.name, duration: showNextProgram.duration } : null,
     });
-  }, [liveTimer, isTimerComplete, extraTime, programs, categories, autoRun, autoQueueCategoryId, autoQueueIds, autoQueueIndex, autoTransition, autoCooldownSec, alertMessage, showAlert, isAlertFlashing, currentTime, use12HourFormat, showClock, showNextProgram]);
+  }, [liveTimer, isTimerComplete, extraTime, programs, categories, autoRun, autoQueueCategoryId, autoQueueIds, autoQueueIndex, autoTransition, autoCooldownSec, alertMessage, showAlert, isAlertFlashing, currentTime, use12HourFormat, showClock, showNextProgram, timerBackgroundCleared]);
 
   const remoteCommandHandlerRef = useRef<(command: any) => void>(() => undefined);
   remoteCommandHandlerRef.current = (command) => {
-    if (!command || command.scope !== 'timer') return;
+    if (!command) return;
+    if (command.scope === 'bible') {
+      if (command.action === 'select') {
+        localStorage.setItem('remoteBibleSelection', JSON.stringify({ bookId: command.bookId, chapter: command.chapter, verse: command.verse }));
+        window.electronAPI?.remotePublish?.({ bible: { bookId: Number(command.bookId), chapter: Number(command.chapter), verse: Number(command.verse), presented: '', isShowing: false } });
+        window.dispatchEvent(new Event('storage'));
+        return;
+      }
+      const selectedBibleDisplayIsExternal = availableDisplays.some(display => display.id === selectedProjectDisplay && !display.isPrimary);
+      if (command.action === 'show' && command.verseData && selectedProjectDisplay !== null && selectedBibleDisplayIsExternal) {
+        localStorage.setItem('activeProjection', 'bible');
+        localStorage.setItem('bibleProjectionData', JSON.stringify({ verses: [command.verseData], theme: selectedTheme, referenceOnly: false, description: '' }));
+        localStorage.setItem('remoteBibleSelection', JSON.stringify({ bookId: command.bookId, chapter: command.chapter, verse: command.verse }));
+        window.electronAPI?.remotePublish?.({ bible: { bookId: Number(command.bookId), chapter: Number(command.chapter), verse: Number(command.verse), presented: `${command.verseData.book_name} ${command.verseData.chapter}:${command.verseData.verse}`, isShowing: true } });
+        window.electronAPI?.openBibleProjection?.(selectedProjectDisplay);
+        setIsBibleProjected(true);
+        return;
+      }
+      if (command.action === 'hide') {
+        const current = localStorage.getItem('bibleProjectionData');
+        if (current) {
+          try {
+            const projection = JSON.parse(current);
+            localStorage.setItem('bibleProjectionData', JSON.stringify({ ...projection, verses: [], referenceOnly: false, description: '' }));
+          } catch { /* ignore invalid projection data */ }
+        }
+        localStorage.setItem('activeProjection', 'bible');
+        window.electronAPI?.remotePublish?.({ bible: { ...(command.bible || {}), isShowing: false, presented: '' } });
+        return;
+      }
+      return;
+    }
+    if (command.scope !== 'timer') return;
     switch (command.action) {
       case 'start': startLiveTimer(); break;
       case 'startDuration':
@@ -1333,6 +1455,7 @@ function App() {
       case 'pause': pauseLiveTimer(); break;
       case 'resume': resumeLiveTimer(); break;
       case 'stop': resetLiveTimer(); break;
+      case 'clearScreen': clearTimerScreen(Boolean(command.clearBackground)); break;
       case 'restart': restartLiveTimer(); break;
       case 'attention': toggleAttention(); break;
       case 'addMinutes': addTimeToLiveTimer(Number(command.value) || 0); break;
@@ -1461,11 +1584,12 @@ function App() {
   }
 
   const navigationTabs = [
-    { id: 'main', label: 'Timer', Icon: Layout, active: activeTab === 'main', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => setActiveTab('main') },
-    { id: 'transcribe', label: 'Transcribe', Icon: Mic, active: activeTab === 'transcribe', activeClass: 'bg-red-700 text-white shadow-lg', onClick: () => setActiveTab('transcribe') },
-    { id: 'overlay', label: 'Overlay', Icon: Monitor, active: activeTab === 'overlay', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => setActiveTab('overlay') },
+    { id: 'main', label: 'Timer', Icon: Layout, active: activeTab === 'main', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => changeNavigationTab('main') },
+    { id: 'transcribe', label: 'Transcribe', Icon: Mic, active: activeTab === 'transcribe', activeClass: 'bg-red-700 text-white shadow-lg', onClick: () => changeNavigationTab('transcribe') },
+    { id: 'overlay', label: 'Overlay', Icon: Monitor, active: activeTab === 'overlay', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => changeNavigationTab('overlay') },
     { id: 'bible', label: 'Bible/Songs', Icon: FileText, active: activeTab === 'bible' || activeTab === 'songs', activeClass: 'bg-blue-600 text-white shadow-lg', onClick: () => setActiveTab(activeTab === 'songs' ? 'bible' : 'songs') },
-    { id: 'guide', label: '?', Icon: HelpCircle, active: activeTab === 'guide', activeClass: 'bg-purple-600 text-white shadow-lg', onClick: () => { setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main'); setActiveTab('guide'); } },
+    { id: 'cameras', label: 'Cameras', Icon: Camera, active: activeTab === 'cameras', activeClass: 'bg-cyan-700 text-white shadow-lg', onClick: () => changeNavigationTab('cameras') },
+    { id: 'guide', label: '?', Icon: HelpCircle, active: activeTab === 'guide', activeClass: 'bg-purple-600 text-white shadow-lg', onClick: () => { setGuideSection(activeTab === 'overlay' ? 'overlay' : 'main'); changeNavigationTab('guide'); } },
   ] as const;
 
   const reorderNavigationTab = (targetId: typeof navigationOrder[number]) => {
@@ -1484,7 +1608,7 @@ function App() {
 
   // Render control panel
   return (
-    <div className={`${activeTab === 'bible' || activeTab === 'songs' ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-gray-900 flex flex-col`}>
+    <div className={`${activeTab === 'bible' || activeTab === 'songs' || activeTab === 'cameras' ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-gray-900 flex flex-col`}>
       {/* Top Navigation Bar */}
       <div className="sticky top-0 z-50 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 px-2 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 shadow-md select-none" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
         <div className="flex items-center space-x-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion: 'drag' | 'no-drag' }}>
@@ -1560,7 +1684,7 @@ function App() {
         </div>
       </div>
 
-      <div className={`flex-1 min-h-0 w-full p-2 sm:p-4 ${activeTab === 'bible' || activeTab === 'songs' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 min-h-0 w-full p-2 sm:p-4 ${activeTab === 'bible' || activeTab === 'songs' || activeTab === 'cameras' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <div className={activeTab === 'transcribe' ? 'block h-full' : 'hidden'}>
           <TranscribeTab />
         </div>
@@ -1895,6 +2019,8 @@ function App() {
                   Attention!
                 </button>
               </div>
+
+              <button type="button" onClick={() => setShowClearScreenDialog(true)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-gray-700 bg-gray-800 px-3 text-xs font-bold text-gray-200 hover:bg-gray-700"><Trash2 size={14} /> Clear screen</button>
               
               {/* Minute Controls - Grid Layout */}
               {liveTimer.isRunning && (
@@ -2604,7 +2730,7 @@ function App() {
             projectBible={projectBibleVerses}
             testDisplay={testBibleDisplay}
             isProjecting={isBibleProjected}
-            onCloseProjection={stopBibleProjection}
+            onCloseProjection={() => requestBibleExit()}
             selectedTheme={selectedTheme}
             onThemeChange={handleThemeChange}
             onProjectSong={projectSongSlide}
@@ -2615,7 +2741,38 @@ function App() {
             <HowToGuide variant="page" initialSection={guideSection} />
           </div>
         ) : null}
+        <div className={`h-full min-h-0 ${activeTab === 'cameras' ? 'block' : 'hidden'}`}>
+          <RemoteCameraMixer />
+        </div>
       </div>
+
+      {showClearScreenDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="clear-screen-title" className="w-full max-w-md border border-gray-700 bg-gray-900 p-5 text-white shadow-2xl">
+            <h2 id="clear-screen-title" className="text-lg font-bold">Clear timer screen?</h2>
+            <p className="mt-2 text-sm text-gray-300">The timer will reset to 00:00. Choose whether to keep or remove the displayed background.</p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => clearTimerScreen(false)} className="min-h-11 rounded bg-blue-600 px-3 text-sm font-bold hover:bg-blue-500">Timer only</button>
+              <button type="button" onClick={() => clearTimerScreen(true)} className="min-h-11 rounded bg-red-700 px-3 text-sm font-bold hover:bg-red-600">Timer + background</button>
+            </div>
+            <button type="button" onClick={() => setShowClearScreenDialog(false)} className="mt-3 min-h-10 w-full rounded border border-gray-700 text-sm font-semibold text-gray-300 hover:bg-gray-800">Cancel</button>
+          </section>
+        </div>
+      )}
+
+      {showBibleExitDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="bible-exit-title" className="w-full max-w-md border border-gray-700 bg-gray-900 p-5 text-white shadow-2xl">
+            <h2 id="bible-exit-title" className="text-lg font-bold">Exit Bible projection?</h2>
+            <p className="mt-2 text-sm text-gray-300">Keep the current background on the projection screen, or clear the screen completely.</p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => finishBibleExit(true)} className="min-h-11 rounded bg-blue-600 px-3 text-sm font-bold hover:bg-blue-500">Keep background</button>
+              <button type="button" onClick={() => finishBibleExit(false)} className="min-h-11 rounded bg-red-700 px-3 text-sm font-bold hover:bg-red-600">Clear projection</button>
+            </div>
+            <button type="button" onClick={() => setShowBibleExitDialog(false)} className="mt-3 min-h-10 w-full rounded border border-gray-700 text-sm font-semibold text-gray-300 hover:bg-gray-800">Cancel</button>
+          </section>
+        </div>
+      )}
 
       {showSettings && (
           <DisplaySettings 

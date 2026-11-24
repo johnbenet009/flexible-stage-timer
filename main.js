@@ -1,6 +1,8 @@
 const { app, BrowserWindow, screen, dialog, nativeTheme, Menu, shell, powerSaveBlocker, ipcMain, safeStorage, session, net } = require('electron');
 const path = require('path');
-const { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } = require('fs');
+const crypto = require('crypto');
+const { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, chmodSync } = require('fs');
+const { spawn, spawnSync } = require('child_process');
 const url = require('url');
 const http = require('http');
 const puppeteer = require('puppeteer-core');
@@ -96,22 +98,26 @@ const getSecondaryDisplays = () => {
     return screen.getAllDisplays().filter(display => display.id !== primaryDisplayId);
 };
 
-function checkForStartupDisplay() {
+function requestStartupDisplay() {
     const secondaryDisplays = getSecondaryDisplays();
     if (secondaryDisplays.length === 0) {
         showNoSecondaryScreenModal();
-        return;
+        return null;
     }
     const lastDisplayId = readLastSelectedDisplay();
     if (lastDisplayId !== null) {
         const targetDisplay = secondaryDisplays.find(d => d.id === lastDisplayId);
         if (targetDisplay) {
+            if (secondaryDisplays.length === 1) return { displayId: targetDisplay.id };
             openTimerWindow(targetDisplay);
-            return;
+            return null;
         }
     }
     showAdvancedMultiScreenModal();
+    return null;
 }
+
+ipcMain.handle('startup-display-request', () => requestStartupDisplay());
 
 let mainWindow;
 let secondWindow;
@@ -123,6 +129,14 @@ let speechBrowser = null;
 let speechPage = null;
 let speechServer = null;
 let keepAwakeBlockerId = null;
+let cloudflaredProcess = null;
+let cloudflareTunnelState = { running: false, url: '', error: '', accessPin: '', stage: 'idle' };
+const updateCloudflareTunnelState = (patch) => {
+    cloudflareTunnelState = { ...cloudflareTunnelState, ...patch };
+    BrowserWindow.getAllWindows().forEach(window => {
+        if (!window.isDestroyed()) window.webContents.send('remote-tunnel-status', cloudflareTunnelState);
+    });
+};
 
 // Improve timer reliability in background
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
@@ -135,6 +149,7 @@ app.on('before-quit', () => {
     if (speechBrowser) void speechBrowser.close();
     if (speechServer?.listening) speechServer.close();
     remoteServer.stop();
+    stopCloudflareTunnel();
     if (keepAwakeBlockerId !== null && powerSaveBlocker.isStarted(keepAwakeBlockerId)) {
         powerSaveBlocker.stop(keepAwakeBlockerId);
     }
@@ -166,13 +181,13 @@ app.on('ready', () => {
         const videoOnlyRequest = Array.isArray(details?.mediaTypes)
             && details.mediaTypes.includes('video')
             && !details.mediaTypes.includes('audio');
-        callback(permission === 'media' && requestingLocalApp && (audioOnlyRequest || videoOnlyRequest));
+        callback(requestingLocalApp && ((permission === 'media' && (audioOnlyRequest || videoOnlyRequest)) || permission === 'local-fonts'));
     });
 
     session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
         const audioOnlyRequest = details?.mediaType === 'audio';
         const videoOnlyRequest = details?.mediaType === 'video';
-        return permission === 'media' && (audioOnlyRequest || videoOnlyRequest) && requestingOrigin.startsWith('file://');
+        return requestingOrigin.startsWith('file://') && ((permission === 'media' && (audioOnlyRequest || videoOnlyRequest)) || permission === 'local-fonts');
     });
     
     // Keep both the computer and display awake while Stage Timer is open.
@@ -205,10 +220,6 @@ app.on('ready', () => {
     mainWindow.webContents.session.clearCache().then(() => {
         const indexPath = path.join(__dirname, 'public', 'index.html');
         mainWindow.loadFile(indexPath);
-    });
-
-    mainWindow.webContents.once('did-finish-load', () => {
-        setTimeout(checkForStartupDisplay, 750);
     });
 
     // Customize scrollbar
@@ -1836,8 +1847,11 @@ function closeDisplayModules(displayId, except = null) {
 }
 
 ipcMain.on('open-bible-projection', (event, displayId) => {
-    const displays = screen.getAllDisplays();
-    const targetDisplay = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+    const targetDisplay = getSecondaryDisplays().find(d => d.id === displayId);
+    if (!targetDisplay) {
+        event.sender.send('bible-projection-display-unavailable');
+        return;
+    }
     closeDisplayModules(targetDisplay.id, 'bible');
 
     if (bibleWindow) {
@@ -2105,7 +2119,112 @@ remoteServer.setHandlers({
             mainWindow.webContents.send('remote-clients-changed', count);
         }
     },
+    onSignal: (signal) => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('remote-signal', signal);
+    },
 });
+
+const getCloudflaredBinary = async () => {
+    const commandName = process.platform === 'win32' ? 'where.exe' : 'which';
+    const lookup = spawnSync(commandName, ['cloudflared'], { encoding: 'utf8', windowsHide: true });
+    const installedPath = lookup.status === 0 ? lookup.stdout.split(/\r?\n/).find(Boolean) : null;
+    if (installedPath) return installedPath;
+
+    const binaryName = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
+    const targetPath = path.join(app.getPath('userData'), 'tools', binaryName);
+    if (existsSync(targetPath)) return targetPath;
+    const downloadUrls = {
+        win32: { x64: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe', arm64: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-arm64.exe' },
+        linux: { x64: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64', arm64: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64' },
+    };
+    const downloadUrl = downloadUrls[process.platform]?.[process.arch];
+    if (!downloadUrl) throw new Error('Install cloudflared from Cloudflare to use Online Camera on this platform.');
+    const response = await net.fetch(downloadUrl);
+    if (!response.ok) throw new Error(`Could not download cloudflared from Cloudflare (HTTP ${response.status}).`);
+    const binary = Buffer.from(await response.arrayBuffer());
+    if (binary.length < 1024 * 1024) throw new Error('The cloudflared download was incomplete.');
+    mkdirSync(path.dirname(targetPath), { recursive: true });
+    writeFileSync(targetPath, binary);
+    if (process.platform !== 'win32') chmodSync(targetPath, 0o755);
+    return targetPath;
+};
+
+const stopCloudflareTunnel = () => {
+    const processToStop = cloudflaredProcess;
+    cloudflaredProcess = null;
+    if (processToStop && !processToStop.killed) processToStop.kill();
+    updateCloudflareTunnelState({ running: false, url: '', error: '', accessPin: '', stage: 'idle' });
+    return cloudflareTunnelState;
+};
+
+const startCloudflareTunnel = async () => {
+    if (cloudflaredProcess && cloudflareTunnelState.url) return { ok: true, ...cloudflareTunnelState };
+    updateCloudflareTunnelState({ running: false, url: '', error: '', accessPin: '', stage: 'preparing' });
+    try {
+        updateCloudflareTunnelState({ stage: 'checking Cloudflare connector' });
+        const binaryPath = await getCloudflaredBinary();
+        let config = readRemoteConfig();
+        let serverStatus = remoteServer.status();
+        if (!serverStatus.running) {
+            serverStatus = await remoteServer.start({ directory: path.join(__dirname, 'public'), port: config.port, pin: config.pin });
+            saveRemoteConfig({ enabled: true, port: serverStatus.port });
+        }
+        if (!config.pin) {
+            config = { ...config, pin: String(crypto.randomInt(10000000, 100000000)) };
+            saveRemoteConfig({ pin: config.pin, enabled: true, port: serverStatus.port });
+            remoteServer.setPin(config.pin);
+        }
+        updateCloudflareTunnelState({ accessPin: config.pin, stage: 'connecting to Cloudflare' });
+        const tunnelProcess = spawn(binaryPath, ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${serverStatus.port}`], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+        cloudflaredProcess = tunnelProcess;
+        updateCloudflareTunnelState({ running: true, url: '', error: '', stage: 'waiting for temporary address' });
+        return await new Promise((resolve, reject) => {
+            let settled = false;
+            let outputBuffer = '';
+            const timeout = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                const accessPin = cloudflareTunnelState.accessPin;
+                const errorMessage = 'Cloudflare Quick Tunnel did not return a URL within 45 seconds.';
+                updateCloudflareTunnelState({ running: false, url: '', error: `${errorMessage} ${outputBuffer.slice(-600)}`, accessPin, stage: 'error' });
+                const processToStop = cloudflaredProcess;
+                cloudflaredProcess = null;
+                if (processToStop && !processToStop.killed) processToStop.kill();
+                reject(new Error(errorMessage));
+            }, 45000);
+            const handleOutput = chunk => {
+                outputBuffer = (outputBuffer + chunk.toString()).slice(-8192);
+                const urlMatch = outputBuffer.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
+                if (urlMatch && !settled) {
+                    settled = true;
+                    clearTimeout(timeout);
+                    updateCloudflareTunnelState({ running: true, url: urlMatch[0], error: '', stage: 'ready' });
+                    resolve({ ok: true, ...cloudflareTunnelState });
+                }
+            };
+            tunnelProcess.stdout.on('data', handleOutput);
+            tunnelProcess.stderr.on('data', handleOutput);
+            tunnelProcess.once('error', error => {
+                updateCloudflareTunnelState({ running: false, url: '', error: `${error.message} ${outputBuffer.slice(-600)}`, accessPin: cloudflareTunnelState.accessPin, stage: 'error' });
+                if (!settled) { settled = true; clearTimeout(timeout); reject(error); }
+            });
+            tunnelProcess.once('exit', code => {
+                if (cloudflaredProcess !== tunnelProcess) return;
+                cloudflaredProcess = null;
+                updateCloudflareTunnelState({ running: false, url: '', error: code === 0 ? '' : `cloudflared exited (${code}). ${outputBuffer.slice(-600)}`, accessPin: cloudflareTunnelState.accessPin, stage: 'error' });
+                if (!settled) { settled = true; clearTimeout(timeout); reject(new Error(cloudflareTunnelState.error || 'cloudflared stopped before creating a URL.')); }
+            });
+        });
+    } catch (error) {
+        updateCloudflareTunnelState({ running: false, url: '', error: error instanceof Error ? error.message : String(error), stage: 'error' });
+        return { ok: false, ...cloudflareTunnelState };
+    }
+};
+
+ipcMain.handle('remote-tunnel-start', () => startCloudflareTunnel());
+ipcMain.handle('remote-tunnel-stop', () => ({ ok: true, ...stopCloudflareTunnel() }));
+ipcMain.handle('remote-tunnel-status', () => ({ ...cloudflareTunnelState }));
+ipcMain.on('remote-tunnel-status-subscribe', (event) => event.sender.send('remote-tunnel-status', cloudflareTunnelState));
 
 ipcMain.handle('remote-server-start', async () => {
     const config = readRemoteConfig();
@@ -2123,6 +2242,7 @@ ipcMain.handle('remote-server-start', async () => {
 });
 
 ipcMain.handle('remote-server-stop', () => {
+    stopCloudflareTunnel();
     saveRemoteConfig({ enabled: false });
     return { ok: true, ...remoteServer.stop() };
 });
@@ -2139,6 +2259,10 @@ ipcMain.on('remote-publish-state', (event, partial) => {
     if (mainWindow && event.sender === mainWindow.webContents) {
         remoteServer.publish(partial);
     }
+});
+
+ipcMain.on('remote-send-signal', (event, target, payload) => {
+    if (mainWindow && event.sender === mainWindow.webContents) remoteServer.sendSignal(target, payload);
 });
 
 ipcMain.on('open-external-url', (event, target) => {

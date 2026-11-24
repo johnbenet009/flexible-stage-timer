@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { Verse } from './components/BibleSongsTab';
 import { ProjectionSurface } from './components/ProjectionSurface';
 import { useProjectionSettings } from './components/projectionSettings';
+import { useRemoteState } from './remote/useRemoteState';
+import { RemoteCameraVideo } from './remote/RemoteCameraVideo';
 
 interface ProjectionData {
   verses: Verse[];
@@ -16,38 +18,14 @@ interface SongProjectionData {
   theme: string;
 }
 
-// Define book categories for periodic table layout
-const bookCategories = {
-  'Torah': ['Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy'],
-  'History': ['Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 'Nehemiah', 'Esther'],
-  'Poetry': ['Job', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Song of Solomon'],
-  'Major Prophets': ['Isaiah', 'Jeremiah', 'Lamentations', 'Ezekiel', 'Daniel'],
-  'Minor Prophets': ['Hosea', 'Joel', 'Amos', 'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi'],
-  'Gospels': ['Matthew', 'Mark', 'Luke', 'John'],
-  'History (NT)': ['Acts'],
-  'Pauline Epistles': ['Romans', '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy', 'Titus', 'Philemon'],
-  'General Epistles': ['Hebrews', 'James', '1 Peter', '2 Peter', '1 John', '2 John', '3 John', 'Jude'],
-  'Apocalypse': ['Revelation']
-};
-
-const categoryColors = {
-  'Torah': 'bg-blue-600',
-  'History': 'bg-green-600',
-  'Poetry': 'bg-purple-600',
-  'Major Prophets': 'bg-red-600',
-  'Minor Prophets': 'bg-orange-600',
-  'Gospels': 'bg-yellow-600',
-  'History (NT)': 'bg-teal-600',
-  'Pauline Epistles': 'bg-indigo-600',
-  'General Epistles': 'bg-pink-600',
-  'Apocalypse': 'bg-gray-600'
-};
-
 export default function BibleProjection() {
   const [data, setData] = useState<ProjectionData | null>(null);
   const [song, setSong] = useState<SongProjectionData | null>(null);
   const [projectionType, setProjectionType] = useState(() => localStorage.getItem('activeProjection') || 'bible');
   const [settings] = useProjectionSettings();
+  const remote = useRemoteState();
+  const cameraOverride = projectionType === 'songs' ? remote.state.cameraMixer?.overrides.songs : remote.state.cameraMixer?.overrides.bible;
+  const cameraOverlay = cameraOverride ? <RemoteCameraVideo conn={remote} enabled className="absolute inset-0 z-[1] h-full w-full object-cover" /> : null;
 
   useEffect(() => {
     const loadProjection = (stored: string | null) => {
@@ -81,7 +59,15 @@ export default function BibleProjection() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        window.electronAPI?.closeBibleProjection();
+        setProjectionType('bible');
+        setData(previous => previous ? { ...previous, verses: [], referenceOnly: false, description: '' } : previous);
+        const stored = localStorage.getItem('bibleProjectionData');
+        if (stored) {
+          try {
+            const projection = JSON.parse(stored);
+            localStorage.setItem('bibleProjectionData', JSON.stringify({ ...projection, verses: [], referenceOnly: false, description: '' }));
+          } catch { /* ignore invalid projection data */ }
+        }
         return;
       }
       if (projectionType === 'bible' && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) {
@@ -112,43 +98,18 @@ export default function BibleProjection() {
   }
 
   if (projectionType === 'songs' && song) {
-    return <ProjectionSurface settings={settings} songTitle={song.title} songBody={song.body} className="fixed inset-0" />;
+    return <ProjectionSurface settings={settings} songTitle={song.title} songBody={song.body} backgroundOverlay={cameraOverlay} className="fixed inset-0" />;
   }
 
-  if (data.verses.length > 0) {
+  if (projectionType === 'bible') {
     return (
       <div className="fixed inset-0">
         {data.description && <div className="absolute left-0 right-0 top-[5%] z-10 text-center text-[3cqh] font-semibold" style={{ color: settings.textColor }}>{data.description}</div>}
-        <ProjectionSurface settings={settings} verses={data.verses} referenceOnly={data.referenceOnly} className="h-full w-full" />
+        <ProjectionSurface settings={settings} verses={data.verses} referenceOnly={data.referenceOnly} backgroundOverlay={cameraOverlay} className="h-full w-full" />
       </div>
     );
   }
 
-  // Show periodic table of books
-  return (
-    <div
-      className="fixed inset-0 p-4 overflow-auto"
-      style={{ backgroundColor: settings.bgColor, color: settings.textColor }}
-    >
-      <h1 className="text-3xl font-bold text-center mb-8">The Holy Bible</h1>
-      <div className="grid grid-cols-1 gap-6">
-        {Object.entries(bookCategories).map(([category, books]) => (
-          <div key={category} className="space-y-4">
-            <h2 className="text-xl font-bold text-center">{category}</h2>
-            <div className="grid grid-cols-5 gap-4 justify-items-center">
-              {books.map(book => (
-                <div
-                  key={book}
-                  className={`${categoryColors[category as keyof typeof categoryColors]} text-white p-4 rounded-lg shadow-lg text-center min-h-[80px] flex flex-col justify-center`}
-                  style={{ minWidth: '120px' }}
-                >
-                  <div className="font-bold text-lg">{book}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  // Keep the background active when no passage is on screen.
+  return <ProjectionSurface settings={settings} backgroundOverlay={cameraOverlay} className="fixed inset-0" />;
 }

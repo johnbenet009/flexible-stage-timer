@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Settings2, RotateCcw, Image as ImageIcon, Bold, Italic, Video, Camera, Palette } from 'lucide-react';
+import { X, Settings2, RotateCcw, Image as ImageIcon, Bold, Italic, Video, Camera, Palette, RefreshCw } from 'lucide-react';
 import { DEFAULT_PROJECTION_SETTINGS, type ProjectionSettings } from './projectionSettings';
 
 interface Props {
@@ -22,11 +22,29 @@ export const ProjectionSettingsPanel: React.FC<Props> = ({ settings, onChange, o
   const [videoError, setVideoError] = useState('');
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [cameraError, setCameraError] = useState('');
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+
+  const refreshCameras = async () => {
+    try {
+      const devices = await navigator.mediaDevices?.enumerateDevices() || [];
+      setCameras(devices.filter(device => device.kind === 'videoinput'));
+      setCameraError('');
+    } catch {
+      setCameraError('Camera list is unavailable.');
+    }
+  };
 
   useEffect(() => {
-    void navigator.mediaDevices?.enumerateDevices().then(devices => {
-      setCameras(devices.filter(device => device.kind === 'videoinput'));
-    }).catch(() => setCameraError('Camera list is unavailable.'));
+    void refreshCameras();
+    const mediaDevices = navigator.mediaDevices;
+    mediaDevices?.addEventListener?.('devicechange', refreshCameras);
+    const queryFonts = (window as Window & { queryLocalFonts?: () => Promise<Array<{ family: string }>> }).queryLocalFonts;
+    if (queryFonts) {
+      void queryFonts.call(window).then(fonts => {
+        setSystemFonts([...new Set(fonts.map(font => font.family))].sort((a, b) => a.localeCompare(b)));
+      }).catch(() => undefined);
+    }
+    return () => mediaDevices?.removeEventListener?.('devicechange', refreshCameras);
   }, []);
 
   const onImage = (file: File | undefined) => {
@@ -100,6 +118,7 @@ export const ProjectionSettingsPanel: React.FC<Props> = ({ settings, onChange, o
             <option value="sans">Sans serif (Arial)</option>
             <option value="serif">Serif (Georgia)</option>
             <option value="mono">Monospace (Courier)</option>
+            {systemFonts.filter(font => !['Arial', 'Georgia', 'Courier New'].includes(font)).map(font => <option key={font} value={font}>{font}</option>)}
           </select>
           <div className="flex gap-1.5 mt-2">
             <button onClick={() => onChange({ bold: !settings.bold })} title="Bold" className={`flex-1 py-2 rounded-lg border flex items-center justify-center ${settings.bold ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-400'}`}><Bold size={14} /></button>
@@ -232,6 +251,10 @@ export const ProjectionSettingsPanel: React.FC<Props> = ({ settings, onChange, o
             <option value="">Default camera</option>
             {cameras.map((camera, index) => <option key={camera.deviceId} value={camera.deviceId}>{camera.label || `Camera ${index + 1}`}</option>)}
           </select>
+          <button type="button" onClick={() => void refreshCameras()} className="mt-2 inline-flex min-h-9 items-center gap-2 rounded border border-gray-700 bg-gray-800 px-3 text-xs font-semibold text-gray-200 hover:bg-gray-700"><RefreshCw size={13} /> Refresh cameras</button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {([['cameraFlipHorizontal', 'Flip left / right'], ['cameraFlipVertical', 'Flip up / down']] as const).map(([key, text]) => <button key={key} type="button" aria-pressed={settings[key]} onClick={() => onChange({ [key]: !settings[key] })} className={`min-h-9 rounded border px-2 text-xs font-semibold ${settings[key] ? 'border-blue-500 bg-blue-600/20 text-blue-200' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>{text}</button>)}
+          </div>
           {cameraError && <p className="mt-1 text-[11px] text-red-400">{cameraError}</p>}
           <p className="mt-1 text-[11px] text-gray-500">Camera permission may be requested when the projection opens.</p>
         </div>}
@@ -258,6 +281,7 @@ export const ProjectionSettingsPanel: React.FC<Props> = ({ settings, onChange, o
               <option value="center">Centered</option>
               <option value="left">Left</option>
               <option value="right">Right</option>
+              <option value="justify">Justified</option>
             </select>
           </div>
         </div>

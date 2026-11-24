@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRemoteState } from './useRemoteState';
 import { PinGate, BackgroundLayer, DisplayChrome, useRemoteBackground } from './RemoteShell';
+import { RemoteCameraVideo } from './RemoteCameraVideo';
 
 function useNow(intervalMs = 200) {
 	const [now, setNow] = useState(Date.now());
@@ -23,7 +24,9 @@ export default function RemoteTimerDisplay() {
 	return (
 		<PinGate conn={conn}>
 			<div className="fixed inset-0 overflow-hidden select-none">
-				<BackgroundLayer bg={bg} />
+				{conn.state.cameraMixer?.overrides.timer && !conn.state.timer?.backgroundCleared
+					? <RemoteCameraVideo conn={conn} enabled className="absolute inset-0 h-full w-full object-cover" />
+					: conn.state.timer?.backgroundCleared ? <div className="absolute inset-0 bg-black" /> : <BackgroundLayer bg={bg} />}
 				<TimerFeed conn={conn} showCooldownInfo={showCooldownInfo} />
 				<DisplayChrome
 					connected={conn.connected}

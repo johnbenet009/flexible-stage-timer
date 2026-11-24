@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export interface ProjectionSettings {
   backgroundType: 'color' | 'image' | 'video' | 'camera';
-  fontFamily: 'serif' | 'sans' | 'mono';
+  fontFamily: string;
   fontScale: number;
   bold: boolean;
   italic: boolean;
@@ -13,9 +13,11 @@ export interface ProjectionSettings {
   bgImage: string;
   bgVideo: string;
   cameraDeviceId: string;
+  cameraFlipHorizontal: boolean;
+  cameraFlipVertical: boolean;
   bgDim: number;
   position: 'top' | 'center' | 'bottom' | 'left' | 'right';
-  align: 'left' | 'center' | 'right';
+  align: 'left' | 'center' | 'right' | 'justify';
   referenceFontScale: number;
   referenceColor: string;
   outlineSize: number;
@@ -46,6 +48,8 @@ export const DEFAULT_PROJECTION_SETTINGS: ProjectionSettings = {
   bgImage: '',
   bgVideo: '',
   cameraDeviceId: '',
+  cameraFlipHorizontal: false,
+  cameraFlipVertical: false,
   bgDim: 45,
   position: 'center',
   align: 'center',
@@ -110,8 +114,11 @@ export function useProjectionSettings(): [ProjectionSettings, (patch: Partial<Pr
   return [settings, update];
 }
 
-export const FONT_STACKS: Record<ProjectionSettings['fontFamily'], string> = {
+export const FONT_STACKS: Record<string, string> = {
   serif: 'Georgia, "Times New Roman", serif',
   sans: 'Arial, Helvetica, sans-serif',
   mono: '"Courier New", Courier, monospace',
 };
+
+export const projectionFontStack = (fontFamily: string) =>
+  FONT_STACKS[fontFamily] || `"${fontFamily.replace(/["\\]/g, '')}", sans-serif`;

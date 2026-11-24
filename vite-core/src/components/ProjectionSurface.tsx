@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Verse } from './BibleSongsTab';
-import { FONT_STACKS, type ProjectionSettings } from './projectionSettings';
+import { projectionFontStack, type ProjectionSettings } from './projectionSettings';
 
 interface ProjectionSurfaceProps {
   settings: ProjectionSettings;
@@ -10,10 +10,11 @@ interface ProjectionSurfaceProps {
   blackout?: boolean;
   referenceOnly?: boolean;
   className?: string;
+  backgroundOverlay?: React.ReactNode;
 }
 
 export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
-  settings, verses, songTitle, songBody, blackout = false, referenceOnly = false, className = '',
+  settings, verses, songTitle, songBody, blackout = false, referenceOnly = false, className = '', backgroundOverlay,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -84,7 +85,7 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
   const textStroke = settings.outlineSize > 0 ? `${settings.outlineSize}px ${settings.outlineColor}` : '0 transparent';
 
   const textStyle: React.CSSProperties = {
-    fontFamily: FONT_STACKS[settings.fontFamily],
+    fontFamily: projectionFontStack(settings.fontFamily),
     fontWeight: settings.bold ? 700 : 400,
     fontStyle: settings.italic ? 'italic' : 'normal',
     textTransform: settings.uppercase ? 'uppercase' : settings.lowercase ? 'lowercase' : 'none',
@@ -147,10 +148,11 @@ export const ProjectionSurface: React.FC<ProjectionSurfaceProps> = ({
       )}
       {settings.backgroundType === 'camera' && (
         <>
-          <video ref={backgroundVideoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+          <video ref={backgroundVideoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover" style={{ transform: `scale(${settings.cameraFlipHorizontal ? -1 : 1}, ${settings.cameraFlipVertical ? -1 : 1})` }} />
           <div className="absolute inset-0 bg-black" style={{ opacity: settings.bgDim / 100 }} />
         </>
       )}
+      {backgroundOverlay}
       {settings.showReference && reference && !isSong && (
         <div style={referenceStyle}>
           {settings.referenceBackground === 'color' && <span className="sr-only">Reference background</span>}

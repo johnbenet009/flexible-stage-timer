@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
-import { Radio, X, Copy, Check, ExternalLink, Wifi, ShieldCheck, ShieldOff, MonitorSmartphone, LayoutDashboard, Tv, Mic, FileText, Power, Loader2, RefreshCw } from 'lucide-react';
+import { Radio, X, Copy, Check, ExternalLink, Wifi, ShieldCheck, ShieldOff, MonitorSmartphone, LayoutDashboard, Tv, Mic, FileText, Power, Loader2, RefreshCw, BookOpen, Camera } from 'lucide-react';
 
 interface RemoteAccessModalProps {
   onClose: () => void;
@@ -16,6 +16,8 @@ const QUICK_LINKS = [
   { label: 'Timer Display', path: '/#/remote/timer/display', icon: Tv, hint: 'Live feed with own background' },
   { label: 'Transcribe Control', path: '/#/remote/transcribe/control', icon: Mic, hint: 'Start, stop and read live text' },
   { label: 'Transcribe Display', path: '/#/remote/transcribe/display', icon: FileText, hint: 'Live captions screen' },
+  { label: 'Bible Control', path: '/#/remote/bible/control', icon: BookOpen, hint: 'Choose, show, hide and navigate passages' },
+  { label: 'Remote Camera', path: '/#/remote/cameras', icon: Camera, hint: 'Connect this phone as a video source' },
 ];
 
 export const RemoteAccessModal: React.FC<RemoteAccessModalProps> = ({ onClose, onStatusChange }) => {
@@ -222,7 +224,10 @@ export const RemoteAccessModal: React.FC<RemoteAccessModalProps> = ({ onClose, o
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {QUICK_LINKS.map(link => {
-                    const fullUrl = `${baseUrl}${link.path}`;
+                    const linkPath = link.label === 'Remote Camera' && status?.cameraInviteToken
+                      ? `/#/remote/cameras?cameraToken=${encodeURIComponent(status.cameraInviteToken)}`
+                      : link.path;
+                    const fullUrl = `${baseUrl}${linkPath}`;
                     const Icon = link.icon;
                     return (
                       <div key={link.path} className="flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2.5 transition-colors hover:border-gray-600">
@@ -231,8 +236,8 @@ export const RemoteAccessModal: React.FC<RemoteAccessModalProps> = ({ onClose, o
                           <div className="truncate text-sm font-bold text-white">{link.label}</div>
                           <div className="truncate text-[11px] text-gray-500">{link.hint}</div>
                         </div>
-                        <button type="button" onClick={() => void copyLink(link.path, fullUrl)} title={`Copy ${link.label} link`} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white">
-                          {copiedKey === link.path ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+                        <button type="button" onClick={() => void copyLink(linkPath, fullUrl)} title={`Copy ${link.label} link`} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white">
+                          {copiedKey === linkPath ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
                         </button>
                         <button type="button" onClick={() => window.electronAPI?.openExternalUrl?.(fullUrl)} title={`Open ${link.label} in browser`} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white">
                           <ExternalLink size={15} />

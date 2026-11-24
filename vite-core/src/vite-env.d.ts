@@ -5,6 +5,7 @@ interface Window {
 		clearCache?: () => Promise<void>;
 		openAdvancedMultiScreen?: () => void;
 		getDisplays?: () => Promise<Array<{ id: number; label: string; isPrimary: boolean; isUsedByMainTimer: boolean; isUsedByOverlay: boolean }>>;
+		requestStartupDisplay?: () => Promise<{ displayId: number } | null>;
 		onDisplaysChanged?: (callback: (displays: Array<{ id: number; label: string; isPrimary: boolean; isUsedByMainTimer: boolean; isUsedByOverlay: boolean }>) => void) => () => void;
 		checkInternetConnection?: () => Promise<{ online: boolean; checkedAt: number; checks?: Array<{ endpoint: string; online: boolean; status?: number; error?: string }> }>;
 		startChromeSpeechRecognition?: (request: { language: string; deviceLabel: string }) => Promise<{ selectedDevice: string; customTrack: boolean }>;
@@ -40,7 +41,13 @@ interface Window {
 		remoteStop?: () => Promise<RemoteServerStatus & { ok: boolean }>;
 		remoteStatus?: () => Promise<RemoteServerStatus>;
 		remoteSetPin?: (pin: string) => Promise<RemoteServerStatus & { ok: boolean }>;
+		remoteTunnelStart?: () => Promise<{ ok: boolean; running: boolean; url: string; error: string; accessPin: string }>;
+		remoteTunnelStop?: () => Promise<{ ok: boolean; running: boolean; url: string; error: string; accessPin: string }>;
+		remoteTunnelStatus?: () => Promise<{ running: boolean; url: string; error: string; accessPin: string }>;
+		onRemoteTunnelStatus?: (callback: (status: { running: boolean; url: string; error: string; accessPin: string; stage: string }) => void) => () => void;
 		remotePublish?: (state: Record<string, unknown>) => void;
+		remoteSendSignal?: (target: string, payload: Record<string, unknown>) => void;
+		onRemoteSignal?: (callback: (signal: { from: string; payload: Record<string, unknown> }) => void) => () => void;
 		onRemoteCommand?: (callback: (command: any) => void) => () => void;
 		onRemoteClientsChanged?: (callback: (count: number) => void) => () => void;
 		openExternalUrl?: (url: string) => void;
@@ -53,4 +60,5 @@ interface RemoteServerStatus {
 	urls: Array<{ interface: string; address: string; url: string }>;
 	clients: number;
 	pinEnabled: boolean;
+	cameraInviteToken?: string;
 }

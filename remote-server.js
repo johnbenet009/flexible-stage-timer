@@ -2,6 +2,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const MIME_TYPES = {
@@ -34,6 +35,17 @@ let broadcastTimer = null;
 let heartbeatTimer = null;
 let onCommand = () => {};
 let onClientsChanged = () => {};
+let onSignal = () => {};
+let cameraInviteToken = '';
+
+const sendSignal = (to, payload) => {
+    if (!wss || typeof to !== 'string' || !payload || typeof payload !== 'object') return false;
+    const target = [...wss.clients].find(client => client.clientId === to && client.authed && client.readyState === 1);
+    if (!target) return false;
+    if (target.cameraOnly) target.cameraAllowedPeers.add('host');
+    sendJson(target, { type: 'signal', from: 'host', payload });
+    return true;
+};
 
 const getLanUrls = (port) => {
     const interfaces = os.networkInterfaces();
@@ -126,15 +138,21 @@ const start = async ({ directory, port = 9174, pin = '' } = {}) => {
     if (server) return status();
     publicDir = directory;
     accessPin = typeof pin === 'string' ? pin : '';
+    cameraInviteToken = crypto.randomBytes(24).toString('base64url');
     server = http.createServer(handleRequest);
     activePort = await listenOnPort(Number(port) || 9174);
 
     wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 * 1024 });
     wss.on('connection', (client) => {
-        client.authed = !accessPin;
+        client.clientId = require('crypto').randomUUID();
+        const address = client._socket?.remoteAddress || '';
+        client.localClient = address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+        client.cameraOnly = false;
+        client.cameraAllowedPeers = new Set();
+        client.authed = !accessPin || client.localClient;
         client.alive = true;
         client.on('pong', () => { client.alive = true; });
-        sendJson(client, { type: 'auth', required: Boolean(accessPin), ok: client.authed });
+        sendJson(client, { type: 'auth', required: Boolean(accessPin), ok: client.authed, clientId: client.clientId });
         if (client.authed) {
             sendJson(client, { type: 'state', state: snapshot });
             onClientsChanged(authenticatedClients());
@@ -143,17 +161,34 @@ const start = async ({ directory, port = 9174, pin = '' } = {}) => {
             let message;
             try { message = JSON.parse(raw.toString()); } catch { return; }
             if (message.type === 'hello') {
-                client.authed = !accessPin || message.pin === accessPin;
-                sendJson(client, { type: 'auth', required: Boolean(accessPin), ok: client.authed });
+                client.cameraOnly = Boolean(cameraInviteToken && message.cameraToken === cameraInviteToken);
+                client.authed = !accessPin || client.localClient || message.pin === accessPin || client.cameraOnly;
+                sendJson(client, { type: 'auth', required: Boolean(accessPin) && !client.cameraOnly, ok: client.authed, role: client.cameraOnly ? 'camera' : 'remote', clientId: client.clientId });
                 if (client.authed) sendJson(client, { type: 'state', state: snapshot });
                 onClientsChanged(authenticatedClients());
                 return;
             }
-            if (message.type === 'command' && client.authed && message.command && typeof message.command.action === 'string') {
+            if (message.type === 'command' && client.authed && !client.cameraOnly && message.command && typeof message.command.action === 'string') {
                 onCommand(message.command);
             }
+            if (message.type === 'signal' && client.authed && typeof message.to === 'string' && message.payload && typeof message.payload === 'object') {
+                if (client.cameraOnly && message.to === 'host') {
+                    if (['register', 'unregister', 'offer', 'candidate', 'video-frame', 'camera-message-ack', 'camera-message-reply'].includes(message.payload.type)) onSignal({ from: client.clientId, payload: message.payload });
+                }
+                else {
+                    const target = [...wss.clients].find(peer => peer.clientId === message.to && peer.authed && peer.readyState === 1);
+                    if (client.cameraOnly && !client.cameraAllowedPeers.has(message.to)) return;
+                    if (target) {
+                        if (target.cameraOnly && message.payload.type === 'connect') target.cameraAllowedPeers.add(client.clientId);
+                        sendJson(target, { type: 'signal', from: client.clientId, payload: message.payload });
+                    }
+                }
+            }
         });
-        client.on('close', () => onClientsChanged(authenticatedClients()));
+        client.on('close', () => {
+            if (client.cameraOnly) onSignal({ from: client.clientId, payload: { type: 'unregister' } });
+            onClientsChanged(authenticatedClients());
+        });
         client.on('error', () => {});
     });
 
@@ -182,6 +217,8 @@ const stop = () => {
         server = null;
     }
     activePort = null;
+    cameraInviteToken = '';
+    snapshot = {};
     onClientsChanged(0);
     return status();
 };
@@ -190,9 +227,9 @@ const setPin = (pin) => {
     accessPin = typeof pin === 'string' ? pin.trim() : '';
     if (wss) {
         for (const client of wss.clients) {
-            if (!accessPin) {
+            if (!accessPin || client.cameraOnly || client.localClient) {
                 client.authed = true;
-                sendJson(client, { type: 'auth', required: false, ok: true });
+                sendJson(client, { type: 'auth', required: Boolean(accessPin) && !client.cameraOnly && !client.localClient, ok: true, role: client.cameraOnly ? 'camera' : 'remote', clientId: client.clientId });
                 sendJson(client, { type: 'state', state: snapshot });
             } else if (client.authed) {
                 client.authed = false;
@@ -210,16 +247,25 @@ const status = () => ({
     urls: activePort ? getLanUrls(activePort) : [],
     clients: authenticatedClients(),
     pinEnabled: Boolean(accessPin),
+    lanUrls: activePort ? getLanUrls(activePort) : [],
+    authenticatedClients: authenticatedClients(),
+    hasPin: Boolean(accessPin),
+    cameraInviteToken,
 });
 
 module.exports = {
     start,
     stop,
-    publish,
-    setPin,
     status,
+    publish,
+    sendSignal,
+    setPin,
     setHandlers: (handlers) => {
         if (handlers.onCommand) onCommand = handlers.onCommand;
         if (handlers.onClientsChanged) onClientsChanged = handlers.onClientsChanged;
+        if (handlers.onSignal) onSignal = handlers.onSignal;
     },
+    onCommand: (cb) => { onCommand = cb; },
+    onClientsChanged: (cb) => { onClientsChanged = cb; },
+    onSignal: (cb) => { onSignal = cb; },
 };

@@ -4,8 +4,11 @@ import { ExtraTimeTimer } from './components/ExtraTimeTimer';
 import { AlertBanner } from './components/AlertBanner';
 import { NextProgramNotification } from './components/NextProgramNotification';
 import { AutoRunDisplay } from './components/AutoRunDisplay';
+import { useRemoteState } from './remote/useRemoteState';
+import { RemoteCameraVideo } from './remote/RemoteCameraVideo';
 
 function TimerDisplay() {
+    const remote = useRemoteState();
   const [timerState, setTimerState] = useState({
     minutes: 0,
     seconds: 0,
@@ -247,6 +250,7 @@ function TimerDisplay() {
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
+      {remote.state.cameraMixer?.overrides.timer && !remote.state.timer?.backgroundCleared && <RemoteCameraVideo conn={remote} enabled className="absolute inset-0 z-0 h-full w-full object-cover" />}
       {(autoTimerDisplay.enabled && autoTimerDisplay.deadline && currentTimestamp < autoTimerDisplay.deadline + 900) || (handoffFadeUntil !== null && currentTimestamp < handoffFadeUntil) ? (
         <AutoRunDisplay
           programName={autoTimerDisplay.nextProgramName}

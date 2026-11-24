@@ -4,7 +4,7 @@ import { Timer, Mic, BookOpen, MonitorPlay, SlidersHorizontal, ArrowLeft, Smartp
 import { useRemoteState } from './useRemoteState';
 import { ConnectionBadge, PinGate } from './RemoteShell';
 
-type Tab = 'timer' | 'transcribe';
+type Tab = 'timer' | 'transcribe' | 'bible';
 type Mode = 'display' | 'control';
 type Step = 1 | 2 | 3;
 
@@ -22,7 +22,7 @@ export default function RemoteHome() {
 	// Function to navigate to different views
 	const go = (view: 'full' | 'mini') => {
 		if (!tab || !mode) return;
-		navigate(`/remote/${tab}/${mode}${mode === 'control' && view === 'mini' ? '?view=mini' : ''}`);
+				navigate(`/remote/${tab}/${mode}${mode === 'control' && view === 'mini' && tab !== 'bible' ? '?view=mini' : ''}`);
 	};
 
 	const goBack = () => {
@@ -59,7 +59,7 @@ export default function RemoteHome() {
 					<div className="mb-6" aria-label={`Step ${step} of 3`}>
 						<div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
 							<span>Step {step} of 3</span>
-							<span>{step === 1 ? 'Choose a tool' : step === 2 ? `Choose ${tab === 'timer' ? 'Timer' : 'Transcribe'} mode` : 'Choose a layout'}</span>
+							<span>{step === 1 ? 'Choose a tool' : step === 2 ? `Choose ${tab === 'timer' ? 'Timer' : tab === 'bible' ? 'Bible' : 'Transcribe'} mode` : 'Choose a layout'}</span>
 						</div>
 						<div className="mt-2 grid grid-cols-3 gap-2" aria-hidden="true">
 							{[1, 2, 3].map(index => <span key={index} className={`h-1 rounded-full ${index <= step ? 'bg-emerald-400' : 'bg-slate-800'}`} />)}
@@ -87,19 +87,28 @@ export default function RemoteHome() {
 								desc="Live speech captions"
 								accent="blue"
 							/>
-							<div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 opacity-60 select-none">
-								<BookOpen className="w-6 h-6 text-slate-500 mb-2" />
-								<div className="font-semibold text-slate-400">Bible / Lyrics</div>
-								<div className="text-xs text-slate-500 mt-1">In development</div>
-							</div>
+							<ChoiceCard
+								active={false}
+								onClick={() => { setTab('bible'); setMode(null); setStep(2); }}
+								icon={<BookOpen className="w-6 h-6" />}
+								title="Bible"
+								desc="Choose a book, chapter and verse, then show or hide it."
+								accent="amber"
+							/>
+							<button type="button" onClick={() => navigate('/remote/cameras')} className="flex min-h-24 items-center gap-4 border border-cyan-700/50 bg-cyan-950/30 p-4 text-left hover:bg-cyan-950/60 sm:col-span-3">
+								<Radio className="h-6 w-6 text-cyan-300" /><span className="flex-1"><span className="block font-semibold">Remote Cameras</span><span className="mt-1 block text-xs text-slate-400">Connect this device as a video source for the mixer.</span></span><ChevronRight className="h-5 w-5 text-cyan-300" />
+							</button>
 						</div>
 					</section>}
 
 					{step === 2 && tab && (
 						<section className="animate-scaleIn">
-							<h2 className="mb-1 text-xl font-bold text-white">How do you want to use {tab === 'timer' ? 'Timer' : 'Transcribe'}?</h2>
+							<h2 className="mb-1 text-xl font-bold text-white">How do you want to use {tab === 'timer' ? 'Timer' : tab === 'bible' ? 'Bible' : 'Transcribe'}?</h2>
 							<p className="mb-4 text-sm text-slate-400">Choose a control panel or a separate live screen.</p>
 							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+								{tab === 'bible' ? (
+									<ChoiceCard active={false} onClick={() => navigate('/remote/bible/control')} icon={<BookOpen className="w-6 h-6" />} title="Bible Control" desc="Choose, search and project a passage from this device." accent="amber" big />
+								) : <>
 								<ChoiceCard
 									active={false}
 									onClick={() => { setMode('display'); setStep(3); }}
@@ -109,6 +118,7 @@ export default function RemoteHome() {
 									accent="violet"
 									big
 								/>
+								</>}
 								<ChoiceCard
 									active={false}
 									onClick={() => { setMode('control'); setStep(3); }}
@@ -125,7 +135,7 @@ export default function RemoteHome() {
 					{step === 3 && tab && mode && (
 						<section className="animate-scaleIn">
 							<h2 className="mb-1 text-xl font-bold text-white">{mode === 'control' ? 'Choose a control layout' : 'Open the live screen'}</h2>
-							<p className="mb-4 text-sm text-slate-400">{tab === 'timer' ? 'Timer' : 'Transcribe'} · {mode === 'control' ? 'Control panel' : 'Live screen'}</p>
+							<p className="mb-4 text-sm text-slate-400">{tab === 'timer' ? 'Timer' : tab === 'bible' ? 'Bible' : 'Transcribe'} · {mode === 'control' ? 'Control panel' : 'Live screen'}</p>
 							{mode === 'control' ? (
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 									<button onClick={() => go('full')} className="group flex min-h-24 items-center gap-4 rounded-2xl border border-slate-700 bg-slate-900 hover:border-emerald-500 hover:bg-slate-800 p-4 text-left transition-all">

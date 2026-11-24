@@ -3,6 +3,7 @@ import { Search, Plus, Save, Trash2, Play, Square, BookOpen, Music, Check, Chevr
 import { ThemeSelector } from './ThemeSelector';
 import { ProjectionSettingsPanel } from './ProjectionSettingsPanel';
 import { useProjectionSettings } from './projectionSettings';
+import { ProjectionSurface } from './ProjectionSurface';
 
 export type Verse = { book: number; book_name: string; chapter: number; verse: number; text: string };
 type BibleBook = { id: number; name: string };
@@ -10,6 +11,7 @@ type BibleMobilePane = 'books' | 'chapters' | 'verses';
 type SavedSong = { id: string; title: string; lyrics: string; updatedAt: number };
 type BibleTool = 'browse' | 'search' | 'history';
 type BibleReference = { id: string; label: string; verses: Verse[]; addedAt: number };
+type RemoteBibleCommand = { scope?: string; action?: string; bookId?: number; chapter?: number; verse?: number };
 
 const readBibleReferences = (key: string): BibleReference[] => {
   try {
@@ -127,6 +129,8 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   const [bibleTool, setBibleTool] = useState<BibleTool>('browse');
   const [projectionSettings, updateProjectionSettings] = useProjectionSettings();
   const [showBibleSettings, setShowBibleSettings] = useState(false);
+  const [showDisplayPicker, setShowDisplayPicker] = useState(false);
+  const [practiceMode, setPracticeMode] = useState(false);
 
   // Bible State
   const [allVerses, setAllVerses] = useState<Verse[]>([]);
@@ -151,6 +155,14 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   const [searchResults, setSearchResults] = useState<Verse[]>([]);
   const [searchMessage, setSearchMessage] = useState('');
   const pendingReferenceRef = useRef<{ bookId: number; chapter: number; verseNumbers: number[] } | null>(null);
+
+  const externalDisplays = availableDisplays.filter(display => !display.isPrimary);
+  const hasValidDisplay = selectedDisplay !== null && externalDisplays.some(display => display.id === selectedDisplay);
+  const projectionActive = isProjecting || (practiceMode && presentedVerses.length > 0);
+
+  useEffect(() => {
+    if (availableDisplays.length > 0 && !hasValidDisplay) setShowDisplayPicker(true);
+  }, [availableDisplays, hasValidDisplay]);
 
   // Songs State
   const [savedSongs, setSavedSongs] = useState<SavedSong[]>(readSongLibrary);
@@ -298,6 +310,22 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
     sessionStorage.setItem('bibleHistory', JSON.stringify(bibleHistory));
   }, [bibleHistory]);
 
+  useEffect(() => {
+    window.electronAPI?.remotePublish?.({
+      bible: {
+        books,
+        bookId: selectedBookId,
+        chapter: selectedChapter,
+        verse: selectedVerseNumbers[0] ?? null,
+        presented: presentedVerses[0] ? `${presentedVerses[0].book_name} ${presentedVerses[0].chapter}:${presentedVerses[0].verse}` : '',
+        isShowing: presentedVerses.length > 0,
+      },
+    });
+  }, [books, selectedBookId, selectedChapter, selectedVerseNumbers, presentedVerses]);
+
+  const remoteBibleCommandRef = useRef<(command: RemoteBibleCommand) => void>(() => undefined);
+  useEffect(() => window.electronAPI?.onRemoteCommand?.(command => remoteBibleCommandRef.current(command)), []);
+
   const navigateToVerses = (verses: Verse[]) => {
     if (verses.length === 0) return;
     const first = verses[0];
@@ -325,7 +353,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   };
 
   const presentVerses = (verses = currentSelectedVerses) => {
-    if (verses.length === 0 || selectedDisplay === null) return;
+    if (verses.length === 0 || (selectedDisplay === null && !practiceMode)) return;
     const first = verses[0];
     const firstIndex = allVerses.findIndex(verse => verse.book === first.book && verse.chapter === first.chapter && verse.verse === first.verse);
     const sequence = firstIndex >= 0 ? [allVerses[firstIndex]] : [first];
@@ -359,6 +387,49 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
     rememberPresentation(nextVerses);
   };
 
+  remoteBibleCommandRef.current = command => {
+    if (command?.scope !== 'bible') return;
+    if (command.action === 'select') {
+      const bookId = Number(command.bookId);
+      const chapter = Number(command.chapter);
+      const verse = Number(command.verse);
+      const book = books.find(item => item.id === bookId);
+      if (!book || !allVerses.some(item => item.book === bookId && item.chapter === chapter && item.verse === verse)) return;
+      pendingReferenceRef.current = { bookId, chapter, verseNumbers: [verse] };
+      setSelectedBookId(bookId);
+      setSelectedBookName(book.name);
+      setSelectedChapter(chapter);
+      setSelectedVerseNumbers([verse]);
+      setMobileBiblePane('verses');
+      return;
+    }
+    if (command.action === 'show') {
+      const bookId = Number(command.bookId);
+      const chapter = Number(command.chapter);
+      const verse = Number(command.verse);
+      const selected = allVerses.find(item => item.book === bookId && item.chapter === chapter && item.verse === verse);
+      if (!selected) return;
+      const sequence = [selected];
+      setPresentedVerses(sequence);
+      rememberPresentation(sequence);
+      projectBible(sequence);
+      return;
+    }
+    if (command.action === 'hide') {
+      setPresentedVerses([]);
+      const current = localStorage.getItem('bibleProjectionData');
+      if (current) {
+        try {
+          const projection = JSON.parse(current);
+          localStorage.setItem('bibleProjectionData', JSON.stringify({ ...projection, verses: [], referenceOnly: false, description: '' }));
+        } catch { /* ignore invalid projection data */ }
+      }
+      return;
+    }
+    if (command.action === 'next') bibleKeyboardActionsRef.current.stepPresentedVerse(1);
+    if (command.action === 'previous') bibleKeyboardActionsRef.current.stepPresentedVerse(-1);
+  };
+
   const searchBible = (event: React.FormEvent) => {
     event.preventDefault();
     const terms = [...new Set(bibleSearchWords(searchText.trim()))];
@@ -389,9 +460,9 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
   useEffect(() => {
     if (innerTab !== 'bible') return;
     return window.electronAPI?.onBibleProjectionNavigate?.(direction => {
-      if (isProjecting) bibleKeyboardActionsRef.current.stepPresentedVerse(direction);
+      if (projectionActive) bibleKeyboardActionsRef.current.stepPresentedVerse(direction);
     });
-  }, [innerTab, isProjecting]);
+  }, [innerTab, projectionActive]);
 
   // When the projection window is focused, it intercepts all keyboard input.
   // This listener receives forwarded keypresses from the projection window and
@@ -518,6 +589,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
       }
       // Alphanumeric keys always open the quick lookup modal, even when focus is on a UI element.
       // This ensures navigation with arrow keys (which may move focus to buttons) doesn't break typing.
+      if (editing) return;
       if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1 && /^[a-z0-9]$/i.test(event.key)) {
         event.preventDefault();
         setBibleTool('browse');
@@ -530,8 +602,14 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
         if (exact) chooseQuickBook(exact);
         return;
       }
-      if (editing) return;
-
+      if (event.key === 'Escape' && practiceMode && presentedVerses.length > 0) {
+        setPresentedVerses([]);
+        return;
+      }
+      if (event.key === 'Escape' && practiceMode && presentedVerses.length > 0) {
+        setPresentedVerses([]);
+        return;
+      }
       if (event.key === 'Escape' && isProjecting) {
         setPresentedVerses([]);
         onCloseProjection();
@@ -544,7 +622,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
         }
         return;
       }
-      if (isProjecting && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
+      if ((isProjecting || (practiceMode && presentedVerses.length > 0)) && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
         event.preventDefault();
         bibleKeyboardActionsRef.current.stepPresentedVerse(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1);
         return;
@@ -552,7 +630,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [books, chapterVerses, chapters, currentSelectedVerses, innerTab, isProjecting, onCloseProjection, presentedVerses, quickBookMatches, quickLookupBook?.id, quickLookupChapterCandidates, quickLookupOpen, quickLookupQuery, quickLookupStage, quickLookupVerseCandidates, selectedChapter, selectedVerseNumbers]);
+  }, [books, chapterVerses, chapters, currentSelectedVerses, innerTab, isProjecting, onCloseProjection, practiceMode, presentedVerses, quickBookMatches, quickLookupBook?.id, quickLookupChapterCandidates, quickLookupOpen, quickLookupQuery, quickLookupStage, quickLookupVerseCandidates, selectedChapter, selectedVerseNumbers]);
 
   // Song effects
   useEffect(() => {
@@ -653,11 +731,11 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
               </button>
             ))}
             <button type="button" onClick={() => setInnerTab('songs')} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded px-2.5 text-xs font-bold text-gray-400 hover:bg-gray-800 hover:text-white"><Music size={14} /> Songs</button>
-            <button type="button" onClick={() => setShowBibleSettings(true)} title="Bible projection settings" aria-label="Bible projection settings" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700"><Settings2 size={14} /></button>
+            <button type="button" onClick={() => setShowBibleSettings(true)} title="Bible projection settings" aria-label="Bible projection settings" className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded bg-gray-800 px-2.5 text-xs font-semibold text-gray-200 hover:bg-gray-700"><Settings2 size={14} /> Settings</button>
             <span className="ml-auto hidden items-center gap-1 whitespace-nowrap px-2 text-[10px] text-gray-500 xl:inline-flex"><Keyboard size={12} /> Type to jump</span>
-            <select value={availableDisplays.some(display => display.id === selectedDisplay) ? selectedDisplay ?? '' : ''} onChange={event => onDisplayChange(Number(event.target.value))} aria-label="Projection display" className="min-h-8 max-w-36 shrink-0 rounded border border-gray-700 bg-gray-900 px-2 text-[10px] font-bold text-gray-200">
-              <option value="" disabled>{availableDisplays.length ? 'Choose screen' : window.electronAPI?.getDisplays ? 'No displays found' : 'Desktop app required'}</option>
-              {availableDisplays.map(display => <option key={display.id} value={display.id}>{display.label}</option>)}
+            <select value={hasValidDisplay ? selectedDisplay ?? '' : ''} onChange={event => onDisplayChange(Number(event.target.value))} aria-label="Projection display" className="min-h-8 max-w-36 shrink-0 rounded border border-gray-700 bg-gray-900 px-2 text-[10px] font-bold text-gray-200">
+              <option value="" disabled>{externalDisplays.length ? 'Choose screen' : window.electronAPI?.getDisplays ? 'No external screen' : 'Desktop app required'}</option>
+              {externalDisplays.map(display => <option key={display.id} value={display.id}>{display.label}</option>)}
             </select>
             <button type="button" onClick={onRefreshDisplays} disabled={!window.electronAPI?.getDisplays} title="Refresh display list" aria-label="Refresh display list" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40"><RefreshCw size={13} /></button>
             {testDisplay && <button type="button" onClick={testDisplay} disabled={selectedDisplay === null || !window.electronAPI?.testDisplay} title="Test selected display" aria-label="Test selected display" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40"><Play size={13} /></button>}
@@ -712,6 +790,23 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
           {showBibleSettings && (
             <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-[2px]" onMouseDown={event => { if (event.target === event.currentTarget) setShowBibleSettings(false); }}>
               <ProjectionSettingsPanel settings={projectionSettings} onChange={updateProjectionSettings} onClose={() => setShowBibleSettings(false)} />
+            </div>
+          )}
+
+          {showDisplayPicker && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+              <section role="dialog" aria-modal="true" aria-labelledby="bible-display-picker-title" className="w-full max-w-md border border-gray-700 bg-gray-900 p-5 text-white shadow-2xl">
+                <h2 id="bible-display-picker-title" className="text-lg font-bold">Choose Bible projection screen</h2>
+                <p className="mt-2 text-sm text-gray-300">Send passages to a secondary display, or continue in practice mode and preview them on this screen.</p>
+                {externalDisplays.length ? (
+                  <div className="mt-4 grid gap-2">{externalDisplays.map(display => <button key={display.id} type="button" onClick={() => { setPracticeMode(false); onDisplayChange(display.id); setShowDisplayPicker(false); }} className="min-h-12 rounded border border-gray-700 bg-gray-800 px-3 text-left text-sm font-semibold hover:border-blue-500 hover:bg-gray-700">{display.label}</button>)}</div>
+                ) : <p role="status" className="mt-4 rounded border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">No secondary screen detected. You can still explore and practice without connecting one.</p>}
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={onRefreshDisplays} className="min-h-10 flex-1 rounded bg-blue-600 px-3 text-sm font-bold hover:bg-blue-500"><RefreshCw className="mr-2 inline" size={14} />Refresh screens</button>
+                  <button type="button" onClick={() => { setPracticeMode(true); setShowDisplayPicker(false); }} className="min-h-10 flex-1 rounded bg-emerald-700 px-3 text-sm font-bold hover:bg-emerald-600">Continue in practice mode</button>
+                  {hasValidDisplay && <button type="button" onClick={() => setShowDisplayPicker(false)} className="min-h-10 rounded border border-gray-700 px-4 text-sm font-semibold text-gray-300 hover:bg-gray-800">Close</button>}
+                </div>
+              </section>
             </div>
           )}
 
@@ -770,7 +865,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                   <div ref={verseReaderRef} className="min-h-0 flex-1 overflow-y-auto divide-y divide-gray-800 custom-scrollbar">
                     {chapterVerses.map(verse => {
                       const selected = selectedVerseNumbers.includes(verse.verse);
-                      const onScreen = isProjecting && presentedVerses.some(item => item.book === verse.book && item.chapter === verse.chapter && item.verse === verse.verse);
+                      const onScreen = projectionActive && presentedVerses.some(item => item.book === verse.book && item.chapter === verse.chapter && item.verse === verse.verse);
                       return <button key={verse.verse} type="button" data-projected-verse={onScreen ? 'true' : undefined} onClick={() => toggleVerseSelection(verse.verse)} onDoubleClick={() => presentVerses([verse])} aria-pressed={selected} className={`w-full px-3 py-2.5 text-left text-sm leading-relaxed ${onScreen ? 'bg-emerald-800/70 text-white ring-1 ring-inset ring-emerald-400' : selected ? 'bg-blue-950/60 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><span className={`mr-1.5 font-black ${onScreen ? 'text-emerald-200' : 'text-blue-400'}`}>{verse.verse}</span>{verse.text}</button>;
                     })}
                   </div>
@@ -816,7 +911,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
                     <div className="grid h-full gap-1" style={{ gridTemplateColumns: `repeat(${numberGridColumns(chapterVerses.length)}, minmax(0, 1fr))`, gridAutoRows: 'minmax(0, 1fr)' }}>
                       {chapterVerses.map(verse => {
                         const selected = selectedVerseNumbers.includes(verse.verse);
-                        const onScreen = isProjecting && presentedVerses.some(item => item.book === verse.book && item.chapter === verse.chapter && item.verse === verse.verse);
+                        const onScreen = projectionActive && presentedVerses.some(item => item.book === verse.book && item.chapter === verse.chapter && item.verse === verse.verse);
                         return <button key={verse.verse} type="button" data-projected-verse={onScreen ? 'true' : undefined} onClick={() => toggleVerseSelection(verse.verse)} onDoubleClick={() => presentVerses([verse])} aria-pressed={selected} aria-label={`Verse ${verse.verse}`} className={`h-full min-h-0 rounded text-sm font-bold ${onScreen ? 'bg-emerald-700 text-white ring-1 ring-emerald-300' : selected ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'}`}>{verse.verse}</button>;
                       })}
                     </div>
@@ -1076,6 +1171,7 @@ export const BibleSongsTab: React.FC<BibleSongsTabProps> = ({
           </div>
         </div>
       )}
+      {practiceMode && presentedVerses.length > 0 && <div className="fixed inset-0 z-[100] bg-black" role="dialog" aria-modal="true" aria-label="Bible projection practice preview"><ProjectionSurface settings={projectionSettings} verses={presentedVerses} className="h-full w-full" /><div className="absolute right-4 top-4 flex items-center gap-3 bg-black/75 px-3 py-2 text-white"><span className="text-xs font-semibold text-emerald-200">Practice preview · not sent to a display</span><button type="button" onClick={() => setPresentedVerses([])} className="min-h-9 border border-white/30 px-3 text-xs font-bold hover:bg-white/10">Close preview</button></div></div>}
     </div>
   );
 };

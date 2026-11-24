@@ -124,6 +124,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 }
 
 function Transport({ conn, big = false }: { conn: RemoteConnection; big?: boolean }) {
+	const [confirmClear, setConfirmClear] = useState(false);
 	const t = conn.state.timer;
 	const auto = conn.state.auto;
 	const extra = conn.state.extraTime;
@@ -145,6 +146,13 @@ function Transport({ conn, big = false }: { conn: RemoteConnection; big?: boolea
 				<button onClick={() => cmd('restart')} className={`${btn} bg-blue-600 hover:bg-blue-500 text-white`}><RotateCcw className="w-5 h-5" /> Restart</button>
 				<button onClick={() => cmd('attention')} className={`${btn} ${t?.isAttention ? 'bg-yellow-500 text-black' : 'bg-slate-700 hover:bg-slate-600 text-yellow-300'}`}><Bell className="w-5 h-5" /> Attention</button>
 			</div>
+			{confirmClear ? (
+				<div className="grid grid-cols-1 gap-2 rounded border border-slate-700 bg-slate-900 p-3 sm:grid-cols-3">
+					<button onClick={() => { cmd('clearScreen', { clearBackground: false }); setConfirmClear(false); }} className="min-h-11 rounded bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-500">Timer only</button>
+					<button onClick={() => { cmd('clearScreen', { clearBackground: true }); setConfirmClear(false); }} className="min-h-11 rounded bg-red-700 px-3 text-xs font-bold text-white hover:bg-red-600">Timer + background</button>
+					<button onClick={() => setConfirmClear(false)} className="min-h-11 rounded border border-slate-700 px-3 text-xs font-semibold text-slate-300 hover:bg-slate-800">Cancel</button>
+				</div>
+			) : <button onClick={() => setConfirmClear(true)} className={`${btn} w-full border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700`}><Square className="h-4 w-4" /> Clear screen</button>}
 			<button
 				onClick={() => cmd('nextProgram')}
 				disabled={!canSkip}

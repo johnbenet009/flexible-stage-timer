@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearCache: () => ipcRenderer.invoke('clear-cache'),
     openAdvancedMultiScreen: () => ipcRenderer.send('open-advanced-multiscreen'),
     getDisplays: () => ipcRenderer.invoke('get-displays'),
+    requestStartupDisplay: () => ipcRenderer.invoke('startup-display-request'),
     onDisplaysChanged: (callback) => {
         const listener = (event, displays) => callback(displays);
         ipcRenderer.on('displays-changed', listener);
@@ -59,7 +60,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     remoteStop: () => ipcRenderer.invoke('remote-server-stop'),
     remoteStatus: () => ipcRenderer.invoke('remote-server-status'),
     remoteSetPin: (pin) => ipcRenderer.invoke('remote-server-set-pin', pin),
+    remoteTunnelStart: () => ipcRenderer.invoke('remote-tunnel-start'),
+    remoteTunnelStop: () => ipcRenderer.invoke('remote-tunnel-stop'),
+    remoteTunnelStatus: () => ipcRenderer.invoke('remote-tunnel-status'),
+    onRemoteTunnelStatus: (callback) => {
+        const listener = (event, status) => callback(status);
+        ipcRenderer.on('remote-tunnel-status', listener);
+        ipcRenderer.send('remote-tunnel-status-subscribe');
+        return () => ipcRenderer.removeListener('remote-tunnel-status', listener);
+    },
     remotePublish: (state) => ipcRenderer.send('remote-publish-state', state),
+    remoteSendSignal: (target, payload) => ipcRenderer.send('remote-send-signal', target, payload),
+    onRemoteSignal: (callback) => {
+        const listener = (event, signal) => callback(signal);
+        ipcRenderer.on('remote-signal', listener);
+        return () => ipcRenderer.removeListener('remote-signal', listener);
+    },
     onRemoteCommand: (callback) => {
         const listener = (event, command) => callback(command);
         ipcRenderer.on('remote-command', listener);
